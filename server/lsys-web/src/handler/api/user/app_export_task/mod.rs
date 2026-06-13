@@ -1,17 +1,22 @@
 mod active_count;
+mod download;
 mod list;
 mod mapping;
 mod submit;
 pub use active_count::*;
+pub use download::*;
 pub use list::*;
 pub use mapping::*;
 pub use submit::*;
 
 use crate::{
-    common::{JsonResult, UserAuthQueryDao},
-    dao::access::{
-        RbacAccessCheckEnv,
-        api::system::user::{CheckUserAppEdit, CheckUserAppView},
+    common::{JsonResult, RequestDao},
+    dao::{
+        WebDao,
+        access::{
+            RbacAccessCheckEnv,
+            api::system::user::{CheckUserAppEdit, CheckUserAppView},
+        },
     },
 };
 use lsys_app::model::AppModel;
@@ -24,19 +29,13 @@ async fn app_check_get(
     app_id: u64,
     is_edit: bool,
     auth_data: &UserAuthData,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<AppModel> {
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(app_id)
-        .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(app_id).await?;
 
     if is_edit {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -46,8 +45,7 @@ async fn app_check_get(
             )
             .await?;
     } else {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -58,8 +56,7 @@ async fn app_check_get(
             .await?;
     }
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

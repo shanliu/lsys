@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
@@ -11,18 +12,22 @@ pub struct ScriptDetailParam {
     pub script_id: u64,
 }
 
-/// POST /api/user/collector/script_detail — 获取脚本详情（含代码）
 pub async fn script_detail(
     param: &ScriptDetailParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    let script = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let script = web_dao
+        .web_collector.collector
         .find_script_by_id(param.script_id)
         .await?;
 

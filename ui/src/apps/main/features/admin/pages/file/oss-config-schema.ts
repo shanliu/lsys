@@ -1,4 +1,4 @@
-import { NumberParamSchema } from '@shared/types/base-schema';
+import { NumberParamSchema, BoolSchema } from '@shared/types/base-schema';
 import { z } from 'zod';
 
 // ===== 阿里云 OSS 配置 =====
@@ -41,6 +41,7 @@ export const OssConfigFormSchema = z.object({
   config_key: z.string().min(1, '配置标识不能为空').max(32, '配置标识最长32字符')
     .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/, '只允许小写字母、数字、连字符，不能以连字符开头或结尾'),
   provider_type: z.string().min(1, '厂商类型不能为空'),
+  is_private: BoolSchema.default(false),
   
   // 厂商特定的配置字段，将被平铺在表单中并在提交时包装进 provider_config
   // 这里使用一个包含所有可能字段的联合类型，或者干脆在 Schema 中定义为 Record<string, any>

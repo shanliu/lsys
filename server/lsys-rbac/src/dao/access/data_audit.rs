@@ -85,7 +85,7 @@ impl RbacAccess {
             }
             qb
         };
-        let count = qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64;
+        let count = qb.build_query_scalar::<i64>().fetch_one(&self.db).await?;
         Ok(query.finalize(count))
     }
     /// 获取指定用户和ID的列表

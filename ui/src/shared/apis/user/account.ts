@@ -64,7 +64,7 @@ export type AccountAuthDataType = z.infer<typeof AccountAuthDataSchema>;
 // 后端在未请求 auth / user / info 等标记时，相关块可能缺失，所以这里全部标为可选
 export const AccountLoginDataResSchema = z.object({
     auth_data: AccountAuthDataSchema.nullable().optional(),
-    jwt: z.string().nullable().optional(), // 修改：支持 null
+    token: z.string().nullable().optional(), // 不透明登录 token
     user_data: z.object({
         address: z.array(z.any()).nullable().optional(),
         email: z.array(z.any()).nullable().optional(),
@@ -97,6 +97,17 @@ export async function accountLoginData(
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AccountLoginDataResType>> {
     const { data } = await authApi().post("/api/auth/login_data", param || {}, config);
+    return parseResData(data, AccountLoginDataResSchema);
+}
+
+// 显式刷新 token（非 cookie）：服务端轮换 token 字符串并重置有效期，
+// 旧 token 立即失效，响应里的 `token` 为全新 token，须替换本地保存的 bearer。
+// 复用 login_data 的入参/响应结构。
+export async function accountTokenRefresh(
+    param?: AccountLoginDataParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<AccountLoginDataResType>> {
+    const { data } = await authApi().post("/api/auth/token_refresh", param || {}, config);
     return parseResData(data, AccountLoginDataResSchema);
 }
 

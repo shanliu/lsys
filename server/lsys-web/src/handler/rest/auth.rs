@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::common::{JsonData, JsonError, JsonFluent};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonResponse, JsonResult, RequestDao},
@@ -31,25 +32,23 @@ pub async fn do_login(
     param: &DoLoginParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
             &CheckRestApp {},
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .exter_login
@@ -66,8 +65,7 @@ pub async fn do_login(
         })
         .unwrap_or_default();
 
-    let seession_body = match req_dao
-        .web_dao
+    let seession_body = match web_dao
         .web_user
         .user_dao
         .auth_code_dao
@@ -115,17 +113,15 @@ pub struct DoLogoutParam {
 pub async fn do_logout(
     param: &DoLogoutParam,
     app: &AppModel,
-    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .exter_login
         .inner_feature_exter_login_check(app)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .user_dao
         .auth_code_dao
@@ -143,33 +139,30 @@ pub async fn login_info(
     param: &LoginInfoParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
             &CheckRestApp {},
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .exter_login
         .inner_feature_exter_login_check(app)
         .await?;
 
-    let session = req_dao
-        .web_dao
+    let session = web_dao
         .web_user
         .user_dao
         .auth_code_dao
@@ -193,17 +186,16 @@ pub async fn mfa_is_enabled(
     param: &MfaIsEnabledParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -222,12 +214,7 @@ pub async fn mfa_is_enabled(
         .collect();
 
     // 批量检查MFA是否启用
-    let enabled_list = req_dao
-        .web_dao
-        .web_mfa
-        .totp_dao
-        .is_enabled_batch(&subjects)
-        .await?;
+    let enabled_list = web_dao.web_mfa.totp_dao.is_enabled_batch(&subjects).await?;
 
     // 构建响应，将账号与启用状态对应
     let result: Vec<Value> = param
@@ -259,17 +246,16 @@ pub async fn mfa_enable(
     param: &MfaEnableParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -283,8 +269,7 @@ pub async fn mfa_enable(
     };
 
     // 启用新的TOTP密钥
-    let record_id = req_dao
-        .web_dao
+    let record_id = web_dao
         .web_mfa
         .totp_dao
         .enable_new_secret(&subject, &param.secret)
@@ -308,17 +293,16 @@ pub async fn mfa_verify(
     param: &MfaVerifyParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -332,8 +316,7 @@ pub async fn mfa_verify(
     };
 
     // 执行MFA验证
-    req_dao
-        .web_dao
+    web_dao
         .web_mfa
         .totp_dao
         .verify_totp(&subject, &param.code)

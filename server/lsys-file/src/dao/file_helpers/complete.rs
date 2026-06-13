@@ -53,25 +53,34 @@ impl FileHelper {
             file_local.local_path.clone()
         };
 
-        let full_path = self.get_full_local_path(&file.storage_type, &actual_local_path).await?;
-        // 计算新文件的 MD5
-        let file_md5 = self.compute_file_md5(&full_path).await?;
+        let plaintext_full = self
+            .get_full_local_path(&file.storage_type, &actual_local_path)
+            .await?;
+        // CRYPTO 类型：先加密，再计算 MD5，确保存储的 MD5 对应加密后内容
+        let (file_full_path, encrypted_rel) =
+            if file.storage_type == FileModel::STORAGE_TYPE_LOCAL_CRYPTO {
+                let (rel, full) = self.encrypt_new_file(&plaintext_full).await.map_err(|e| {
+                    FileError::Io(std::io::Error::other(format!(
+                        "encrypt completed file failed: {}",
+                        e
+                    )))
+                })?;
+                (full, Some(rel))
+            } else {
+                (plaintext_full.clone(), None)
+            };
+        // 计算新文件的 MD5（CRYPTO 时基于加密文件，保证 MD5 与实际存储内容一致）
+        let file_md5 = self.compute_file_md5(&file_full_path).await?;
         let now = now_time()?;
 
-        // 查询是否已存在相同 MD5 的文件 (排除自身)
-        let other_file = sqlx::query_as::<_, FileModel>(&format!(
-            "SELECT * FROM {} WHERE storage_type=? AND file_md5=? AND status=? AND id!=? LIMIT 1",
-            FileModel::table_name()
-        ))
-        .bind(&file.storage_type)
-        .bind(&file_md5)
-        .bind(FileStatus::Normal as i8)
-        .bind(file.id)
-        .fetch_optional(&self.db)
-        .await?;
+        // 分页 + 本地文件物理校验，排除自身
+        let other_file = self
+            .find_existing_local_file_exclude(&file.storage_type, &file_md5, file.id)
+            .await?;
 
         if let Some(other) = other_file {
-            // 查询 other_file 对应的 file_local
+            // 查询 other_file 对应的 file_local（只需 local_path；
+            // find_existing_file_exclude 已完成物理校验，不再重复 metadata 检查）
             let other_local = sqlx::query_as::<_, FileLocalModel>(&format!(
                 "SELECT * FROM {} WHERE file_id=? LIMIT 1",
                 FileLocalModel::table_name()
@@ -80,60 +89,112 @@ impl FileHelper {
             .fetch_optional(&self.db)
             .await?;
 
-            if let Some(other_local_rec) = other_local {
-                // 检查 other 对应的本地文件是否存在
-                let other_full_path =
-                    self.get_full_local_path(&other.storage_type, &other_local_rec.local_path).await?;
-                if !other_local_rec.local_path.is_empty()
-                    && tokio::fs::metadata(&other_full_path).await.is_ok()
-                {
-                    // 先克隆一份用于返回
+            // find_existing_file_exclude 保证 other 物理文件存在；
+            // 若此处记录缺失或路径为空，说明发生了竞态不一致，直接报错。
+            let other_local_rec = match other_local {
+                Some(rec) if !rec.local_path.is_empty() => rec,
+                _ => {
+                    return Err(FileError::System(fluent_message!("file-inconsistent-state")));
+                }
+            };
+
+            {
+                // 先克隆一份用于返回
                     let result = other.clone();
-                    
+
+                    // 去重时清理本次产生的新文件
+                    if encrypted_rel.is_some() {
+                        // CRYPTO 场景：删除加密中间文件和明文原始文件
+                        if let Err(e) = tokio::fs::remove_file(&file_full_path).await {
+                            tracing::warn!(
+                                "complete_file_and_local: remove encrypted file on dedup failed: {}",
+                                e
+                            );
+                        }
+                        if let Err(e) = tokio::fs::remove_file(&plaintext_full).await {
+                            tracing::warn!(
+                                "complete_file_and_local: remove plaintext file on dedup failed: {}",
+                                e
+                            );
+                        }
+                    } else {
+                        // 非 CRYPTO 场景：删除新上传/下载的文件（file_full_path == plaintext_full）
+                        if let Err(e) = tokio::fs::remove_file(&file_full_path).await {
+                            tracing::warn!(
+                                "complete_file_and_local: remove new file on dedup failed: {}",
+                                e
+                            );
+                        }
+                    }
+
                     // 使用已有文件的信息更新当前记录（移动所有权，避免额外克隆）
                     file.file_size = other.file_size;
                     file.file_md5 = other.file_md5;
                     file.content_type = other.content_type;
                     file.from_user_id = other.from_user_id;
                     file.modify_time = other.modify_time;
-                    file.copy_file_id = other.id;
+                    // find_existing_file 已限制 local_path_owner_id=0，去重后固定指向 owner
+                    file.local_path_owner_id = other.id;
                     file.status = FileStatus::Normal as i8;
                     file.change_time = now;
                     file_local.local_path = other_local_rec.local_path;
 
-                    // 在事务中更新数据库
+                    // 在事务中更新数据库（CAS: AND status=Unfinished，防止并发重复完成）
                     let mut tx = self.db.begin().await?;
-                    
-                    Update::<_, FileModel>::new()
+
+                    let cas_result = Update::<sqlx::MySql, FileModel>::new()
                         .set(FileModel::FILE_SIZE, file.file_size)
                         .set(FileModel::FILE_MD5, &file.file_md5)
                         .set(FileModel::CONTENT_TYPE, &file.content_type)
                         .set(FileModel::FROM_USER_ID, file.from_user_id)
                         .set(FileModel::MODIFY_TIME, file.modify_time)
-                        .set(FileModel::COPY_FILE_ID, file.copy_file_id)
+                        .set(FileModel::LOCAL_PATH_OWNER_ID, file.local_path_owner_id)
                         .set(FileModel::STATUS, file.status)
                         .set(FileModel::CHANGE_TIME, file.change_time)
                         .execute(&mut *tx, |qb| {
                             qb.push_where().field_eq("id", file.id);
+                            qb.push_and()
+                                .field_eq("status", FileStatus::Unfinished as i8);
                         })
                         .await?;
 
-                    Update::<_, FileLocalModel>::new()
+                    if cas_result.rows_affected() == 0 {
+                        // 另一并发调用已完成该文件，直接视为成功
+                        if let Err(rb) = tx.rollback().await {
+                            tracing::warn!(
+                                "complete_file_and_local: dedup CAS rollback failed: {}",
+                                rb
+                            );
+                        }
+                        return Ok(None);
+                    }
+
+                    Update::<sqlx::MySql, FileLocalModel>::new()
                         .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
                         .execute(&mut *tx, |qb| {
                             qb.push_where().field_eq("id", file_local.id);
                         })
                         .await?;
-                    
+
                     tx.commit().await?;
                     return Ok(Some(result));
-                }
             }
         }
 
         // 不存在已有文件, 用新文件完成
-        let metadata = tokio::fs::metadata(&full_path).await?;
-        let content_type = get_content_type(&full_path).await?;
+        // CRYPTO 时：file_full_path 已是加密文件，删除明文
+        if encrypted_rel.is_some()
+            && let Err(e) = tokio::fs::remove_file(&plaintext_full).await {
+                tracing::warn!(
+                    "complete_file_and_local: remove plaintext file failed: {}",
+                    e
+                );
+            }
+
+        let final_local_path = encrypted_rel.unwrap_or(actual_local_path);
+
+        let metadata = tokio::fs::metadata(&file_full_path).await?;
+        let content_type = get_content_type(&file_full_path).await?;
         let modify_time = metadata
             .modified()
             .ok()
@@ -145,57 +206,43 @@ impl FileHelper {
         file.file_md5 = file_md5;
         file.content_type = content_type;
         file.modify_time = modify_time;
-        file.copy_file_id = 0;
+        file.local_path_owner_id = 0;
         file.status = FileStatus::Normal as i8;
         file.change_time = now;
-        file_local.local_path = actual_local_path;
+        file_local.local_path = final_local_path;
 
-        // 如果存储类型为加密类型，在更新数据库前执行加密并替换明文文件
-        if file.storage_type == FileModel::STORAGE_TYPE_LOCAL_CRYPTO {
-            let plaintext_full =
-                self.get_full_local_path(&file.storage_type, &file_local.local_path).await?;
-            let (relative_path, _full_path) = self.encrypt_file(&plaintext_full).await.map_err(|e| {
-                FileError::Io(std::io::Error::other(format!(
-                    "encrypt completed file failed: {}",
-                    e
-                )))
-            })?;
-
-            // 删除明文文件
-            if let Err(e) = tokio::fs::remove_file(&plaintext_full).await {
-                tracing::warn!(
-                    "complete_file_and_local: remove plaintext file failed: {}",
-                    e
-                );
-            }
-
-            // 更新 local_path 为加密文件路径
-            file_local.local_path = relative_path;
-        }
-
-        // 在事务中更新数据库
+        // 在事务中更新数据库（CAS: AND status=Unfinished，防止并发重复完成）
         let mut tx = self.db.begin().await?;
-        
-        Update::<_, FileModel>::new()
+
+        let cas_result = Update::<sqlx::MySql, FileModel>::new()
             .set(FileModel::FILE_SIZE, file.file_size)
             .set(FileModel::FILE_MD5, &file.file_md5)
             .set(FileModel::CONTENT_TYPE, &file.content_type)
             .set(FileModel::MODIFY_TIME, file.modify_time)
-            .set(FileModel::COPY_FILE_ID, file.copy_file_id)
+            .set(FileModel::LOCAL_PATH_OWNER_ID, file.local_path_owner_id)
             .set(FileModel::STATUS, file.status)
             .set(FileModel::CHANGE_TIME, file.change_time)
             .execute(&mut *tx, |qb| {
                 qb.push_where().field_eq("id", file.id);
+                qb.push_and().field_eq("status", FileStatus::Unfinished as i8);
             })
             .await?;
 
-        Update::<_, FileLocalModel>::new()
+        if cas_result.rows_affected() == 0 {
+            // 另一并发调用已完成该文件，直接视为成功
+            if let Err(rb) = tx.rollback().await {
+                tracing::warn!("complete_file_and_local: CAS rollback failed: {}", rb);
+            }
+            return Ok(None);
+        }
+
+        Update::<sqlx::MySql, FileLocalModel>::new()
             .set(FileLocalModel::LOCAL_PATH, &file_local.local_path)
             .execute(&mut *tx, |qb| {
                 qb.push_where().field_eq("id", file_local.id);
             })
             .await?;
-        
+
         tx.commit().await?;
         Ok(None)
     }

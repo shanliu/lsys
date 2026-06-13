@@ -1,3 +1,4 @@
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
@@ -19,17 +20,16 @@ pub struct RegFromNameParam {
 pub async fn user_reg_from_name(
     param: &RegFromNameParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::any(&req_dao.req_env),
             &CheckSystemRegister {},
         )
         .await?;
-    let user = req_dao
-        .web_dao
+    let user = web_dao
         .web_user
         .auth
         .user_reg_from_name(
@@ -56,9 +56,9 @@ pub struct RegSendCodeFromMobileParam {
 pub async fn user_reg_send_code_from_mobile(
     param: &RegSendCodeFromMobileParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let ttl = req_dao
-        .web_dao
+    let ttl = web_dao
         .web_user
         .auth
         .user_reg_send_code_from_mobile(
@@ -80,9 +80,9 @@ pub struct RegSendCodeFromEmailParam {
 pub async fn user_reg_send_code_from_email(
     param: &RegSendCodeFromEmailParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let ttl = req_dao
-        .web_dao
+    let ttl = web_dao
         .web_user
         .auth
         .user_reg_send_code_from_email(
@@ -107,17 +107,16 @@ pub struct RegFromEmailParam {
 pub async fn user_reg_from_email(
     param: &RegFromEmailParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::any(&req_dao.req_env),
             &CheckSystemRegister {},
         )
         .await?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .auth
         .user_reg_from_email(
@@ -146,17 +145,16 @@ pub struct RegFromMobileParam {
 pub async fn user_reg_from_mobile(
     param: &RegFromMobileParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::any(&req_dao.req_env),
             &CheckSystemRegister {},
         )
         .await?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .auth
         .user_reg_from_mobile(

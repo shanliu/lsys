@@ -59,7 +59,7 @@ export function handleLoginResponse(loginResponse: any): boolean {
         userNikeName: String(loginResponse?.auth_data?.user_nickname),
         loginTime: Number(loginResponse?.auth_data?.login_time),
         timeOut: Number(loginResponse?.auth_data?.time_out),
-        bearer: String(loginResponse?.jwt),
+        bearer: String(loginResponse?.token),
         loginData: loginResponse?.auth_data?.login_data,
         status: authUserStatus.Ok(),
         appData: loginResponse?.auth_data?.app_data ? {

@@ -60,12 +60,12 @@ export function CollectorLogsDrawer({
         queryFn: ({ signal }) =>
             userCollectorLogList(
                 {
-                    app_id: appId,
                     script_id: script.id,
                     limit: {
                         pos: cursorParams.pos,
                         limit: pageSize,
                         forward: cursorParams.forward,
+                        more: true,
                     },
                     count_num: countNumManager.getCountNum(),
                 },

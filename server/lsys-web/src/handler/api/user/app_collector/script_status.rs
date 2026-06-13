@@ -1,5 +1,6 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
 use crate::dao::CollectorScriptStatus;
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
@@ -14,13 +15,19 @@ pub struct ScriptStatusParam {
     pub status: i8,
 }
 
-/// POST /api/user/collector/script_status — 启用/禁用脚本
 pub async fn script_status(
     param: &ScriptStatusParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
 
     let status = match param.status {
         1 => CollectorScriptStatus::Enable,
@@ -31,10 +38,8 @@ pub async fn script_status(
         }
     };
 
-    let affected = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let affected = web_dao
+        .web_collector.collector
         .script_change_status(param.script_id, status, Some(&req_dao.req_env))
         .await?;
 

@@ -1,4 +1,5 @@
 import { type FileTagType, type UserFileItemType } from '@shared/apis/user/file';
+import { PostDownload } from '@apps/main/components/local/post-download';
 import { Badge } from '@shared/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@apps/main/components/local/drawer';
 import { useToast } from '@shared/contexts/toast-context';
@@ -120,15 +121,21 @@ export function FileDetailDrawer({
                         <div className="grid grid-cols-1 gap-4">
                             <div className="flex flex-col space-y-1">
                                 <span className="text-xs text-muted-foreground">访问 URL</span>
-                                {file.url ? (
-                                    <a
-                                        href={file.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-sm font-medium text-primary break-all hover:underline"
+                                {file.file_key ? (
+                                    <PostDownload
+                                        url="/api/user/app_file/read"
+                                        body={{ key: file.file_key }}
                                     >
-                                        {file.url}
-                                    </a>
+                                        {({ onClick, isLoading }) => (
+                                            <button
+                                                onClick={onClick}
+                                                disabled={isLoading}
+                                                className="text-sm font-medium text-primary break-all hover:underline text-left"
+                                            >
+                                                {isLoading ? '下载中...' : file.file_name}
+                                            </button>
+                                        )}
+                                    </PostDownload>
                                 ) : (
                                     <span className="text-sm font-medium text-muted-foreground">-</span>
                                 )}

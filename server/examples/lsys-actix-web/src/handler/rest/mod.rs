@@ -2,6 +2,7 @@
 mod app;
 mod auth;
 mod collector;
+mod file;
 mod mail;
 mod oauth;
 mod rbac;
@@ -26,7 +27,14 @@ where
         .service(scope("/auth").service(auth::auth))
         .service(scope("/mail").service(mail::mail))
         .service(scope("/sms").service(sms::sms))
-        .service(scope("/collector").service(collector::collector));
+        .service(scope("/collector").service(collector::collector))
+        .service(
+            scope("/file")
+                // 令牌直传分片端点（multipart + 仅令牌鉴权）
+                .service(super::file_token_upload::rest_upload_by_token)
+                // JSON 分发端点
+                .service(file::file),
+        );
 
     app.service(
         scope("/oauth")

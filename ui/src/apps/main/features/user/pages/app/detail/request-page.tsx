@@ -1,9 +1,9 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { AppRequestDataDisplay } from "@apps/main/features/user/components/ui/app-request-data-display";
@@ -22,7 +22,6 @@ import { createStatusMapper } from "@apps/main/lib/status-utils";
 import { Route } from "@apps/main/routes/_main/user/app/$appId/request";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { appRequestList, type AppRequestItemType } from "@shared/apis/user/app";
-import { EXPORT_TYPE_USER_APP_REQUEST } from "@shared/apis/user/file";
 import {
   DataTable,
   DataTableAction,
@@ -47,6 +46,7 @@ import { useState } from "react";
 import { requestModuleConfig } from "./nav-info";
 import { RequestDetailDrawer } from "./request-detail-drawer";
 import { AppRequestListFilterFormSchema } from "./request-schema";
+import * as z from "zod";
 
 export function AppRequestPage() {
   // 字典数据获取 - 统一在最顶层获取一次
@@ -178,6 +178,23 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     queryClient.invalidateQueries({ queryKey: ["appRequestList"] });
   };
 
+  const filterForm = useFilterBarForm<z.infer<typeof AppRequestListFilterFormSchema>>({
+    defaultValues: {
+      id: filterParam.id,
+      status: filterParam.status,
+      request_type: filterParam.request_type,
+    },
+    resolver: zodResolver(AppRequestListFilterFormSchema) as any,
+    initValues: { id: undefined, status: undefined, request_type: undefined },
+    onSubmit: (data) => {
+      const d = data as { id?: number; status?: number; request_type?: number };
+      searchGo({ id: d.id, status: d.status, request_type: d.request_type, page: 1 });
+    },
+    onReset: () => {
+      searchGo({ page: 1, limit: currentLimit, id: undefined, status: undefined, request_type: undefined });
+    },
+  });
+
   // 字典数据已加载，创建状态映射器
   const requestStatusMapper = createStatusMapper(
     {
@@ -290,111 +307,24 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
   return (
     <div className="flex flex-col min-h-0 space-y-3">
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        {/* 过滤器 */}
-        <FilterContainer
-          defaultValues={{
-            id: filterParam.id?.toString(),
-            status: filterParam.status?.toString(),
-            request_type: filterParam.request_type?.toString(),
-          }}
-          resolver={zodResolver(AppRequestListFilterFormSchema) as any}
-          onSubmit={(data) => {
-            const transformedData = data as {
-              id?: number;
-              status?: number;
-              request_type?: number;
-            };
-            searchGo({
-              id: transformedData.id,
-              status: transformedData.status,
-              request_type: transformedData.request_type,
-              page: 1,
-            });
-          }}
-          onReset={() => {
-            searchGo({
-              page: 1,
-              limit: currentLimit,
-              id: undefined,
-              status: undefined,
-              request_type: undefined,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* ID过滤 */}
-              <FilterInput
-                name="id"
-                placeholder="输入请求ID"
-                label="请求ID"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                type="number"
-              />
-
-              {/* 状态过滤 */}
-              {dictData.request_status && (
-                <FilterDictSelect
-                  name="status"
-                  placeholder="选择状态"
-                  label="状态"
-                  disabled={isLoading}
-                  dictData={dictData.request_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 请求类型过滤 */}
-              {dictData.request_type && (
-                <FilterDictSelect
-                  name="request_type"
-                  placeholder="选择请求类型"
-                  label="请求类型"
-                  disabled={isLoading}
-                  dictData={dictData.request_type}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <UserExportAction
-                      appId={Number(appId)}
-                      exportType={EXPORT_TYPE_USER_APP_REQUEST}
-                      params={{
-                        app_id: Number(appId),
-                        id: filters.id ?? undefined,
-                        status: filters.status ?? undefined,
-                        request_type: filters.request_type ?? undefined,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            </div>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterInput name="id" placeholder="输入请求ID" label="请求ID" disabled={isLoading} type="number" />
+          {dictData.request_status && (
+            <FilterDictSelect name="status" placeholder="选择状态" label="状态" disabled={isLoading}
+              dictData={dictData.request_status} allLabel="全部" />
           )}
-        </FilterContainer>
+          {dictData.request_type && (
+            <FilterDictSelect name="request_type" placeholder="选择请求类型" label="请求类型" disabled={isLoading}
+              dictData={dictData.request_type} allLabel="全部" />
+          )}
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 - 确保不超出页面高度 */}

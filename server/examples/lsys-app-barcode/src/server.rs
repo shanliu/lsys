@@ -35,7 +35,7 @@ pub async fn run() -> Result<(), String> {
     // Reuse the same config layout as other examples.
     let app_dir = std::env::var("APP_DIR").unwrap_or_else(|_| "./".to_string());
 
-    let app_core = AppCore::new(&app_dir, "config", "app-barcode", None)
+    let app_core = AppCore::new(&app_dir, "config", "app-barcode", None, None)
         .await
         .map_err(|e| format!("appcore init error: {e:?}"))?;
     let app_core = Arc::new(app_core);

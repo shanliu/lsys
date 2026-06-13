@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserFileView;
 use lsys_access::dao::AccessSession;
@@ -20,15 +21,21 @@ pub struct ExportActiveCountParam {
 
 pub async fn app_export_active_count(
     param: &ExportActiveCountParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let user_id = auth_data.user_id();
 
-    super::app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    super::app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -38,11 +45,9 @@ pub async fn app_export_active_count(
         )
         .await?;
 
-    let count = req_dao
-        .web_dao
-        .web_files
-        .export_task
-        .count_active_tasks(user_id, Some(param.app_id), param.export_type.as_deref())
+    let count = web_dao
+        .web_export.export_task
+        .count_active_tasks(Some(user_id), Some(param.app_id), param.export_type.as_deref())
         .await?;
 
     Ok(JsonResponse::data(JsonData::body(

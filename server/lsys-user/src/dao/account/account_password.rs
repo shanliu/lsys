@@ -194,22 +194,45 @@ impl AccountPassword {
         }
         let nh_passwrod = self.account_passwrd_hash.hash_password(&new_password).await;
         if config.disable_old_password {
-            let old_pass_res: Result<AccountPasswordModel, sqlx::Error> =
-                sqlx::query_as::<_, AccountPasswordModel>(&format!(
-                    "select * from {} where account_id=? and password=?",
+            const PAGE_SIZE: u64 = 100;
+            let mut offset = 0u64;
+            'old_pass_check: loop {
+                let old_passes: Vec<AccountPasswordModel> = match sqlx::query_as::<
+                    _,
+                    AccountPasswordModel,
+                >(&format!(
+                    "select * from {} where account_id=? order by id limit ? offset ?",
                     AccountPasswordModel::table_name(),
                 ))
                 .bind(account.id)
-                .bind(&nh_passwrod)
-                .fetch_one(&self.db)
-                .await;
-
-            if old_pass_res.is_ok() {
-                ta.rollback().await?;
-
-                return Err(AccountError::System(fluent_message!(
-                    "account-old-passwrod"
-                ))); //                    "can't old password"
+                .bind(PAGE_SIZE as i64)
+                .bind(offset as i64)
+                .fetch_all(&self.db)
+                .await
+                {
+                    Ok(rows) => rows,
+                    Err(e) => {
+                        ta.rollback().await?;
+                        return Err(e.into());
+                    }
+                };
+                let is_last = old_passes.len() < PAGE_SIZE as usize;
+                for old_pass in &old_passes {
+                    if self
+                        .account_passwrd_hash
+                        .verify_password(&new_password, &old_pass.password)
+                        .await
+                    {
+                        ta.rollback().await?;
+                        return Err(AccountError::System(fluent_message!(
+                            "account-old-passwrod"
+                        )));
+                    }
+                }
+                if is_last {
+                    break 'old_pass_check;
+                }
+                offset += PAGE_SIZE;
             }
         }
 
@@ -286,9 +309,8 @@ impl AccountPassword {
         };
         Ok(self
             .account_passwrd_hash
-            .hash_password(check_password)
-            .await
-            == account_password.password)
+            .verify_password(check_password, &account_password.password)
+            .await)
     }
     /// 检测指定ID密码是否超时
     /// 返回 (是否超时, 密码有效期配置)

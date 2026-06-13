@@ -1,11 +1,13 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useUserExportAction } from "@apps/main/hooks/use-user-export-action";
 import { EXPORT_TYPE_USER_LOGIN_HISTORY } from "@shared/apis/user/file";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
@@ -56,6 +58,7 @@ import {
   LoginLogFilterFormSchema,
   type LoginLogFilterParamType,
 } from "./login-log-schema";
+import * as z from "zod";
 
 export function AccountLoginLogPage() {
   // 字典数据获取 - 统一在最顶层获取一次
@@ -65,7 +68,7 @@ export function AccountLoginLogPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["auth_login"] as const);
+  } = useDictData(["auth_login", "user_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -97,7 +100,7 @@ export function AccountLoginLogPage() {
 
 // 内容组件：负责内容加载和渲染
 interface AccountLoginLogContentProps {
-  loginDictData: TypedDictData<["auth_login"]>;
+  loginDictData: TypedDictData<["auth_login", "user_export"]>;
 }
 
 function AccountLoginLogContent({
@@ -124,6 +127,17 @@ function AccountLoginLogContent({
     login_ip: filterParam.login_ip || null,
     is_login: filterParam.is_login ?? null,
   };
+
+  const exportAction = useUserExportAction({
+    exportType: EXPORT_TYPE_USER_LOGIN_HISTORY,
+    params: {
+      login_type: filters.login_type,
+      login_account: filters.login_account,
+      login_ip: filters.login_ip,
+      is_login: filters.is_login,
+    },
+  });
+
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
   const pagination: LimitType = {
@@ -324,123 +338,69 @@ function AccountLoginLogContent({
 
   const isLoading = queryIsLoading || isFetching;
 
+  const filterForm = useFilterBarForm<z.infer<typeof LoginLogFilterFormSchema>>({
+    defaultValues: {
+      login_type: filterParam.login_type,
+      login_account: filterParam.login_account,
+      login_ip: filterParam.login_ip,
+      is_login: filterParam.is_login,
+    },
+    resolver: zodResolver(LoginLogFilterFormSchema) as any,
+    initValues: { login_type: undefined, login_account: undefined, login_ip: undefined, is_login: undefined },
+    onSubmit: (data) => {
+      if (isError) {
+        refreshData();
+        return;
+      }
+      navigate({ search: { ...data, pos: null, forward: true } as any });
+    },
+    onReset: () => {
+      navigate({ search: { pos: null, limit: currentLimit, forward: true } as any });
+    },
+  });
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-4 py-3 max-w-[1600px] flex flex-col min-h-0 space-y-4">
       {/* 搜索和过滤 */}
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        <FilterContainer
-          defaultValues={{
-            login_type: filterParam.login_type,
-            login_account: filterParam.login_account,
-            login_ip: filterParam.login_ip,
-            is_login: filterParam.is_login?.toString(),
-          }}
-          resolver={zodResolver(LoginLogFilterFormSchema) as any}
-          onSubmit={(data) => {
-            // 如果当前有错误，强制刷新数据
-            if (isError) {
-              refreshData();
-              return;
-            }
-            // zod schema 已经处理了类型转换和空值清理，直接使用数据
-            navigate({
-              search: { ...data, pos: null, forward: true } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: {
-                pos: null,
-                limit: currentLimit,
-                forward: true,
-              } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotalInfo())}
-              loading={isLoading}
-            />
-          }
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-2">
-              {/* 登录类型过滤 */}
-              <div className="flex-1 min-w-[100px] max-w-[300px]">
-                <FilterSelect
-                  name="login_type"
-                  placeholder="选择登录类型"
-                  label="登录类型"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  allLabel="全部类型"
-                  options={loginTypeDict.getOptions()}
-                />
-              </div>
-
-              {/* 登录账号过滤 */}
-              <div className="flex-1 min-w-[180px] max-w-[300px]">
-                <FilterInput
-                  name="login_account"
-                  placeholder="输入登录账号"
-                  label="登录账号"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-              </div>
-
-              {/* 登录IP过滤 */}
-              <div className="flex-1 min-w-[180px] max-w-[300px]">
-                <FilterInput
-                  name="login_ip"
-                  placeholder="输入IP地址"
-                  label="登录IP"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-              </div>
-
-              {/* 是否登录成功 */}
-              {loginDictData.login_status && (
-                <FilterDictSelect
-                  name="is_login"
-                  placeholder="选择状态"
-                  label="登录状态"
-                  disabled={isLoading}
-                  dictData={loginDictData.login_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <UserExportAction
-                      exportType={EXPORT_TYPE_USER_LOGIN_HISTORY}
-                      params={{
-                        login_type: filters.login_type,
-                        login_account: filters.login_account,
-                        login_ip: filters.login_ip,
-                        is_login: filters.is_login,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            </div>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterBar.MobileExtra>
+            <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+          </FilterBar.MobileExtra>
+          <FilterSelect name="login_type" placeholder="选择登录类型" label="登录类型"
+            disabled={isLoading} allLabel="全部类型" options={loginTypeDict.getOptions()} />
+          <FilterInput name="login_account" placeholder="输入登录账号" label="登录账号" disabled={isLoading} />
+          <FilterInput name="login_ip" placeholder="输入IP地址" label="登录IP" disabled={isLoading} />
+          {loginDictData.login_status && (
+            <FilterDictSelect name="is_login" placeholder="选择状态" label="登录状态"
+              disabled={isLoading} dictData={loginDictData.login_status} allLabel="全部" />
           )}
-        </FilterContainer>
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+            <FilterBar.DesktopOnly>
+              <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+            </FilterBar.DesktopOnly>
+          </FilterActions>
+          <FilterBar.MobileFooter>
+            {(closeDrawer) => (
+              <ExportButton isSubmitting={exportAction.isSubmitting}
+                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+            )}
+          </FilterBar.MobileFooter>
+        </FilterBar>
+        <ExportDrawer
+          open={exportAction.drawerOpen}
+          onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+          statusDict={loginDictData.export_task_status!}
+          tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+          currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+          onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+        />
       </div>
 
       {/* 表格和分页容器 */}

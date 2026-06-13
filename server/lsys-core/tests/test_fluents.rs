@@ -56,9 +56,7 @@ async fn test_fluent_mgr_creation_with_explicit_list() {
 #[tokio::test]
 async fn test_fluent_mgr_auto_discovery() {
     setup_locale_dir();
-    let mgr = FluentMgr::new(TEST_LOCALE_DIR, "app", None)
-        .await
-        .unwrap();
+    let mgr = FluentMgr::new(TEST_LOCALE_DIR, "app", None).await.unwrap();
 
     let bundle = mgr.locale(Some("en_US"));
     let msg = fluent_message!("hello");
@@ -121,10 +119,7 @@ async fn test_fluent_format_single_value_macro() {
     let bundle = mgr.locale(Some("en_US"));
     // Single-value variant sets the key to "msg"
     let msg = fluent_message!("error-msg", "something went wrong");
-    assert_eq!(
-        bundle.format_message(&msg),
-        "Error: something went wrong"
-    );
+    assert_eq!(bundle.format_message(&msg), "Error: something went wrong");
     cleanup_locale_dir();
 }
 

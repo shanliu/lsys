@@ -1,8 +1,9 @@
 //用户文件日志接口
 
 use crate::common::{
-    JsonData, JsonResponse, JsonResult, PageParam, ToOffsetPageParam, UserAuthQueryDao,
+    JsonData, JsonResponse, JsonResult, PageParam, RequestDao, ToOffsetPageParam, UserAuthQueryDao,
 };
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
 use lsys_core::db::OffsetPageParam;
@@ -23,15 +24,22 @@ pub struct FileLogsParam {
 /// 文件日志列表
 pub async fn file_logs(
     param: &FileLogsParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     // 校验用户对 app 的查看权限
-    let _app = super::app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    super::app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
     let page: OffsetPageParam = param.page.to_offset_page_param();
 
-    let data_dao = req_dao.web_dao.web_files.file_dao.data_dao();
+    let data_dao = web_dao.web_file.file_dao.data_dao();
 
     let data = data_dao.list_logs_by_file_id(param.file_id, &page).await?;
 
@@ -43,8 +51,7 @@ pub async fn file_logs(
 
     // 批量获取用户信息
     let user_ids: Vec<u64> = data.iter().map(|item| item.user_id).collect();
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user

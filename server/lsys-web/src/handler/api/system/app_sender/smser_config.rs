@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{
+    JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao,
+};
 use crate::common::{PageParam, ToOffsetPageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
 use lsys_access::dao::AccessSession;
@@ -20,12 +23,18 @@ pub struct SmserConfigAddParam {
 
 pub async fn smser_config_add(
     param: &SmserConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -34,8 +43,7 @@ pub async fn smser_config_add(
         .await?;
 
     let config_type = SenderSmsConfigType::try_from(param.config_type)?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -60,28 +68,32 @@ pub struct SmserConfigDeleteParam {
 }
 pub async fn smser_config_del(
     param: &SmserConfigDeleteParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsMgr {},
         )
         .await?;
-    let config = req_dao
-        .web_dao
+    let config = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_config_by_id(param.config_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .smser
         .smser_dao
@@ -99,12 +111,18 @@ pub struct SmserConfigListParam {
 
 pub async fn smser_config_list(
     param: &SmserConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -112,8 +130,7 @@ pub async fn smser_config_list(
         )
         .await?;
 
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -161,20 +178,25 @@ pub struct SmserTplConfigListParam {
 
 pub async fn smser_tpl_config_list(
     param: &SmserTplConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsMgr {},
         )
         .await?;
-    let tpl_data = req_dao
-        .web_dao
+    let tpl_data = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -189,8 +211,7 @@ pub async fn smser_tpl_config_list(
         )
         .await?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .app
@@ -233,8 +254,7 @@ pub async fn smser_tpl_config_list(
         .collect::<Vec<_>>();
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .smser
                 .smser_dao
@@ -258,19 +278,24 @@ pub struct SmserTplConfigDelParam {
 
 pub async fn smser_tpl_config_del(
     param: &SmserTplConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsMgr {},
         )
         .await?;
-    let config = req_dao
-        .web_dao
+    let config = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -280,8 +305,7 @@ pub async fn smser_tpl_config_del(
     if SenderTplConfigStatus::Delete.eq(config.status) {
         return Ok(JsonResponse::data(JsonData::body(json!({ "num": 0 }))));
     }
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .smser_dao

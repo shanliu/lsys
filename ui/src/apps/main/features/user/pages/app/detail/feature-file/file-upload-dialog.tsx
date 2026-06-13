@@ -2,10 +2,8 @@ import { userFileDelete, userFileUploadCreate, userFileUploadData, userFileUploa
 
 // 上传配置所需的最小字段
 interface UploadConfig {
-    min_chunk_size: number;
+    upload_chunk_max: number;
     max_upload_size: number;
-    chunk_threshold: number;
-    default_chunk_size: number;
 }
 import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog';
@@ -15,7 +13,7 @@ import { useToast } from '@shared/contexts/toast-context';
 import { cn, formatFileSize, calculateFileMd5 } from '@shared/lib/utils';
 import { calculateFileMd5WithWorker, terminateWorker, isWorkerSupported } from '@shared/lib/utils/md5-worker-utils';
 import { Loader2, Upload, CheckCircle2, XCircle, AlertCircle, Hash } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosProgressEvent } from 'axios';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -44,6 +42,7 @@ export function FileUploadDialog({
     maxConcurrentChunks = 3,
 }: FileUploadDialogProps) {
     const { success: showSuccess, error: showError } = useToast();
+    const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
     const [stage, setStage] = useState<UploadStage>('idle');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -62,9 +61,19 @@ export function FileUploadDialog({
     const uploadControllerRef = useRef<AbortController | null>(null);
     const isUploadingRef = useRef(false); // 标记是否正在处理上传，避免重复触发
 
+    const refreshFileList = useCallback(() => {
+        void queryClient.invalidateQueries({ queryKey: ['userFileList'], refetchType: 'all' });
+        void queryClient.refetchQueries({ queryKey: ['userFileList'], type: 'all' });
+    }, [queryClient]);
+
+    const handleUploadSuccess = useCallback(() => {
+        refreshFileList();
+        onSuccess?.();
+    }, [refreshFileList, onSuccess]);
+
     // React Query Mutations
     const uploadByMd5Mutation = useMutation({
-        mutationFn: (params: { app_id: number; file_md5: string }) =>
+        mutationFn: (params: { app_id: number; file_md5: string; file_name: string }) =>
             userFileUploadByMd5(params),
     });
 
@@ -74,7 +83,7 @@ export function FileUploadDialog({
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (params: { file_user_id: number }) =>
+        mutationFn: (params: { file_ref_id: number }) =>
             userFileDelete(params),
     });
 
@@ -131,6 +140,11 @@ export function FileUploadDialog({
         let currentIndex = 0;
         const uploadPromises: Promise<void>[] = [];
 
+        // 并发合并争用时的自动重试配置
+        const FILE_MERGE_RETRY_STATE = 'file-merge-retry';
+        const MAX_MERGE_RETRIES = 5;
+        const FILE_MERGE_RETRY_DELAY_MS = 1500;
+
         const uploadTask = async () => {
             while (currentIndex < pendingTasks.length) {
                 // 检查暂停或全局取消信号
@@ -147,47 +161,71 @@ export function FileUploadDialog({
                 task.status = 'uploading';
                 setChunkTasks([...tasks]);
 
-                try {
-                    const blob = file.slice(task.offset, task.offset + task.len);
-                    const controller = new AbortController();
-                    abortRef.current = controller;
+                // file-merge-retry 重试循环：服务端并发合并争用时自动重试，无需用户干预
+                let mergeRetryCount = 0;
+                let chunkDone = false;
+                while (!chunkDone) {
+                    try {
+                        const blob = file.slice(task.offset, task.offset + task.len);
+                        const controller = new AbortController();
+                        abortRef.current = controller;
 
-                    // 使用分片上传 API（支持进度回调）
-                    await userFileUploadData(fileUserId, task.index, blob, {
-                        signal: controller.signal,
-                        onUploadProgress: (event: AxiosProgressEvent) => {
-                            if (event.total) {
-                                const chunkProgress = event.loaded / event.total;
-                                // 基于已上传大小和当前分片进度计算总进度
-                                const currentProgress = (uploadedSizeRef.current + task.len * chunkProgress) / totalSize * 100;
-                                setProgress(prev => Math.min(Math.max(currentProgress, prev), 99));
+                        // 使用分片上传 API（支持进度回调）
+                        await userFileUploadData(fileUserId, task.index, blob, {
+                            signal: controller.signal,
+                            onUploadProgress: (event: AxiosProgressEvent) => {
+                                if (event.total) {
+                                    const chunkProgress = event.loaded / event.total;
+                                    // 基于已上传大小和当前分片进度计算总进度
+                                    const currentProgress = (uploadedSizeRef.current + task.len * chunkProgress) / totalSize * 100;
+                                    setProgress(prev => Math.min(Math.max(currentProgress, prev), 99));
+                                }
+                            },
+                        });
+
+                        task.status = 'done';
+                        // 更新已上传大小
+                        uploadedSizeRef.current += task.len;
+                        setChunkTasks([...tasks]);
+                        chunkDone = true;
+                    } catch (err: any) {
+                        if (err?.message === 'PAUSED') {
+                            task.status = 'pending';
+                            setChunkTasks([...tasks]);
+                            throw err;
+                        }
+                        if (err?.message === 'CANCELED') {
+                            task.status = 'pending';
+                            setChunkTasks([...tasks]);
+                            throw err;
+                        }
+                        if (err?.name === 'CanceledError' || err?.name === 'AbortError') {
+                            task.status = 'pending';
+                            setChunkTasks([...tasks]);
+                            throw new Error('PAUSED');
+                        }
+                        // 服务端并发合并争用（另一节点持有锁正在合并），等待后重试
+                        if (err?.data?.state === FILE_MERGE_RETRY_STATE && mergeRetryCount < MAX_MERGE_RETRIES) {
+                            mergeRetryCount++;
+                            await new Promise<void>(resolve =>
+                                setTimeout(resolve, FILE_MERGE_RETRY_DELAY_MS)
+                            );
+                            if (isPausedRef.current) {
+                                task.status = 'pending';
+                                setChunkTasks([...tasks]);
+                                throw new Error('PAUSED');
                             }
-                        },
-                    });
-
-                    task.status = 'done';
-                    // 更新已上传大小
-                    uploadedSizeRef.current += task.len;
-                    setChunkTasks([...tasks]);
-                } catch (err: any) {
-                    if (err?.message === 'PAUSED') {
-                        task.status = 'pending';
+                            if (uploadController.signal.aborted) {
+                                task.status = 'pending';
+                                setChunkTasks([...tasks]);
+                                throw new Error('CANCELED');
+                            }
+                            continue; // 重试上传
+                        }
+                        task.status = 'error';
                         setChunkTasks([...tasks]);
                         throw err;
                     }
-                    if (err?.message === 'CANCELED') {
-                        task.status = 'pending';
-                        setChunkTasks([...tasks]);
-                        throw err;
-                    }
-                    if (err?.name === 'CanceledError' || err?.name === 'AbortError') {
-                        task.status = 'pending';
-                        setChunkTasks([...tasks]);
-                        throw new Error('PAUSED');
-                    }
-                    task.status = 'error';
-                    setChunkTasks([...tasks]);
-                    throw err;
                 }
             }
         };
@@ -220,13 +258,12 @@ export function FileUploadDialog({
 
     // 构建分片信息
     const buildChunks = useCallback((fileSize: number) => {
-        const { chunk_threshold, default_chunk_size, min_chunk_size } = uploadConfig;
-        if (fileSize <= chunk_threshold) {
-            // 小文件直接单分片
+        const chunkSize = uploadConfig.upload_chunk_max;
+        if (chunkSize <= 0 || fileSize <= chunkSize) {
+            // 小文件或未配置分片大小，直接单分片
             return [{ offset: 0, len: fileSize }];
         }
         // 大文件分片
-        const chunkSize = Math.max(default_chunk_size, min_chunk_size);
         const chunks: { offset: number; len: number }[] = [];
         let offset = 0;
         while (offset < fileSize) {
@@ -262,13 +299,28 @@ export function FileUploadDialog({
             setProgress(100);
             setStage('success');
             showSuccess('文件上传成功');
-            onSuccess?.();
+            handleUploadSuccess();
         } catch (err: any) {
             const msg = err?.data?.message || err?.message || '上传失败';
             setErrorMsg(msg);
             setStage('error');
         }
-    }, [selectedFile, fileUserId, chunkTasks, showSuccess, onSuccess, uploadChunksWithConcurrency, maxConcurrentChunks]);
+    }, [selectedFile, fileUserId, chunkTasks, showSuccess, handleUploadSuccess, uploadChunksWithConcurrency, maxConcurrentChunks]);
+
+    // 重试上传：错误时根据是否有 fileUserId 决定恢复分片还是从头开始
+    const handleRetry = useCallback(() => {
+        if (fileUserId) {
+            // 分片上传阶段出错，恢复剩余分片
+            resumeUpload();
+        } else if (selectedFile) {
+            // 哈希或创建阶段出错，从头重新开始
+            isUploadingRef.current = false;
+            setProgress(0);
+            setHashProgress(0);
+            setErrorMsg('');
+            setStage('hashing');
+        }
+    }, [fileUserId, selectedFile, resumeUpload]);
 
     // 暂停上传
     const handlePause = useCallback(() => {
@@ -287,7 +339,7 @@ export function FileUploadDialog({
 
         if (fileUserId) {
             try {
-                await deleteMutation.mutateAsync({ file_user_id: fileUserId });
+                await deleteMutation.mutateAsync({ file_ref_id: fileUserId });
                 resetState();
                 setOpen(false);
             } catch (err: any) {
@@ -326,8 +378,8 @@ export function FileUploadDialog({
 
         const performUpload = async () => {
             try {
-                // 校验文件大小
-                if (selectedFile.size > uploadConfig.max_upload_size) {
+                // 校验文件大小（max_upload_size 为 0 表示不限制）
+                if (uploadConfig.max_upload_size > 0 && selectedFile.size > uploadConfig.max_upload_size) {
                     throw new Error(`文件大小 ${formatFileSize(selectedFile.size)} 超过最大限制 ${formatFileSize(uploadConfig.max_upload_size)}`);
                 }
 
@@ -339,12 +391,12 @@ export function FileUploadDialog({
                     : await calculateFileMd5(selectedFile, setHashProgress);
 
                 // 检查 MD5 是否已存在（秒传）
-                const md5Res = await uploadByMd5Mutation.mutateAsync({ app_id: appId, file_md5: fileMd5 });
+                const md5Res = await uploadByMd5Mutation.mutateAsync({ app_id: appId, file_md5: fileMd5, file_name: selectedFile.name });
                 if (md5Res.status === true && md5Res.response?.matched === true) {
                     setProgress(100);
                     setStage('success');
                     showSuccess('文件秒传成功（已存在相同文件）');
-                    onSuccess?.();
+                    handleUploadSuccess();
                     return;
                 }
 
@@ -392,7 +444,7 @@ export function FileUploadDialog({
                 setProgress(100);
                 setStage('success');
                 showSuccess('文件上传成功');
-                onSuccess?.();
+                handleUploadSuccess();
             } catch (err: any) {
                 const msg = err?.data?.message || err?.message || '上传失败';
                 setErrorMsg(msg);
@@ -403,7 +455,7 @@ export function FileUploadDialog({
         };
 
         performUpload();
-    }, [selectedFile, stage, appId, uploadConfig.max_upload_size, uploadByMd5Mutation, showSuccess, onSuccess, buildChunks, uploadCreateMutation, uploadChunksWithConcurrency, maxConcurrentChunks]);
+    }, [selectedFile, stage, appId, uploadConfig.max_upload_size, uploadByMd5Mutation, showSuccess, handleUploadSuccess, buildChunks, uploadCreateMutation, uploadChunksWithConcurrency, maxConcurrentChunks]);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -463,7 +515,7 @@ export function FileUploadDialog({
                                 拖拽文件到此处，或点击选择文件
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                最大 {formatFileSize(uploadConfig.max_upload_size)}，超过 {formatFileSize(uploadConfig.chunk_threshold)} 将自动分片上传
+                                最大 {uploadConfig.max_upload_size > 0 ? formatFileSize(uploadConfig.max_upload_size) : '不限制'}，超过 {formatFileSize(uploadConfig.upload_chunk_max)} 将自动分片上传
                             </p>
                         </div>
                     </div>
@@ -633,7 +685,7 @@ export function FileUploadDialog({
         if (stage === 'error') {
             return (
                 <div className="flex gap-2 w-full justify-end">
-                    <Button onClick={resumeUpload}>重新上传</Button>
+                    <Button onClick={handleRetry}>重新上传</Button>
                     <ConfirmDialog
                         title="确认关闭上传"
                         description="关闭将取消当前上传并删除已上传的文件数据。确认要关闭吗？"

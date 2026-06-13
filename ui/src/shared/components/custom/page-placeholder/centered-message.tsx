@@ -1,8 +1,10 @@
 import { cn } from "@shared/lib/utils";
 import { ReactNode, cloneElement, isValidElement } from "react";
-import { PageSkeletonBaseProps } from "./base";
 
-export interface CenteredMessageProps extends PageSkeletonBaseProps {
+
+export interface CenteredMessageProps {
+    /** 外层容器 class */
+    className?: string;
     /** 
      * 提示变体
      * - 'content': 无边框模式（仅居中提示内容）

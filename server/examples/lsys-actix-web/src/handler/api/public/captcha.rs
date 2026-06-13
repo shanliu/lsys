@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use actix_web::http::header::{CacheControl, CacheDirective};
-use actix_web::{HttpResponse, get, post};
+use actix_web::{HttpResponse, get, post, web};
 use lsys_web::common::{JsonData, JsonError, JsonResponse};
-use lsys_web::dao::CaptchaKey;
+use lsys_web::dao::{CaptchaKey, WebDao};
 use lsys_web::lsys_core::valid_code::CheckCodeData;
 use serde_json::json;
 
@@ -19,11 +19,12 @@ pub struct CaptchaParam {
 pub(crate) async fn captcha(
     param: actix_web::web::Path<CaptchaParam>,
     req_dao: ReqQuery,
+    web_dao: web::Data<WebDao>,
 ) -> HttpResponse {
     match CaptchaKey::from_str(param.captcha_type.as_str()) {
         Ok(captcha_key) => {
-            let valid_code = req_dao.web_dao.app_captcha.valid_code(&captcha_key);
-            let mut valid_code_data = req_dao.web_dao.app_captcha.valid_code_builder();
+            let valid_code = web_dao.as_ref().app_captcha.valid_code(&captcha_key);
+            let mut valid_code_data = web_dao.as_ref().app_captcha.valid_code_builder();
             match valid_code
                 .set_code(&param.captcha_tag, &mut valid_code_data)
                 .await
@@ -55,18 +56,19 @@ pub(crate) async fn captcha_json(
     req_dao: ReqQuery,
     json_param: JsonQuery,
     path: actix_web::web::Path<String>,
+    web_dao: web::Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     Ok(match path.into_inner().as_str() {
         "show" => {
             let param = json_param
                 .param::<CaptchaParam>()
                 .map_err(ResponseJson::from)?;
-            let valid_code = req_dao.web_dao.app_captcha.valid_code(
+            let valid_code = web_dao.as_ref().app_captcha.valid_code(
                 &CaptchaKey::from_str(&param.captcha_type).map_err(|e| {
                     ResponseJson::from(JsonResponse::data(JsonData::error()).set_message(e))
                 })?,
             );
-            let mut valid_code_data = req_dao.web_dao.app_captcha.valid_code_builder();
+            let mut valid_code_data = web_dao.as_ref().app_captcha.valid_code_builder();
 
             valid_code
                 .set_code(&param.captcha_tag, &mut valid_code_data)
@@ -85,7 +87,7 @@ pub(crate) async fn captcha_json(
             let param = json_param
                 .param::<CaptchaValidParam>()
                 .map_err(ResponseJson::from)?;
-            let valid_code = req_dao.web_dao.app_captcha.valid_code(
+            let valid_code = web_dao.as_ref().app_captcha.valid_code(
                 &CaptchaKey::from_str(&param.captcha_type).map_err(|e| {
                     ResponseJson::from(JsonResponse::data(JsonData::error()).set_message(e))
                 })?,

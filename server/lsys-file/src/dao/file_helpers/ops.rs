@@ -23,13 +23,20 @@ impl FileHelper {
     /// 生成文件名格式: {sub_dir}/{prefix}_{random}.{ext}
     /// 其中 sub_dir 为年月目录 (如 "202603"), 用于文件归档和 MV 移动后的分类
     /// 生成后检查是否已存在, 存在时重新生成
-    pub async fn create_new_file(&self, storage_type: &str, prefix: &str, ext: &str) -> FileResult<(String, PathBuf)> {
+    pub async fn create_new_file(
+        &self,
+        storage_type: &str,
+        prefix: &str,
+        ext: &str,
+    ) -> FileResult<(String, PathBuf)> {
         let now = Local::now();
         let sub_dir = now.format("%Y%m%d").to_string();
-        
-        let base_path = self.config.get_base_path(storage_type)
-            .await
-            .map_err(|e| FileError::System(lsys_core::fluent_message!("file-storage-error", {"error": e.to_string()})))?;
+
+        let base_path = self.config.get_base_path(storage_type).await.map_err(|e| {
+            FileError::System(
+                lsys_core::fluent_message!("file-storage-error", {"error": e.to_string()}),
+            )
+        })?;
         let dir = base_path.join(&sub_dir);
 
         // 确保目录存在
@@ -68,19 +75,25 @@ impl FileHelper {
     }
 
     /// 获取完整本地路径
-    /// 
+    ///
     /// - `storage_type`: 存储类型 (如 STORAGE_TYPE_LOCAL_PUBLIC)
     /// - `relative_path`: 相对路径
-    pub async fn get_full_local_path(&self, storage_type: &str, relative_path: &str) -> FileResult<PathBuf> {
-        let base_path = self.config.get_base_path(storage_type)
-            .await
-            .map_err(|e| FileError::System(lsys_core::fluent_message!("file-storage-error", {"error": e.to_string()})))?;
+    pub async fn get_full_local_path(
+        &self,
+        storage_type: &str,
+        relative_path: &str,
+    ) -> FileResult<PathBuf> {
+        let base_path = self.config.get_base_path(storage_type).await.map_err(|e| {
+            FileError::System(
+                lsys_core::fluent_message!("file-storage-error", {"error": e.to_string()}),
+            )
+        })?;
         Ok(base_path.join(relative_path))
     }
 
     /// 移动文件到存储路径
     /// 返回相对于存储基础路径的相对路径
-    /// 
+    ///
     /// - `storage_type`: 存储类型 (如 STORAGE_TYPE_LOCAL_PUBLIC)
     pub async fn move_file_to_storage(
         &self,
@@ -119,7 +132,7 @@ impl FileHelper {
 
     /// 拷贝文件到存储路径（保留源文件）
     /// 返回相对于存储基础路径的相对路径
-    /// 
+    ///
     /// - `storage_type`: 存储类型 (如 STORAGE_TYPE_LOCAL_PUBLIC)
     pub async fn copy_file_to_storage(
         &self,
@@ -170,7 +183,7 @@ impl FileHelper {
     }
 
     /// 合并分片文件
-    /// 
+    ///
     /// - `storage_type`: 存储类型 (如 STORAGE_TYPE_LOCAL_PUBLIC)
     pub async fn merge_chunk_files(
         &self,
@@ -193,7 +206,9 @@ impl FileHelper {
         let mut writer = BufWriter::with_capacity(BUF_SIZE, target_file);
 
         for chunk in &sorted {
-            let chunk_full_path = self.get_full_local_path(storage_type, &chunk.chunk_path).await?;
+            let chunk_full_path = self
+                .get_full_local_path(storage_type, &chunk.chunk_path)
+                .await?;
             let src = fs::File::open(&chunk_full_path).await?;
             // BufReader 将读端也提升为 128 KB，与写端对称
             // 使用 take(file_size) 限制只读取约定大小，防止实际文件超过约定大小时写入多余数据
@@ -280,7 +295,10 @@ impl FileHelper {
             {
                 Ok(Some(st)) => st,
                 Ok(None) => {
-                    warn!("cleanup: file id {} not found for chunk {}", chunk.file_id, chunk_id);
+                    warn!(
+                        "cleanup: file id {} not found for chunk {}",
+                        chunk.file_id, chunk_id
+                    );
                     continue;
                 }
                 Err(e) => {
@@ -292,7 +310,10 @@ impl FileHelper {
             let base_path = match config.get_base_path(&storage_type).await {
                 Ok(p) => p,
                 Err(e) => {
-                    warn!("cleanup: get base_path error for storage_type {}: {}", storage_type, e);
+                    warn!(
+                        "cleanup: get base_path error for storage_type {}: {}",
+                        storage_type, e
+                    );
                     continue;
                 }
             };
@@ -329,5 +350,50 @@ impl FileHelper {
                 warn!("cleanup: update chunk {} status error: {}", chunk_id, e);
             }
         }
+    }
+
+    /// 获取下载超时时间（秒），确保不超过任务超时时间
+    ///
+    /// 返回值保证：download_timeout < task_timeout
+    /// 如果配置的 download_timeout_secs >= task_timeout，则返回 task_timeout - 1
+    pub async fn get_safe_download_timeout(&self) -> FileResult<u64> {
+        let download_timeout = self.runtime_setting.get_download_timeout_secs().await?;
+        let task_timeout = self.config.download_config.task_timeout as u64;
+
+        if download_timeout >= task_timeout {
+            warn!(
+                "download_timeout_secs ({}) >= task_timeout ({}), using task_timeout - 1",
+                download_timeout, task_timeout
+            );
+            Ok(task_timeout.saturating_sub(1).max(1))
+        } else {
+            Ok(download_timeout)
+        }
+    }
+
+    /// 检查文件状态是否已被外部修改为失败或删除
+    /// 返回 `true` 表示应中止操作
+    pub async fn is_file_aborted(&self, file_id: u64) -> bool {
+        let result: Result<Option<i8>, _> = sqlx::query_scalar(&format!(
+            "SELECT status FROM {} WHERE id=? LIMIT 1",
+            FileModel::table_name(),
+        ))
+        .bind(file_id)
+        .fetch_optional(&self.db)
+        .await;
+        matches!(result, Ok(Some(s)) if FileStatus::Failed.eq(s) || FileStatus::Deleted.eq(s))
+    }
+
+    /// 检查分片状态是否已被外部修改为失败或已合并
+    /// 返回 `true` 表示应中止操作
+    pub async fn is_chunk_aborted(&self, chunk_id: u64) -> bool {
+        let result: Result<Option<i8>, _> = sqlx::query_scalar(&format!(
+            "SELECT status FROM {} WHERE id=? LIMIT 1",
+            FileLocalChunkModel::table_name(),
+        ))
+        .bind(chunk_id)
+        .fetch_optional(&self.db)
+        .await;
+        matches!(result, Ok(Some(s)) if FileChunkStatus::Failed.eq(s) || FileChunkStatus::Merged.eq(s))
     }
 }

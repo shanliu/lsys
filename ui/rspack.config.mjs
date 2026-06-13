@@ -90,7 +90,8 @@ export default defineConfig({
 	plugins: [
 		new Dotenv({
 			systemvars: true,
-			path: `./.env.${process.env.NODE_ENV || 'development'}`
+			path: `./.env.${process.env.NODE_ENV || 'development'}`,
+			silent: true,
 		}),
 		tanstackRouter({
 			target: 'react',
@@ -167,5 +168,8 @@ export default defineConfig({
 	output: {
 		filename: '[name].bundle.js',
 		publicPath: '/',
-	}
+	},
+	performance: {
+		hints: false,
+	},
 });

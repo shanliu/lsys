@@ -845,5 +845,9 @@ async fn compute_file_hash(path: impl AsRef<Path>) -> io::Result<String> {
         }
         hasher.update(&buffer[..n]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect())
 }

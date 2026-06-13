@@ -20,14 +20,16 @@ impl FileCollector {
     fn build_log_where<'a, 'args>(
         wb: &mut WhereClause<'a, 'args, MySql>,
         script_id: u64,
+        app_id: u64,
         request_id: Option<&str>,
         level: Option<u8>,
     ) {
         wb.and().field_eq("script_id", script_id);
+        wb.and().field_eq("app_id", app_id);
         if let Some(rid) = request_id {
-            let rid = rid.trim();
+            let rid = string_clear(rid, StringClear::Ident, Some(512));
             if !rid.is_empty() {
-                wb.and().field_eq("request_id", rid.to_owned());
+                wb.and().field_eq("request_id", rid);
             }
         }
         if let Some(lv) = level {
@@ -107,7 +109,7 @@ impl FileCollector {
     /// 查询采集日志（分页）
     pub async fn list_logs(
         &self,
-        script_id: u64,
+        script: &CollectorScriptModel,
         request_id: Option<&str>,
         level: Option<u8>,
         page: &CursorPageParam<u64>,
@@ -119,7 +121,7 @@ impl FileCollector {
         ));
         {
             let mut wb = WhereClause::new(&mut qb);
-            Self::build_log_where(&mut wb, script_id, request_id, level);
+            Self::build_log_where(&mut wb, script.id, script.app_id, request_id, level);
             if query_limit.has_cursor() {
                 query_limit.push_where(wb.and());
             }
@@ -139,7 +141,7 @@ impl FileCollector {
     /// 日志总数
     pub async fn count_logs(
         &self,
-        script_id: u64,
+        script: &CollectorScriptModel,
         request_id: Option<&str>,
         level: Option<u8>,
         total_param: &TotalParam,
@@ -158,7 +160,7 @@ impl FileCollector {
         };
         {
             let mut wb = WhereClause::new(&mut qb);
-            Self::build_log_where(&mut wb, script_id, request_id, level);
+            Self::build_log_where(&mut wb, script.id, script.app_id, request_id, level);
         }
         if query.is_threshold_mode() {
             query.push_limit(&mut qb);
@@ -169,7 +171,79 @@ impl FileCollector {
             .build_query_scalar()
             .fetch_one(&self.db)
             .await
-            .unwrap_or(0i64) as u64;
+            .unwrap_or(0i64);
+
+        Ok(query.finalize(count))
+    }
+
+    /// 查询指定记录关联的日志列表（游标分页）
+    ///
+    /// - `record`: 记录实体
+    /// - `level`: 可选日志级别过滤
+    /// - `page`: CursorPageParam 分页
+    pub async fn list_record_logs(
+        &self,
+        record: &CollectorRecordModel,
+        level: Option<u8>,
+        page: &CursorPageParam<u64>,
+    ) -> FileManagerResult<(Vec<CollectorLogModel>, CursorPageData<u64>)> {
+        let query_limit = page.page_query("id");
+        let mut qb = QueryBuilder::<MySql>::new(format!(
+            "SELECT * FROM {}",
+            CollectorLogModel::table_name()
+        ));
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_log_where(&mut wb, record.script_id, record.app_id, Some(&record.request_id), level);
+            if query_limit.has_cursor() {
+                query_limit.push_where(wb.and());
+            }
+        }
+        query_limit.push_order_by(&mut qb);
+        query_limit.push_limit(&mut qb);
+
+        let mut data = qb
+            .build_query_as::<CollectorLogModel>()
+            .fetch_all(&self.db)
+            .await?;
+
+        let next = query_limit.finalize(&mut data, |d, c| d.id == *c, |d| d.id);
+        Ok((data, next))
+    }
+
+    /// 查询指定记录关联的日志总数
+    pub async fn count_record_logs(
+        &self,
+        record: &CollectorRecordModel,
+        level: Option<u8>,
+    ) -> FileManagerResult<TotalRow> {
+        let total_param = TotalParam::default();
+        let query = total_param.total_count_query();
+        let mut qb = if query.is_threshold_mode() {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT count(*) FROM (SELECT 1 FROM {}",
+                CollectorLogModel::table_name()
+            ))
+        } else {
+            QueryBuilder::<MySql>::new(format!(
+                "SELECT count(*) FROM {}",
+                CollectorLogModel::table_name()
+            ))
+        };
+        {
+            let mut wb = WhereClause::new(&mut qb);
+            Self::build_log_where(&mut wb, record.script_id, record.app_id, Some(&record.request_id), level);
+        }
+        if query.is_threshold_mode() {
+            query.push_limit(&mut qb);
+            qb.push(") as t");
+        }
+
+        let count = qb
+            .build_query_scalar()
+            .fetch_one(&self.db)
+            .await
+            .unwrap_or(0i64);
 
         Ok(query.finalize(count))
     }

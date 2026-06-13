@@ -1,4 +1,5 @@
 use crate::common::UserAuthQueryDao;
+use crate::dao::WebDao;
 use crate::dao::{AccountOptionData, UserAuthDataOptionData};
 use crate::{common::JsonResult, dao::ShowUserAuthData};
 use lsys_access::dao::AccessSession;
@@ -32,7 +33,8 @@ pub struct UserAuthDataOptionParam {
 
 pub async fn login_data_from_user_auth(
     param: &UserAuthDataOptionParam,
-    req_dao: &UserAuthQueryDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(
     UserAuthData,
     Option<ShowUserAuthData>,
@@ -47,7 +49,12 @@ pub async fn login_data_from_user_auth(
     ),
     bool,
 )> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let email = if let Some(ref e) = param.email {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
@@ -77,8 +84,7 @@ pub async fn login_data_from_user_auth(
         .as_ref()
         .map(|e| e.iter().map(|e| e.as_str()).collect::<Vec<_>>());
 
-    let (out_auth_data, passwrod_timeout) = req_dao
-        .web_dao
+    let (out_auth_data, passwrod_timeout) = web_dao
         .web_user
         .auth
         .login_data_from_user_auth(
@@ -89,8 +95,7 @@ pub async fn login_data_from_user_auth(
             },
         )
         .await?;
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_user
         .account
         .user_detail(

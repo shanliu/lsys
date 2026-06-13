@@ -29,28 +29,40 @@ fn rand_str_lower_only_lowercase() {
 fn rand_str_upper_number_charset() {
     let s = rand_str(RandType::UpperNumber, 40);
     assert_eq!(s.len(), 40);
-    assert!(s.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()));
+    assert!(
+        s.chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+    );
 }
 
 #[test]
 fn rand_str_lower_number_charset() {
     let s = rand_str(RandType::LowerNumber, 40);
     assert_eq!(s.len(), 40);
-    assert!(s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
+    assert!(
+        s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    );
 }
 
 #[test]
 fn rand_str_upper_hex_charset() {
     let s = rand_str(RandType::UpperHex, 40);
     assert_eq!(s.len(), 40);
-    assert!(s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()));
+    assert!(
+        s.chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase())
+    );
 }
 
 #[test]
 fn rand_str_lower_hex_charset() {
     let s = rand_str(RandType::LowerHex, 40);
     assert_eq!(s.len(), 40);
-    assert!(s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+    assert!(
+        s.chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    );
 }
 
 #[test]
@@ -90,7 +102,10 @@ fn now_time_monotonic_within_call() {
 #[test]
 fn str_time_valid_datetime() {
     let dt = str_time("2024-01-15 14:30:00").expect("should parse");
-    assert_eq!(dt.format("%Y-%m-%d %H:%M:%S").to_string(), "2024-01-15 14:30:00");
+    assert_eq!(
+        dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+        "2024-01-15 14:30:00"
+    );
 }
 
 #[test]
@@ -123,7 +138,11 @@ fn str_time_invalid_month() {
 
 #[test]
 fn string_clear_space_trims_and_squashes() {
-    let result = string_clear("  hello   world  ", StringClear::Option(STRING_CLEAR_SPACE), None);
+    let result = string_clear(
+        "  hello   world  ",
+        StringClear::Option(STRING_CLEAR_SPACE),
+        None,
+    );
     assert_eq!(result, "hello world");
 }
 
@@ -136,7 +155,11 @@ fn string_clear_space_tab_becomes_single_space() {
 
 #[test]
 fn string_clear_nl_removes_newlines() {
-    let result = string_clear("line1\nline2\rline3", StringClear::Option(STRING_CLEAR_NL), None);
+    let result = string_clear(
+        "line1\nline2\rline3",
+        StringClear::Option(STRING_CLEAR_NL),
+        None,
+    );
     assert_eq!(result, "line1 line2 line3");
 }
 
@@ -242,7 +265,11 @@ fn string_clear_take_truncates_output() {
 
 #[test]
 fn string_clear_take_with_space_flag() {
-    let result = string_clear("  hello   world  ", StringClear::Option(STRING_CLEAR_SPACE), Some(7));
+    let result = string_clear(
+        "  hello   world  ",
+        StringClear::Option(STRING_CLEAR_SPACE),
+        Some(7),
+    );
     // After clearing: "hello world", then take 7 → "hello w"
     assert_eq!(result, "hello w");
 }

@@ -1,7 +1,10 @@
-import { FilterContainer } from '@apps/main/components/filter-container/container'
-import { FilterActions } from '@apps/main/components/filter-container/filter-actions'
-import { FilterInput } from '@apps/main/components/filter-container/filter-input'
-import { FilterTotalCount } from '@apps/main/components/filter-container/filter-total-count'
+import { FilterBar } from '@apps/main/components/filter-bar/container'
+import { FilterActions } from '@apps/main/components/filter-bar/filter-actions/filter-actions'
+import { FilterResetButton } from '@apps/main/components/filter-bar/filter-actions/filter-reset-button'
+import { FilterSearchButton } from '@apps/main/components/filter-bar/filter-actions/filter-search-button'
+import { FilterInput, FilterTotalCount } from '@apps/main/components/filter-bar/filter-fields'
+import { useFilterBarForm } from '@apps/main/hooks/use-filter-bar-form'
+import * as z from 'zod'
 import {
   Drawer,
   DrawerContent,
@@ -147,6 +150,24 @@ export function OpListDrawer({
     queryClient.invalidateQueries({ queryKey: ['admin-rbac-op-list'] })
   }
 
+  const filterForm = useFilterBarForm<z.infer<typeof OpListFilterFormSchema>>({
+    defaultValues: {
+      op_name: filterParams.op_name,
+      op_key: filterParams.op_key,
+    },
+    resolver: zodResolver(OpListFilterFormSchema) as any,
+    initValues: {
+      op_name: undefined,
+      op_key: undefined,
+    },
+    onSubmit: (data) => {
+      setFilterParams((prev) => ({ ...prev, ...data, page: 1 }))
+    },
+    onReset: () => {
+      setFilterParams({ page: 1, limit: DEFAULT_PAGE_SIZE })
+    },
+  })
+
   // 打开编辑表单
   const handleEdit = (op: OpItemType) => {
     setEditingOp(op)
@@ -274,57 +295,17 @@ export function OpListDrawer({
         <div className="flex-1 overflow-hidden flex flex-col pb-4 md:pb-6">
           {/* 过滤器 */}
           <div className="flex-shrink-0 mt-4 mb-3">
-            <FilterContainer
-              defaultValues={{
-                op_name: filterParams.op_name,
-                op_key: filterParams.op_key,
-              }}
-              resolver={zodResolver(OpListFilterFormSchema) as any}
-              onSubmit={(data) => {
-                setFilterParams((prev) => ({
-                  ...prev,
-                  ...data,
-                  page: 1,
-                }))
-              }}
-              onReset={() => {
-                setFilterParams({
-                  page: 1,
-                  limit: DEFAULT_PAGE_SIZE,
-                })
-              }}
-              countComponent={
+            <FilterBar form={filterForm} className="bg-muted/50 rounded-lg border relative">
+              <FilterBar.Summary>
                 <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
-              }
-              className="bg-muted/50 rounded-lg border relative"
-            >
-              {(layoutParams, form) => (
-                <div className="flex-1 flex flex-wrap items-end gap-2">
-                  <FilterInput
-                    name="op_name"
-                    placeholder="操作名称"
-                    label="名称"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-
-                  <FilterInput
-                    name="op_key"
-                    placeholder="操作标识"
-                    label="标识"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                  />
-                </div>
-              )}
-            </FilterContainer>
+              </FilterBar.Summary>
+              <FilterInput name="op_name" placeholder="操作名称" label="名称" disabled={isLoading} />
+              <FilterInput name="op_key" placeholder="操作标识" label="标识" disabled={isLoading} />
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+              </FilterActions>
+            </FilterBar>
           </div>
 
           {/* 操作列表 - 表格模式 */}

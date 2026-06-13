@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use lsys_core::fluent_message;
 use lsys_core::utils::{RandType, rand_str};
 use lsys_web::{
-    common::{JsonError, JsonResponse, JsonResult, RequestDao},
+    common::{JsonError, JsonResponse, JsonResult},
     dao::{OauthCallbackParam, OauthLogin, OauthLoginData, OauthLoginParam, WebDao},
 };
 use redis::AsyncCommands;
@@ -72,14 +72,14 @@ impl WechatLogin {
     // 微信扫码登陆完成后,进行登录数据回写
     pub async fn state_callback(
         &self,
-        req_dao: &RequestDao,
+        web_dao: &WebDao,
         user_auth: &WechatCallbackParam,
     ) -> JsonResult<JsonResponse> {
         let (statek, _) = self
             .parse_state(&user_auth.state)
             .map_err(|e| JsonError::Message(fluent_message!("wechat-parse-state-error", e)))?;
         let login_key = login_data_key(&statek);
-        let mut redis = req_dao.web_dao.redis.get().await?;
+        let mut redis = web_dao.redis.get().await?;
         let login_data = serde_json::to_string(&user_auth)?;
         let _: () = redis
             .set_ex(&login_key, login_data, self.timeout as u64)
@@ -89,12 +89,12 @@ impl WechatLogin {
     // pc定时从服务器获取登陆数据
     pub async fn state_check(
         &self,
-        req_dao: &RequestDao,
+        web_dao: &WebDao,
         state: &str,
     ) -> JsonResult<(bool, Option<WechatCallbackParam>)> {
         let state_ukey = &state.chars().take(6).collect::<String>();
         let state_key = state_key(state_ukey);
-        let mut redis = req_dao.web_dao.redis.get().await?;
+        let mut redis = web_dao.redis.get().await?;
 
         let data_opt: Option<String> = redis.get(state_key.as_str()).await?;
 

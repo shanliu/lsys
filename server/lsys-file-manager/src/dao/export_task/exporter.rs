@@ -1,6 +1,9 @@
 // 统一导出 Trait 定义
 
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use lsys_core::fluents::FluentMgr;
 
 use crate::dao::result::FileManagerError;
 use crate::model::ExportTaskModel;
@@ -27,6 +30,7 @@ where
     ///
     /// - `record`：当前导出任务的完整记录（包含 user_id、app_id、export_type 等）
     /// - `params`：从 `export_params` 解析后的 JSON
+    /// - `lang`：请求时的语言标识（如 "zh_CN"、"en_US"），与业务参数分离
     ///
     /// 成功返回本地文件路径（管理器会 Move 到 lsys-file 存储）
     /// 失败返回错误类型 E（必须能转换为 FileManagerError）
@@ -34,6 +38,8 @@ where
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<FluentMgr>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf, E>> + Send + 'a>>;
 }
 
@@ -53,12 +59,14 @@ where
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<FluentMgr>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PathBuf, FileManagerError>> + Send + 'a>,
     > {
         Box::pin(async move {
             self.inner
-                .export(record, params)
+                .export(record, params, lang, fluent_mgr)
                 .await
                 .map_err(|e| e.into())
         })

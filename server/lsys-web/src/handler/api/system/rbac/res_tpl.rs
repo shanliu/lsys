@@ -1,7 +1,8 @@
 use crate::common::{
-    JsonData, JsonPageData, JsonResponse, JsonResult, LimitParam, ToCursorPageParam,
+    JsonData, JsonPageData, JsonResponse, JsonResult, LimitParam, RequestDao, ToCursorPageParam,
     UserAuthQueryDao,
 };
+use crate::dao::WebDao;
 use lsys_access::dao::{AccessSession, UserDataParam};
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::TotalParam;
@@ -11,10 +12,18 @@ use serde_json::{Value, json};
 
 //静态模板资源数据
 
-pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    req_dao.user_session.read().await.get_session_data().await?;
-    let tpl_data = req_dao
-        .web_dao
+pub async fn static_res_data(
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let tpl_data = web_dao
         .web_rbac
         .res_tpl_data(false, false)
         .into_iter()
@@ -49,9 +58,18 @@ pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRespo
 
 //动态全局模板类型资源
 //动态资源按类型返回,传给 dynamic_res_data 返回每个类型的资源数据
-pub async fn dynamic_res_type(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    req_dao.user_session.read().await.get_session_data().await?;
-    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(false, true);
+pub async fn dynamic_res_type(
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let tpl_data = web_dao.web_rbac.res_tpl_data(false, true);
     let mut out_data = vec![];
     for tmp in tpl_data.into_iter() {
         out_data.push(json!({
@@ -79,11 +97,17 @@ pub struct DynamicResDataFromUserParam {
 //获取一批用户的全局资源
 pub async fn dynamic_res_data_global_user(
     param: &DynamicResDataFromUserParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let user_res_data = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let user_res_data = web_dao
         .web_access
         .access_dao
         .user
@@ -99,8 +123,7 @@ pub async fn dynamic_res_data_global_user(
         .await?;
     let total = if param.count_num.unwrap_or_default() {
         Some(PageTotalRowValue::from(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user
@@ -123,9 +146,8 @@ pub async fn dynamic_res_data_global_user(
         .iter()
         .map(|e| e.id.to_string())
         .collect::<Vec<String>>();
-    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(false, true);
-    let res_data = req_dao
-        .web_dao
+    let tpl_data = web_dao.web_rbac.res_tpl_data(false, true);
+    let res_data = web_dao
         .web_rbac
         .res_tpl_sync(
             &tpl_data,

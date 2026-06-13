@@ -24,6 +24,7 @@ use lettre::{
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::secret::FieldEncryptor;
 use lsys_core::utils::RequestEnv;
 use lsys_core::valid_key;
 use lsys_core::valid_param::{
@@ -31,8 +32,8 @@ use lsys_core::valid_param::{
 };
 use lsys_setting::{
     dao::{
-        MultipleSetting, MultipleSettingData, SettingData, SettingDecode, SettingEncode,
-        SettingJson, SettingKey, SettingResult,
+        MultipleSettingData, SettingData, SettingDecode, SettingEncode,
+        SettingJson, SettingKey, SettingResult, MultipleSetting,
     },
     model::SettingModel,
 };
@@ -44,7 +45,7 @@ use tokio::sync::RwLock;
 use tracing::debug;
 // 邮件发送 smtp 适配
 
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize, Default, Clone)]
 pub struct SmtpConfig {
     pub host: String,
     pub port: u16,
@@ -112,14 +113,20 @@ pub struct SmtpTplConfig {
 //邮件发送smtp配置
 pub struct SenderSmtpConfig {
     setting: Arc<MultipleSetting>,
+    encryptor: Arc<FieldEncryptor>,
     tpl_config: Arc<SenderTplConfig>,
 }
 
 impl SenderSmtpConfig {
-    pub fn new(setting: Arc<MultipleSetting>, tpl_config: Arc<SenderTplConfig>) -> Self {
+    pub fn new(
+        setting: Arc<MultipleSetting>,
+        tpl_config: Arc<SenderTplConfig>,
+        encryptor: Arc<FieldEncryptor>,
+    ) -> Self {
         Self {
-            tpl_config,
             setting,
+            encryptor,
+            tpl_config,
         }
     }
     //列出有效的smtp配置
@@ -127,10 +134,21 @@ impl SenderSmtpConfig {
         &self,
         config_ids: Option<&[u64]>,
     ) -> SenderResult<Vec<SettingData<SmtpConfig>>> {
-        Ok(self
+        let raw = self
             .setting
             .list_data::<SmtpConfig>(None, config_ids, &OffsetPageParam::new(None))
-            .await?)
+            .await?;
+        let mut out = Vec::with_capacity(raw.len());
+        for item in raw {
+            let model = item.model().clone();
+            let mut config: SmtpConfig = (*item).clone();
+            config.password = self
+                .encryptor
+                .decrypt_str(&config.password)
+                .map_err(|e| SenderError::System(e.to_fluent_message()))?;
+            out.push(SettingData::new(config, model));
+        }
+        Ok(out)
     }
     //删除指定的smtp配置
     pub async fn del_config(
@@ -156,12 +174,17 @@ impl SenderSmtpConfig {
     ) -> SenderResult<u64> {
         self.check_config_param_valid(config, true).await?;
         self.check_config(config).await?;
+        let mut to_save = config.clone();
+        to_save.password = self
+            .encryptor
+            .encrypt_str(&config.password)
+            .map_err(|e| SenderError::System(e.to_fluent_message()))?;
         Ok(self
             .setting
             .edit(
                 None,
                 id,
-                &MultipleSettingData { name, data: config },
+                &MultipleSettingData { name, data: &to_save },
                 user_id,
                 None,
                 env_data,
@@ -178,11 +201,16 @@ impl SenderSmtpConfig {
     ) -> SenderResult<u64> {
         self.check_config_param_valid(config, true).await?;
         self.check_connect(config).await?;
+        let mut to_save = config.clone();
+        to_save.password = self
+            .encryptor
+            .encrypt_str(&config.password)
+            .map_err(|e| SenderError::System(e.to_fluent_message()))?;
         Ok(self
             .setting
             .add(
                 None,
-                &MultipleSettingData { name, data: config },
+                &MultipleSettingData { name, data: &to_save },
                 user_id,
                 None,
                 env_data,
@@ -327,13 +355,15 @@ impl SenderSmtpConfig {
 pub struct SmtpSenderTask {
     mailer: Arc<RwLock<HashMap<u64, AsyncSmtpTransport<Tokio1Executor>>>>,
     tpls: Arc<MessageTpls>,
+    encryptor: Arc<FieldEncryptor>,
 }
 
 impl SmtpSenderTask {
-    pub fn new(tpls: Arc<MessageTpls>) -> Self {
+    pub fn new(tpls: Arc<MessageTpls>, encryptor: Arc<FieldEncryptor>) -> Self {
         Self {
             mailer: Arc::new(RwLock::new(HashMap::new())),
             tpls,
+            encryptor,
         }
     }
 }
@@ -371,6 +401,16 @@ impl SenderTaskExecutor<u64, MailTaskItem, MailTaskData> for SmtpSenderTask {
                     e.to_fluent_message().default_format()
                 ))
             })?;
+        // password 字段在数据库中以加密形式存储，取出后解密
+        let decrypted_password = self
+            .encryptor
+            .decrypt_str(&smtp_setting.password)
+            .map_err(|e| SenderExecError::Next(format!("decrypt smtp password fail: {}", e.to_fluent_message().default_format())))?;
+        let smtp_setting = {
+            let mut cfg = (*smtp_setting).clone();
+            cfg.password = decrypted_password;
+            cfg
+        };
         let hand_id = format!("{}-{}", smtp_setting.host, smtp_setting.user);
         let mail_tpl_config = serde_json::from_str::<SmtpTplConfig>(&tpl_config.config_data)
             .map_err(|e| {

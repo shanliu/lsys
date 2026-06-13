@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminFileManage;
 use lsys_access::dao::AccessSession;
@@ -20,12 +21,18 @@ pub struct AdminOssConfigListParam {
 /// 管理员查询 OSS 配置列表
 pub async fn admin_oss_config_list(
     param: &AdminOssConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -39,7 +46,7 @@ pub async fn admin_oss_config_list(
 
     let page = OffsetPageParam::new(Some(OffsetPageValue::new(offset, page_size)));
 
-    let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
+    let oss_config = &web_dao.web_file.file_dao.oss_config();
     let data = oss_config.list_config(&page).await?;
 
     let items: Vec<serde_json::Value> = data
@@ -52,6 +59,7 @@ pub async fn admin_oss_config_list(
                 "config_key": item.config_key,
                 "provider_type": item.provider_type,
                 "provider_config": item.provider_config,
+                "is_private": item.is_private,
                 "change_user_id": m.change_user_id,
                 "change_time": m.change_time,
             })
@@ -76,12 +84,18 @@ pub struct AdminOssConfigDetailParam {
 /// 管理员查看 OSS 配置详情
 pub async fn admin_oss_config_detail(
     param: &AdminOssConfigDetailParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -89,7 +103,7 @@ pub async fn admin_oss_config_detail(
         )
         .await?;
 
-    let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
+    let oss_config = &web_dao.web_file.file_dao.oss_config();
     let item = oss_config.load_config(param.id).await?;
     let m = item.model();
 
@@ -99,6 +113,7 @@ pub async fn admin_oss_config_detail(
         "config_key": item.config_key,
         "provider_type": item.provider_type,
         "provider_config": item.provider_config,
+        "is_private": item.is_private,
         "change_user_id": m.change_user_id,
         "change_time": m.change_time,
     }))))
@@ -112,17 +127,25 @@ pub struct AdminOssConfigAddParam {
     pub config_key: String,
     pub provider_type: String,
     pub provider_config: serde_json::Value,
+    #[serde(default)]
+    pub is_private: bool,
 }
 
 /// 管理员新增 OSS 配置
 pub async fn admin_oss_config_add(
     param: &AdminOssConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -130,13 +153,14 @@ pub async fn admin_oss_config_add(
         )
         .await?;
 
-    let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
+    let oss_config = &web_dao.web_file.file_dao.oss_config();
     let id = oss_config
         .add_config(
             &param.name,
             &param.config_key,
             &param.provider_type,
             param.provider_config.clone(),
+            param.is_private,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )
@@ -155,17 +179,25 @@ pub struct AdminOssConfigEditParam {
     pub id: u64,
     pub name: String,
     pub provider_config: serde_json::Value,
+    #[serde(default)]
+    pub is_private: bool,
 }
 
 /// 管理员修改 OSS 配置
 pub async fn admin_oss_config_edit(
     param: &AdminOssConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -173,12 +205,13 @@ pub async fn admin_oss_config_edit(
         )
         .await?;
 
-    let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
+    let oss_config = &web_dao.web_file.file_dao.oss_config();
     oss_config
         .edit_config(
             param.id,
             &param.name,
             param.provider_config.clone(),
+            param.is_private,
             auth_data.user_id(),
             Some(&req_dao.req_env),
         )
@@ -198,12 +231,18 @@ pub struct AdminOssConfigDeleteParam {
 /// 管理员删除 OSS 配置
 pub async fn admin_oss_config_delete(
     param: &AdminOssConfigDeleteParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -211,7 +250,7 @@ pub async fn admin_oss_config_delete(
         )
         .await?;
 
-    let oss_config = &req_dao.web_dao.web_files.file_dao.oss_config();
+    let oss_config = &web_dao.web_file.file_dao.oss_config();
     oss_config
         .del_config(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await?;

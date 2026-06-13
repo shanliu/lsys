@@ -1,31 +1,32 @@
+
 mod result;
 mod rustls;
 use actix_web::dev::Server;
 use actix_web::web::{Data, JsonConfig};
 use actix_web::{HttpResponse, HttpServer, error, http, middleware as middlewares};
 
-use crate::common::handler::{JwtQueryConfig, RestQueryConfig};
-use crate::common::middleware::{RedirectSsl, RequestID};
+use crate::common::handler::RestQueryConfig;
+use crate::common::handler::TokenSignConfig;
+use crate::common::app::{build_fuse_rules, build_ip_throttle};
+use crate::common::middleware::{TrafficGuard, RedirectSsl, RequestID};
 use crate::handler::render_500;
 use crate::handler::router;
 use actix_cors::Cors;
 use actix_web::App;
 use futures_util::TryFutureExt;
-use jsonwebtoken::{DecodingKey, Validation};
 use lsys_web::common::FluentFormat;
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::app_core::utils::init_tracing;
 use lsys_web::lsys_core::app_core::{AppCore, AppCoreError};
-use lsys_web::lsys_core::config::ConfigError;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
-use result::AppError;
+pub use result::AppError;
 use rustls::load_rustls_config;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::debug;
 
 pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
-    let app_core = AppCore::new(app_dir, "config", "app", None).await?;
+    let app_core = AppCore::new(app_dir, "config", "app", None, None).await?;
     init_tracing(&app_core).await?;
     let app_core = Arc::new(app_core);
     let app_dao = Data::new(WebDao::new(app_core.clone()).await.map_err(|e| {
@@ -33,12 +34,6 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
     })?);
     let bind_addr = app_dao.bind_addr();
     let bind_ssl_data = app_dao.bind_ssl_data();
-    let app_jwt_key = app_dao
-        .app_core
-        .config
-        .find(None)
-        .get_string("app_jwt_key")
-        .map_err(|err| AppCoreError::Config(ConfigError::Config(err)))?;
     let app_json_limit = app_dao
         .app_core
         .config
@@ -59,12 +54,31 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         }
     };
 
+    // 登录 token 校验配置：启动时读取一次，注入后由各解析器从请求取出
+    let token_config = TokenSignConfig::from_config(&app_dao);
+
+    // 创建流量守护 - 标签熔断 + IP限流
+    // 标签熔断：业务端通过 X-Fuse 响应头标记失败，中间件按规则匹配并独立计数
+    // IP 限流：全局限流，防止单 IP 过载
+    // 规则定义见 common/app/fuse_tags.rs
+    let traffic_guard = TrafficGuard::builder()
+        .fuse_rules(build_fuse_rules())
+        .ip_throttle(build_ip_throttle())
+        .build();
+
+    // 启动后台清理任务
+    let cleanup_guard = traffic_guard.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+            cleanup_guard.cleanup();
+        }
+    });
+
     let is_use_ssl = bind_ssl_data.is_some();
     let mut server = HttpServer::new(move || {
-        let jwt_config = JwtQueryConfig::new(
-            DecodingKey::from_secret(app_jwt_key.as_bytes()),
-            Validation::default(),
-        );
+        // 每个worker使用独立的熔断器实例（共享统计数据）
+        let traffic_guard = traffic_guard.clone();
         let json_config = JsonConfig::default()
             .limit(app_json_limit as usize)
             .error_handler(|err, _req| {
@@ -109,6 +123,11 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         let mut cors = Cors::default()
             .allow_any_header()
             .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+            .expose_headers(vec![
+                "Content-Disposition",
+                "Content-Type",
+                "Content-Length",
+            ])
             .max_age(3600);
 
         if origin_list.iter().any(|o| o == "*") || origin_list.is_empty() {
@@ -120,6 +139,8 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
         }
 
         let app = App::new()
+            // 流量守护中间件 - 熔断+限流，防止恶意攻击（放在最外层，最先拦截）
+            .wrap(traffic_guard)
             .wrap(RedirectSsl::new(is_use_ssl))
             .wrap(middlewares::Logger::default())
             .wrap(middlewares::Compress::default())
@@ -133,8 +154,8 @@ pub async fn create_server(app_dir: &str) -> Result<Server, AppError> {
             .wrap(cors)
             .app_data(app_dao.clone())
             .app_data(json_config)
-            .app_data(jwt_config)
-            .app_data(rest_config);
+            .app_data(rest_config)
+            .app_data(token_config.clone());
         router(app, &app_dao)
     });
     server = server.bind(bind_addr).map_err(AppCoreError::Io)?;

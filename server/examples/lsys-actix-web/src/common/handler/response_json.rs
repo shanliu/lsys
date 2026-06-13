@@ -44,6 +44,8 @@ impl Responder for ResponseJson {
         if let Some(token) = req.extensions().get::<UserAuthToken>()
             && !token.token.is_empty()
         {
+            // token 本身不携带时间；cookie 的 max_age 按服务端真实 `expire_time`
+            // （解析时回填进 `time_out`）设置，把过期时间推送给客户端。
             let now_t = now_time().unwrap_or_default();
             let age = token.time_out.saturating_sub(now_t);
             let cookie = Cookie::build(AUTH_COOKIE_NAME, token.token.clone())
@@ -106,3 +108,12 @@ result_impl_system_error!(PayloadError);
 result_impl_system_error!(actix_web::Error);
 result_impl_system_error!(BlockingError);
 result_impl_system_error!(MailboxError);
+
+// Import RestError for conversion
+use super::request_rest::RestError;
+
+impl From<RestError> for ResponseJson {
+    fn from(err: RestError) -> Self {
+        err.into_json_response_default().into()
+    }
+}

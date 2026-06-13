@@ -1,0 +1,13 @@
+[package]
+name = "lsys-sdk"
+version = "0.0.1"
+authors = ["liushan <shan.liu@msn.com>"]
+edition = "2024"
+
+[dependencies]
+lsys-core = { path = "../../lsys-core" }
+serde = { version = "1.0.*", features = ["derive"] }
+serde_json = "1.0.*"
+url = "~2.5.7"
+reqwest = { version = "~0.13.1", features = ["json", "multipart"] }
+tracing = { version = "0.1.*" }

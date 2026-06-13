@@ -3,11 +3,17 @@
 // docs\api\system\sender_mailer\message_list.md
 // docs\api\system\sender_mailer\message_logs.md
 // docs\api\system\sender_mailer\message_view.md
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { useAdminExportAction } from "@apps/main/hooks/use-admin-export-action";
+import { EXPORT_TYPE_SYSTEM_MAILER_MESSAGE_LIST } from "@shared/apis/admin/export";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
 import {
   CursorPagination,
@@ -60,7 +66,7 @@ export function SendLogPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["admin_sender_mailer"] as const);
+  } = useDictData(["admin_sender_mailer", "admin_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -92,7 +98,7 @@ export function SendLogPage() {
 
 // 内容组件：负责内容加载和渲染
 interface SendLogContentProps {
-  dictData: TypedDictData<["admin_sender_mailer"]>;
+  dictData: TypedDictData<["admin_sender_mailer", "admin_export"]>;
 }
 
 function SendLogContent({ dictData }: SendLogContentProps) {
@@ -224,6 +230,42 @@ function SendLogContent({ dictData }: SendLogContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["systemSenderMailerMessageList"] });
   };
+
+  // 导出操作 hook
+  const exportAction = useAdminExportAction({
+    exportType: EXPORT_TYPE_SYSTEM_MAILER_MESSAGE_LIST,
+    params: {
+      tpl_key: filters.tpl_key ?? undefined,
+      status: filters.status ?? undefined,
+      body_id: filters.body_id ?? undefined,
+      snid: filters.snid ?? undefined,
+      to_mail: filters.to_mail ?? undefined,
+    },
+  });
+
+  const filterForm = useFilterBarForm<z.infer<typeof EmailLogFilterFormSchema>>({
+    defaultValues: {
+      tpl_key: filterParam.tpl_key,
+      status: filterParam.status,
+      body_id: filterParam.body_id,
+      snid: filterParam.snid,
+      to_mail: filterParam.to_mail,
+    },
+    resolver: zodResolver(EmailLogFilterFormSchema) as any,
+    initValues: {
+      tpl_key: undefined,
+      status: undefined,
+      body_id: undefined,
+      snid: undefined,
+      to_mail: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, pos: null, forward: true } as any });
+    },
+    onReset: () => {
+      navigate({ search: { pos: null, limit: currentLimit, forward: true } as any });
+    },
+  });
 
   // 处理查看详情（用 useMemo 因为在 columns useMemo 中使用）
   const handleViewDetail = useMemo(
@@ -413,94 +455,55 @@ function SendLogContent({ dictData }: SendLogContentProps) {
       <div className="container mx-auto p-4 max-w-[1600px] flex flex-col min-h-0 space-y-5">
         {/* 搜索和过滤 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          <FilterContainer
-            defaultValues={{
-              tpl_key: filterParam.tpl_key,
-              status: filterParam.status?.toString(),
-              body_id: filterParam.body_id?.toString(),
-              snid: filterParam.snid,
-              to_mail: filterParam.to_mail,
-            }}
-            resolver={zodResolver(EmailLogFilterFormSchema) as any}
-            onSubmit={(data) => {
-              // zod schema 已经处理了类型转换和空值清理，直接使用数据
-              navigate({
-                search: { ...data, pos: null, forward: true } as any,
-              });
-            }}
-            onReset={() => {
-              navigate({
-                search: {
-                  pos: null,
-                  limit: currentLimit,
-                  forward: true,
-                } as any,
-              });
-            }}
-            countComponent={<FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />}
-            className={cn("bg-card rounded-lg border shadow-sm relative")}
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3 lg:gap-4">
-
-                {/* 序列号过滤 */}
-                <div className="flex-1 min-w-[140px] max-w-[200px]">
-                  <FilterInput
-                    name="snid"
-                    placeholder="输入ID"
-                    label="ID"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-                {/* 模板键值过滤 */}
-                <div className="flex-1 min-w-[160px] max-w-[250px]">
-                  <FilterInput
-                    name="tpl_key"
-                    placeholder="搜索模板键值"
-                    label="模板键值"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 状态过滤 */}
-                <div className="flex-1 min-w-[140px] max-w-[200px]">
-                  <FilterDictSelect
-                    name="status"
-                    placeholder="选择状态"
-                    label="发送状态"
-                    disabled={isLoading}
-                    dictData={dictData.mail_send_status}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                  />
-                </div>
-
-                {/* 收件邮箱过滤 */}
-                <div className="flex-1 min-w-[180px] max-w-[280px]">
-                  <FilterInput
-                    name="to_mail"
-                    placeholder="输入收件邮箱"
-                    label="收件邮箱"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-
-                {/* 动作按钮区域 */}
-                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                  />
-                </div>
-              </div>
-            )}
-          </FilterContainer>
+          <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterBar.MobileExtra>
+              <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+            </FilterBar.MobileExtra>
+            {/* 序列号过滤 */}
+            <div className="flex-1 min-w-[140px] max-w-[200px]">
+              <FilterInput name="snid" placeholder="输入ID" label="ID" disabled={isLoading} />
+            </div>
+            {/* 模板键值过滤 */}
+            <div className="flex-1 min-w-[160px] max-w-[250px]">
+              <FilterInput name="tpl_key" placeholder="搜索模板键值" label="模板键值" disabled={isLoading} />
+            </div>
+            {/* 状态过滤 */}
+            <div className="flex-1 min-w-[140px] max-w-[200px]">
+              <FilterDictSelect name="status" placeholder="选择状态" label="发送状态" disabled={isLoading} dictData={dictData.mail_send_status} allLabel="全部" />
+            </div>
+            {/* 收件邮箱过滤 */}
+            <div className="flex-1 min-w-[180px] max-w-[280px]">
+              <FilterInput name="to_mail" placeholder="输入收件邮箱" label="收件邮箱" disabled={isLoading} />
+            </div>
+            {/* 动作按钮区域 */}
+            <div className={cn("flex-shrink-0")}>
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+                <FilterBar.DesktopOnly>
+                  <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                    onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+                </FilterBar.DesktopOnly>
+              </FilterActions>
+            </div>
+            <FilterBar.MobileFooter>
+              {(closeDrawer) => (
+                <ExportButton isSubmitting={exportAction.isSubmitting}
+                  onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+              )}
+            </FilterBar.MobileFooter>
+          </FilterBar>
+          <ExportDrawer
+            open={exportAction.drawerOpen}
+            onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+            statusDict={dictData.export_task_status!}
+            tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+            currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+            onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+          />
         </div>
 
         {/* 表格和分页容器 */}

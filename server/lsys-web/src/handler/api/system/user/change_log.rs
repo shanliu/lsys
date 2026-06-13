@@ -1,5 +1,6 @@
 use crate::common::{JsonData, ToCursorPageParam};
-use crate::common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, LimitParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminChangeLogsView;
 use lsys_access::dao::AccessSession;
@@ -19,20 +20,25 @@ pub struct ChangeLogsListParam {
 
 pub async fn change_logs_list(
     param: &ChangeLogsListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminChangeLogsView {},
         )
         .await?;
-    let (res, next_data) = req_dao
-        .web_dao
+    let (res, next_data) = web_dao
         .web_user
         .change_logger_dao
         .list_data(
@@ -44,8 +50,7 @@ pub async fn change_logs_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_user
                 .change_logger_dao
                 .list_count(
@@ -62,7 +67,7 @@ pub async fn change_logs_list(
 
     let cursor = PageCursorValue::from(&next_data);
     Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
-        bind_vec_user_info_from_req!(req_dao, res, add_user_id, false),
+        bind_vec_user_info_from_req!(web_dao, res, add_user_id, false),
         cursor,
         count,
     ))))

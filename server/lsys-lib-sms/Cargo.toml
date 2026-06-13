@@ -19,16 +19,16 @@ md5 = "~0.8.0"
 rand = "~0.10.0"
 ring = "~0.17.5"
 base64 = { version = "~0.22.1" }
-sha2 = { version = "~0.10.8" }
+sha2 = { version = "~0.11.0" }
 chrono = { version = "~0.4.31" }
-hmac = { version = "~0.12.1" }
+hmac = { version = "~0.13.0" }
 hex = { version = "~0.4.3" }
 reqwest = { version = "~0.13.1", features = ["form"] }
-aes = { version = "~0.8", optional = true }
+aes = { version = "~0.9", optional = true }
 
 
 [dev-dependencies]
-tokio = { version = "~1.51.0", features = ["test-util", "full"] }
+tokio = { version = "~1.52.0", features = ["test-util", "full"] }
 
 [features]
 default = [

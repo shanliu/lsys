@@ -129,7 +129,7 @@ impl AccountLoginHistory {
             .build_query_scalar()
             .fetch_one(&self.db)
             .await
-            .unwrap_or(0i64) as u64;
+            .unwrap_or(0i64);
         Ok(query.finalize(count))
     }
     /// 设置用户信息

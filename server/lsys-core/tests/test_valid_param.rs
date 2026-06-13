@@ -1109,15 +1109,9 @@ fn test_pattern_numeric_empty_fails() {
 fn test_git_hash_case_insensitive() {
     let rule = ValidGit::<&str>::VersionHash;
     // Upper case hex should also work (is_ascii_hexdigit accepts A-F)
-    assert_rule_ok(
-        &rule,
-        &"ABCDEF0123456789ABCDEF0123456789ABCDEF01",
-    );
+    assert_rule_ok(&rule, &"ABCDEF0123456789ABCDEF0123456789ABCDEF01");
     // Mixed case
-    assert_rule_ok(
-        &rule,
-        &"abCDef0123456789abCDef0123456789abCDef01",
-    );
+    assert_rule_ok(&rule, &"abCDef0123456789abCDef0123456789abCDef01");
 }
 
 #[test]

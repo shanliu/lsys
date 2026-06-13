@@ -1,8 +1,9 @@
 use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{JsonResponse, JsonResult};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{LimitParam, UserAuthQueryDao},
+    common::{LimitParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminUserManage,
 };
 use lsys_access::dao::{AccessError, AccessSession, SessionDataParam};
@@ -27,12 +28,18 @@ pub struct LoginHistoryParam {
 }
 pub async fn login_history(
     param: &LoginHistoryParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -45,8 +52,7 @@ pub async fn login_history(
         user_id: param.user_id,
         is_enable: param.is_enable,
     };
-    let (res, next_data) = req_dao
-        .web_dao
+    let (res, next_data) = web_dao
         .web_access
         .access_dao
         .user
@@ -58,8 +64,7 @@ pub async fn login_history(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user
@@ -72,7 +77,7 @@ pub async fn login_history(
     };
     let cursor = PageCursorValue::from(&next_data);
     Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
-        bind_vec_user_info_from_req!(req_dao, res, user_id, false),
+        bind_vec_user_info_from_req!(web_dao, res, user_id, false),
         cursor,
         count,
     ))))
@@ -88,19 +93,24 @@ pub struct UserLogoutParam {
 }
 pub async fn user_logout(
     param: &UserLogoutParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminUserManage {},
         )
         .await?;
-    let session_res = req_dao
-        .web_dao
+    let session_res = web_dao
         .web_access
         .access_dao
         .auth
@@ -108,13 +118,7 @@ pub async fn user_logout(
         .await;
     match session_res {
         Ok(sess) => {
-            req_dao
-                .web_dao
-                .web_access
-                .access_dao
-                .auth
-                .do_logout(&sess)
-                .await?;
+            web_dao.web_access.access_dao.auth.do_logout(&sess).await?;
         }
         Err(AccessError::NotLogin) => {}
         Err(err) => return Err(err.into()),

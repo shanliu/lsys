@@ -107,7 +107,7 @@ pub(crate) async fn response_check(
         .bytes()
         .await
         .map_err(|e| format!("request read body fail:{}", e))?;
-    let res = unsafe { String::from_utf8_unchecked(data.to_vec()) };
+    let res = String::from_utf8_lossy(&data).into_owned();
     //println!("{}", res);
     debug!("sms response succ: {}", &res);
     if is_json && !gjson::valid(&res) {

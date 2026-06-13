@@ -115,3 +115,26 @@ impl ChangeLogData for LogFileSync<'_> {
         serde_json::to_string(&self).unwrap_or_default()
     }
 }
+
+/// 文件过期时间更新操作日志
+#[derive(Serialize)]
+pub(crate) struct LogFileExpireTimeUpdate {
+    pub file_ref_id: u64,
+    pub expire_time: u64,
+    pub change_user_id: u64,
+}
+
+impl ChangeLogData for LogFileExpireTimeUpdate {
+    fn log_type() -> &'static str {
+        "file-expire-time-update"
+    }
+    fn message(&self) -> String {
+        format!(
+            "update file_ref:{} expire_time:{}",
+            self.file_ref_id, self.expire_time
+        )
+    }
+    fn encode(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}

@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminMailConfig;
 use crate::dao::access::api::system::admin::CheckAdminMailMgr;
@@ -38,20 +39,25 @@ pub struct MailerSmtpConfigListParam {
 
 pub async fn mailer_smtp_config_list(
     param: &MailerSmtpConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminMailConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender
@@ -101,12 +107,18 @@ pub struct MailerSmtpConfigAddParam {
 
 pub async fn mailer_smtp_config_add(
     param: &MailerSmtpConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -114,8 +126,7 @@ pub async fn mailer_smtp_config_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender
@@ -160,12 +171,18 @@ pub struct MailerSmtpConfigCheckParam {
 
 pub async fn mailer_smtp_config_check(
     param: &MailerSmtpConfigCheckParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -173,8 +190,7 @@ pub async fn mailer_smtp_config_check(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .mailer
         .smtp_sender
@@ -218,12 +234,18 @@ pub struct MailerSmtpConfigEditParam {
 
 pub async fn mailer_smtp_config_edit(
     param: &MailerSmtpConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -231,8 +253,7 @@ pub async fn mailer_smtp_config_edit(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender
@@ -268,12 +289,18 @@ pub struct MailerSmtpConfigDelParam {
 
 pub async fn mailer_smtp_config_del(
     param: &MailerSmtpConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -281,8 +308,7 @@ pub async fn mailer_smtp_config_del(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender
@@ -305,12 +331,18 @@ pub struct MailerAppSmtpConfigAddParam {
 
 pub async fn mailer_tpl_config_smtp_add(
     param: &MailerAppSmtpConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -318,8 +350,7 @@ pub async fn mailer_tpl_config_smtp_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender

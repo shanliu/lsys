@@ -1,4 +1,4 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary'
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary'
 import { AdminLayout } from '@apps/main/features/admin/components/layout/admin-layout'
 import { createFileRoute } from '@tanstack/react-router'
 

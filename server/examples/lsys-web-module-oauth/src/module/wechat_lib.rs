@@ -100,7 +100,7 @@ impl WeChatLib {
         let result = request.send().await.map_err(|e| e.to_string())?;
         let status = result.status();
         let data = result.bytes().await.map_err(|e| e.to_string())?;
-        let res = unsafe { String::from_utf8_unchecked(data.to_vec()) };
+        let res = String::from_utf8_lossy(&data).into_owned();
         if status != StatusCode::OK {
             warn!("wechat oauth fail response: {}", &res);
         } else {

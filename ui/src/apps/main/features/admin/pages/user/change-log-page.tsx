@@ -1,11 +1,13 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
-import { EXPORT_TYPE_SYSTEM_CHANGE_LOG } from "@shared/apis/admin/export";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
-import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useAdminExportAction } from "@apps/main/hooks/use-admin-export-action";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import {
   useDictData,
   type TypedDictData,
@@ -23,6 +25,7 @@ import {
   type SystemUserChangeLogItemType,
   type SystemUserChangeLogsParamType,
 } from "@shared/apis/admin/user";
+import { EXPORT_TYPE_SYSTEM_USER_CHANGE_LOG } from "@shared/apis/admin/export";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
 import { CursorPagination } from "@shared/components/custom/pagination";
@@ -50,6 +53,7 @@ import { Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ChangeLogDetailDrawer } from "./change-log-detail-drawer";
 import { UserChangeLogFilterFormSchema } from "./change-log-schema";
+import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 
 export function ChangeLogPage() {
   // system\user\mapping.md
@@ -62,7 +66,7 @@ export function ChangeLogPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["admin_user"] as const);
+  } = useDictData(["admin_user", "admin_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -94,7 +98,7 @@ export function ChangeLogPage() {
 
 // 内容组件：负责内容加载和渲染
 interface ChangeLogContentProps {
-  dictData: TypedDictData<["admin_user"]>;
+  dictData: TypedDictData<["admin_user", "admin_export"]>;
 }
 
 function ChangeLogContent({ dictData }: ChangeLogContentProps) {
@@ -116,6 +120,17 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
     log_type: filterParam.log_type || null,
     add_user_id: filterParam.add_user_id || null,
   };
+
+  // 导出操作 hook
+  const exportAction = useAdminExportAction({
+    exportType: EXPORT_TYPE_SYSTEM_USER_CHANGE_LOG,
+    params: {
+      log_type: filters.log_type ?? undefined,
+      add_user_id: filters.add_user_id ?? undefined,
+    },
+  });
+
+
   const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
   // 分页状态 - 直接从 URL 参数派生，无需 useState
   const pagination: LimitType = {
@@ -170,6 +185,24 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["systemUserChangeLogs"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof UserChangeLogFilterFormSchema>>({
+    defaultValues: {
+      log_type: filterParam.log_type,
+      add_user_id: filterParam.add_user_id,
+    },
+    resolver: zodResolver(UserChangeLogFilterFormSchema) as any,
+    initValues: {
+      log_type: undefined,
+      add_user_id: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, pos: null, forward: true } as any });
+    },
+    onReset: () => {
+      navigate({ search: { pos: null, limit: currentLimit, forward: true } as any });
+    },
+  });
 
   // 获取API响应数据
   const logs = getQueryResponseData<SystemUserChangeLogItemType[]>(logData, []);
@@ -285,90 +318,41 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
     <div className="container mx-auto p-4  max-w-[1600px] flex flex-col min-h-0 space-y-5">
       {/* 搜索和过滤 */}
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        <FilterContainer
-          defaultValues={{
-            log_type: filterParam.log_type,
-            add_user_id: filterParam.add_user_id?.toString(),
-          }}
-          resolver={zodResolver(UserChangeLogFilterFormSchema) as any}
-          onSubmit={(data) => {
-            // zod schema 已经处理了类型转换和空值清理，直接使用数据
-            navigate({
-              search: { ...data, pos: null, forward: true } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: {
-                pos: null,
-                limit: currentLimit,
-                forward: true,
-              } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotalInfo())}
-              loading={isLoading}
-            />
-          }
-          className={cn("bg-card rounded-lg border shadow-sm relative")}
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3 lg:gap-4">
-              {/* 日志类型过滤 */}
-              {dictData.change_type && (
-                <div className="flex-1 min-w-[180px] max-w-[300px]">
-                  <FilterDictSelect
-                    name="log_type"
-                    placeholder="选择日志类型"
-                    label="日志类型"
-                    disabled={isLoading}
-                    dictData={dictData.change_type}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                  />
-                </div>
-              )}
-
-              {/* 操作用户ID过滤 */}
-              <div className="flex-1 min-w-[180px] max-w-[300px]">
-                <FilterInput
-                  name="add_user_id"
-                  placeholder="输入用户ID"
-                  type="number"
-                  label="操作用户ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-              </div>
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <AdminExportAction
-                      exportType={EXPORT_TYPE_SYSTEM_CHANGE_LOG}
-                      params={{
-                        log_type: filters.log_type,
-                        add_user_id: filters.add_user_id,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
+        <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterBar.MobileExtra>
+            <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+          </FilterBar.MobileExtra>
+          {/* 日志类型过滤 */}
+          {dictData.change_type && (
+            <div className="flex-1 min-w-[180px] max-w-[300px]">
+              <FilterDictSelect name="log_type" placeholder="选择日志类型" label="日志类型" disabled={isLoading} dictData={dictData.change_type} allLabel="全部" />
             </div>
           )}
-        </FilterContainer>
+          {/* 操作用户ID过滤 */}
+          <div className="flex-1 min-w-[180px] max-w-[300px]">
+            <FilterInput name="add_user_id" placeholder="输入用户ID" type="number" label="操作用户ID" disabled={isLoading} />
+          </div>
+          {/* 动作按钮区域 */}
+          <div className={cn("flex-shrink-0")}>
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+              <FilterBar.DesktopOnly>
+                <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                  onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+              </FilterBar.DesktopOnly>
+            </FilterActions>
+          </div>
+          <FilterBar.MobileFooter>
+            {(closeDrawer) => (
+              <ExportButton isSubmitting={exportAction.isSubmitting}
+                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+            )}
+          </FilterBar.MobileFooter>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 */}
@@ -427,6 +411,16 @@ function ChangeLogContent({ dictData }: ChangeLogContentProps) {
           onOpenChange={handleCloseDetailDialog}
         />
       )}
+
+      {/* 导出历史抽屉 */}
+      <ExportDrawer
+        open={exportAction.drawerOpen}
+        onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+        statusDict={dictData.export_task_status!}
+        tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+        currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+        onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+      />
     </div>
   );
 }

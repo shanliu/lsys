@@ -1,6 +1,6 @@
 //要使用定时任务时,时间到后定时触发任务派发
 use redis::{AsyncCommands, RedisError, aio::MultiplexedConnection};
-use tracing::debug;
+use tracing::{debug, info};
 
 use std::sync::Arc;
 
@@ -51,8 +51,14 @@ impl TaskNotify {
         if let Ok(len) = redis.llen::<&str, i64>(self.config.list_notify_key()).await
             && len > 1
         {
+            debug!(
+                "notify skipped, queue already has {} pending signals: {}",
+                len,
+                self.config.list_notify_key()
+            );
             return Ok(());
         }
+        info!("notify: sending dispatch signal to [{}]", self.config.list_notify_key());
         redis.lpush(self.config.list_notify_key(), 1).await
     }
 }

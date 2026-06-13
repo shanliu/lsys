@@ -5,17 +5,14 @@ import { createApiClient, createApiResultParse } from './utils';
 
 export const authApi = (): AxiosInstance => {
     const ApiParse = createApiResultParse((data: any) => {
-        if (data?.result?.state === "not_login" ||
-            data?.result?.state === "jwt_bad_token" ||
-            data?.result?.state === "jwt_parse_system"
-        ) {
+        if (data?.result?.state === "not_login") {
             const state = userStore.getState();
             const msg = data?.result?.message || data?.result?.state;
             state.invalidatedUser(state.useUserId, msg);
         }
         return data?.result?.code === "200" || data?.result?.state === "not_found";
     });
-    return createApiClient({
+    const client = createApiClient({
         apiBaseUrl: Config.apiBaseUrl,
         timeout: Config.timeOut,
         headers: (config) => {
@@ -37,4 +34,5 @@ export const authApi = (): AxiosInstance => {
         parseResult: ApiParse.parseResult,
         parseErrorResult: ApiParse.parseErrorResult,
     });
+    return client;
 }

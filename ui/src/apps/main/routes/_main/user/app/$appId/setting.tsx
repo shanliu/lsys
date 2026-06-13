@@ -1,4 +1,4 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary';
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary';
 import { AppSettingPage } from '@apps/main/features/user/pages/app/detail/setting-page';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';

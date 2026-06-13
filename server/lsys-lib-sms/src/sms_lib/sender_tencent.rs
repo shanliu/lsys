@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{Client, StatusCode};
 use reqwest::{
     Method,
@@ -266,7 +266,7 @@ impl TenSms {
             method.as_str(),
             host,
             action.to_lowercase(),
-            format!("{:x}", result).to_lowercase()
+            hex::encode(result)
         );
 
         let now_date = datetime.format("%Y-%m-%d").to_string();
@@ -281,7 +281,7 @@ impl TenSms {
             now_time,
             now_date,
             service,
-            format!("{:x}", result).to_lowercase()
+            hex::encode(result)
         );
 
         debug!("sign body:{}", string_to_sign);

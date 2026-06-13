@@ -5,7 +5,7 @@ use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao},
     dao::{
         ResetPasswordFromEmailData, ResetPasswordFromMobileData,
-        ResetPasswordSendCodeFromEmailData, ResetPasswordSendCodeFromMobileData,
+        ResetPasswordSendCodeFromEmailData, ResetPasswordSendCodeFromMobileData, WebDao,
     },
 };
 
@@ -18,9 +18,9 @@ pub struct ResetPasswordSendCodeFromMobileParam {
 pub async fn user_reset_password_send_code_from_mobile(
     param: &ResetPasswordSendCodeFromMobileParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let ttl = req_dao
-        .web_dao
+    let ttl = web_dao
         .web_user
         .auth
         .user_reset_password_send_code_from_mobile(
@@ -42,9 +42,9 @@ pub struct ResetPasswordSendCodeFromEmailParam {
 pub async fn user_reset_password_send_code_from_email(
     param: &ResetPasswordSendCodeFromEmailParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let ttl = req_dao
-        .web_dao
+    let ttl = web_dao
         .web_user
         .auth
         .user_reset_password_send_code_from_email(
@@ -67,9 +67,9 @@ pub struct ResetPasswordFromEmailParam {
 pub async fn user_reset_password_from_email(
     param: &ResetPasswordFromEmailParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .auth
         .user_reset_password_from_email(
@@ -94,9 +94,9 @@ pub struct ResetPasswordFromMobileParam {
 pub async fn user_reset_password_from_mobile(
     param: &ResetPasswordFromMobileParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .auth
         .user_reset_password_from_mobile(

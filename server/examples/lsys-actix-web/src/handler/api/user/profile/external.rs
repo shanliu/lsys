@@ -1,8 +1,9 @@
 use crate::common::handler::{
-    JsonQuery, JwtQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
+    BearerQuery, JsonQuery, ReqQuery, ResponseJson, ResponseJsonResult, UserAuthQuery,
 };
 use actix_web::post;
 use lsys_web::common::JsonData;
+use lsys_web::dao::WebDao;
 use lsys_web::handler::api::user::account::{external_bind, external_bind_url};
 use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web::lsys_core::fluent_message;
@@ -33,51 +34,51 @@ pub struct ExternalBindCheckParam {
 
 #[post("/exter/{method}")]
 pub(crate) async fn external(
-    jwt: JwtQuery,
+    bearer: BearerQuery,
     path: actix_web::web::Path<String>,
     json_param: JsonQuery,
     auth_dao: UserAuthQuery,
+    req_query: ReqQuery,
+    web_dao: actix_web::web::Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     auth_dao
-        .set_request_token(&jwt)
+        .set_request_token(&bearer)
         .await
-        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+        .map_err(|e| req_query.fluent_error_json_response(&e))?;
     Ok(match path.into_inner().as_str() {
-        "list_data" => external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao)
-            .await
-            .map_err(|e| auth_dao.fluent_error_json_response(&e))?,
+        "list_data" => external_list_data(&json_param.param::<ExternalListDataParam>()?, &auth_dao, web_dao.as_ref()).await
+            .map_err(|e| req_query.fluent_error_json_response(&e))?,
         "bind_check" => {
             let login_param = json_param.param::<ExternalBindCheckParam>()?;
             match login_param.login_type.as_str() {
                 OAUTH_TYPE_WECHAT => {
-                    let config = auth_dao
-                        .web_dao
+                    let config = web_dao
                         .web_setting
                         .setting_dao
                         .single
                         .load::<WeChatConfig>(None)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
+                        .map_err(|e| req_query.fluent_error_json_response(&e.into()))?;
                     let wechat = WechatLogin::new(
-                        auth_dao.web_dao.clone(),
+                        web_dao.clone().into_inner(),
                         &config.app_id,
                         &config.app_secret,
                         OAUTH_TYPE_WECHAT,
                     );
                     let (reload, login_data) = wechat
-                        .state_check(&auth_dao, &login_param.login_state)
+                        .state_check(web_dao.as_ref(), &login_param.login_state)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_response(&e))?;
+                        .map_err(|e| req_query.fluent_error_json_response(&e))?;
                     if let Some(ldat) = login_data {
-                        external_bind(&wechat, &ldat, &auth_dao)
+                        external_bind(&wechat, &ldat, &req_query, &auth_dao, web_dao.as_ref())
                             .await
-                            .map_err(|e| auth_dao.fluent_error_json_response(&e))?
+                            .map_err(|e| req_query.fluent_error_json_response(&e))?
                     } else {
                         JsonResponse::data(JsonData::body(json!({ "reload": reload })))
                     }
                 }
                 name => {
-                    handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_response(&e))?
+                    handler_not_found!(name).map_err(|e| req_query.fluent_error_json_response(&e))?
                 }
             }
         }
@@ -88,21 +89,20 @@ pub(crate) async fn external(
                 .await
                 .get_session_data()
                 .await
-                .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
+                .map_err(|e| req_query.fluent_error_json_response(&e.into()))?;
             let param = json_param.param::<ExternalBindUrlParam>()?;
             match param.login_type.as_str() {
                 OAUTH_TYPE_WECHAT => {
-                    let config = auth_dao
-                        .web_dao
+                    let config = web_dao
                         .web_setting
                         .setting_dao
                         .single
                         .load::<WeChatConfig>(None)
                         .await
-                        .map_err(|e| auth_dao.fluent_error_json_response(&e.into()))?;
+                        .map_err(|e| req_query.fluent_error_json_response(&e.into()))?;
                     external_bind_url(
                         &WechatLogin::new(
-                            auth_dao.web_dao.clone(),
+                            web_dao.clone().into_inner(),
                             &config.app_id,
                             &config.app_secret,
                             OAUTH_TYPE_WECHAT,
@@ -111,12 +111,12 @@ pub(crate) async fn external(
                             state: param.login_state,
                             callback_url: param.callback_url,
                         },
-                        &auth_dao,
+                        web_dao.as_ref(),
                     )
                     .await
-                    .map_err(|e| auth_dao.fluent_error_json_response(&e))?
+                    .map_err(|e| req_query.fluent_error_json_response(&e))?
                 }
-                name => auth_dao.fluent_error_json_response(&JsonError::JsonResponse(
+                name => req_query.fluent_error_json_response(&JsonError::JsonResponse(
                     JsonData::default()
                         .set_sub_code("type_not_support")
                         .set_code(400),
@@ -126,10 +126,10 @@ pub(crate) async fn external(
                 )),
             }
         }
-        "delete" => external_delete(&json_param.param::<ExternalDeleteParam>()?, &auth_dao)
+        "delete" => external_delete(&json_param.param::<ExternalDeleteParam>()?, &req_query, &auth_dao, web_dao.as_ref())
             .await
-            .map_err(|e| auth_dao.fluent_error_json_response(&e))?,
-        name => handler_not_found!(name).map_err(|e| auth_dao.fluent_error_json_response(&e))?,
+            .map_err(|e| req_query.fluent_error_json_response(&e))?,
+        name => handler_not_found!(name).map_err(|e| req_query.fluent_error_json_response(&e))?,
     }
     //
     .into())

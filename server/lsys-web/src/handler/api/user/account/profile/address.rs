@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::{AddressData, access::api::system::user::CheckUserAddressEdit},
 };
 use lsys_access::dao::{AccessSession, AccessSessionData};
@@ -20,11 +21,17 @@ pub struct AddressAddParam {
 
 pub async fn address_add(
     param: &AddressAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -34,8 +41,7 @@ pub async fn address_add(
         )
         .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .account
         .user_address_add(
@@ -65,12 +71,18 @@ pub struct AddressEditParam {
 }
 pub async fn address_edit(
     param: &AddressEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let address = req_dao
-        .web_dao
+    let address = web_dao
         .web_user
         .user_dao
         .account_dao
@@ -78,14 +90,12 @@ pub async fn address_edit(
         .find_by_id(&param.address_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAddressEdit {
-                res_user_id: req_dao
-                    .web_dao
+                res_user_id: web_dao
                     .web_user
                     .account
                     .account_id_to_user(address.account_id)
@@ -95,8 +105,7 @@ pub async fn address_edit(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .account
         .user_address_edit(
@@ -122,11 +131,17 @@ pub struct AddressDeleteParam {
 }
 pub async fn address_delete(
     param: &AddressDeleteParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let address = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let address = web_dao
         .web_user
         .user_dao
         .account_dao
@@ -134,14 +149,12 @@ pub async fn address_delete(
         .find_by_id(&param.address_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserAddressEdit {
-                res_user_id: req_dao
-                    .web_dao
+                res_user_id: web_dao
                     .web_user
                     .account
                     .account_id_to_user(address.account_id)
@@ -150,8 +163,7 @@ pub async fn address_delete(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .user_dao
         .account_dao
@@ -161,25 +173,27 @@ pub async fn address_delete(
     Ok(JsonResponse::default())
 }
 
-pub async fn address_list_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let account = req_dao
-        .web_dao
+pub async fn address_list_data(
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let account = web_dao
         .web_user
         .user_dao
         .account_dao
         .session_account(&auth_data)
         .await?;
-    let data = req_dao
-        .web_dao
-        .web_user
-        .account
-        .user_address(account.id)
-        .await?;
+    let data = web_dao.web_user.account.user_address(account.id).await?;
     let data_list = data
         .iter()
         .map(|e| {
-            let code_detail = match req_dao.web_dao.app_area.code_find(&e.address_code) {
+            let code_detail = match web_dao.app_area.code_find(&e.address_code) {
                 Ok(e) => e
                     .into_iter()
                     .map(|es| {

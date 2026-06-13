@@ -83,18 +83,192 @@ valid-rule-name-area_code = Area code
 # Dictionaries 
 const-SMS_NOTIFY_METHOD = SMS send result callback
 const-SUB_APP_SECRET_NOTIFY_METHOD = Sub-app secret key change callback
-# Collector Script Status
-status-CollectorScriptStatus-Enable = Enabled
-status-CollectorScriptStatus-Disable = Disabled
-status-CollectorScriptStatus-Deleted = Deleted
-# Collector Record Status
-status-CollectorRecordStatus-Pending = Pending
-status-CollectorRecordStatus-Running = Running
-status-CollectorRecordStatus-Success = Success
-status-CollectorRecordStatus-Failed = Failed
-status-CollectorRecordStatus-Timeout = Timeout
-
+# File Storage Type=
 const-APP_FEATURE_MAIL = Mail
 const-APP_FEATURE_RBAC = RBAC
 const-APP_FEATURE_SMS = SMS
 const-APP_FEATURE_FILE = File
+# CSV Export Column Headers
+
+# user_file_list
+export-user_file_list-id = ID
+export-user_file_list-file_name = File Name
+export-user_file_list-file_md5 = File MD5
+export-user_file_list-file_size = File Size
+export-user_file_list-storage_type = Storage Type
+export-user_file_list-status = Status
+export-user_file_list-content_type = Content Type
+export-user_file_list-add_time = Created At
+
+# user_login_history
+export-user_login_history-id = ID
+export-user_login_history-login_type = Login Type
+export-user_login_history-login_account = Login Account
+export-user_login_history-login_ip = Login IP
+export-user_login_history-login_city = Login City
+export-user_login_history-account_id = Account ID
+export-user_login_history-is_login = Is Login
+export-user_login_history-login_msg = Login Message
+export-user_login_history-add_time = Created At
+
+# user_mailer_message_list
+export-user_mailer_message_list-id = ID
+export-user_mailer_message_list-snid = Send Batch
+export-user_mailer_message_list-to_mail = To Mail
+export-user_mailer_message_list-try_num = Try Count
+export-user_mailer_message_list-status = Status
+export-user_mailer_message_list-add_time = Created At
+export-user_mailer_message_list-send_time = Send Time
+export-user_mailer_message_list-setting_id = Setting ID
+
+# user_smser_message_list
+export-user_smser_message_list-id = ID
+export-user_smser_message_list-snid = Send Batch
+export-user_smser_message_list-area = Area Code
+export-user_smser_message_list-mobile = Mobile
+export-user_smser_message_list-try_num = Try Count
+export-user_smser_message_list-status = Status
+export-user_smser_message_list-add_time = Created At
+export-user_smser_message_list-send_time = Send Time
+export-user_smser_message_list-setting_id = Setting ID
+
+# app_notify_list
+export-app_notify_list-id = ID
+export-app_notify_list-app_id = App ID
+export-app_notify_list-notify_type = Notify Type
+export-app_notify_list-notify_method = Notify Method
+export-app_notify_list-notify_key = Notify Key
+export-app_notify_list-status = Status
+export-app_notify_list-try_num = Try Count
+export-app_notify_list-try_max = Max Retries
+export-app_notify_list-publish_time = Publish Time
+export-app_notify_list-next_time = Next Time
+
+# app_script_records
+export-app_script_records-id = ID
+export-app_script_records-request_id = Request ID
+export-app_script_records-script_id = Script ID
+export-app_script_records-add_user_id = Created By
+export-app_script_records-app_id = App ID
+export-app_script_records-status = Status
+export-app_script_records-elapsed_ms = Elapsed (ms)
+export-app_script_records-error_message = Error Message
+export-app_script_records-add_time = Created At
+export-app_script_records-start_time = Start Time
+export-app_script_records-finish_time = Finish Time
+
+# app_file_list
+export-app_file_list-id = ID
+export-app_file_list-file_name = File Name
+export-app_file_list-file_md5 = File MD5
+export-app_file_list-file_size = File Size
+export-app_file_list-storage_type = Storage Type
+export-app_file_list-status = Status
+export-app_file_list-content_type = Content Type
+export-app_file_list-add_time = Created At
+
+# app_role_data
+export-app_role_data-role_id = Role ID
+export-app_role_data-role_key = Role Key
+export-app_role_data-role_name = Role Name
+export-app_role_data-user_range = User Range
+export-app_role_data-res_range = Resource Range
+export-app_role_data-user_id = User ID
+export-app_role_data-user_timeout = User Timeout
+export-app_role_data-op_key = Operation Key
+export-app_role_data-op_name = Operation Name
+export-app_role_data-res_type = Resource Type
+export-app_role_data-res_data = Resource Data
+export-app_role_data-res_name = Resource Name
+
+# app_res_data
+export-app_res_data-id = ID
+export-app_res_data-user_id = User ID
+export-app_res_data-res_type = Resource Type
+export-app_res_data-res_data = Resource Data
+export-app_res_data-res_name = Resource Name
+export-app_res_data-change_time = Modified At
+export-app_res_data-op_count = Operation Count
+export-app_res_data-perm_count = Permission Count
+
+# system_admin_file_list
+export-system_admin_file_list-id = ID
+export-system_admin_file_list-file_name = File Name
+export-system_admin_file_list-file_md5 = File MD5
+export-system_admin_file_list-file_size = File Size
+export-system_admin_file_list-storage_type = Storage Type
+export-system_admin_file_list-status = Status
+export-system_admin_file_list-content_type = Content Type
+export-system_admin_file_list-user_id = User ID
+export-system_admin_file_list-add_time = Created At
+
+# system_user_change_log
+export-system_user_change_log-id = ID
+export-system_user_change_log-log_type = Log Type
+export-system_user_change_log-add_user_id = Created By
+export-system_user_change_log-log_data = Log Data
+export-system_user_change_log-add_time = Created At
+
+# system_user_access
+export-system_user_access-id = ID
+export-system_user_access-app_id = App ID
+export-system_user_access-oauth_app_id = OAuth App ID
+export-system_user_access-user_id = User ID
+export-system_user_access-token_data = Token Data
+export-system_user_access-login_type = Login Type
+export-system_user_access-login_ip = Login IP
+export-system_user_access-status = Status
+export-system_user_access-add_time = Created At
+export-system_user_access-expire_time = Expire Time
+export-system_user_access-logout_time = Logout Time
+
+# system_mailer_message_list
+export-system_mailer_message_list-id = ID
+export-system_mailer_message_list-snid = Send Batch
+export-system_mailer_message_list-to_mail = To Mail
+export-system_mailer_message_list-try_num = Try Count
+export-system_mailer_message_list-status = Status
+export-system_mailer_message_list-add_time = Created At
+export-system_mailer_message_list-send_time = Send Time
+export-system_mailer_message_list-setting_id = Setting ID
+
+# system_smser_message_list
+export-system_smser_message_list-id = ID
+export-system_smser_message_list-snid = Send Batch
+export-system_smser_message_list-area = Area Code
+export-system_smser_message_list-mobile = Mobile
+export-system_smser_message_list-try_num = Try Count
+export-system_smser_message_list-status = Status
+export-system_smser_message_list-add_time = Created At
+export-system_smser_message_list-send_time = Send Time
+export-system_smser_message_list-setting_id = Setting ID
+
+# system_app_list
+export-system_app_list-id = ID
+export-system_app_list-name = Name
+export-system_app_list-client_id = Client ID
+export-system_app_list-status = Status
+export-system_app_list-user_id = User ID
+export-system_app_list-change_user_id = Modified By
+export-system_app_list-change_time = Modified At
+
+# system_sub_app_list
+export-system_sub_app_list-id = ID
+export-system_sub_app_list-name = Name
+export-system_sub_app_list-client_id = Client ID
+export-system_sub_app_list-status = Status
+export-system_sub_app_list-user_id = User ID
+export-system_sub_app_list-change_user_id = Modified By
+export-system_sub_app_list-change_time = Modified At
+
+# system_request_list
+export-system_request_list-id = ID
+export-system_request_list-app_id = App ID
+export-system_request_list-parent_app_id = Parent App ID
+export-system_request_list-status = Status
+export-system_request_list-request_type = Request Type
+export-system_request_list-request_user_id = Request User ID
+export-system_request_list-request_time = Request Time
+export-system_request_list-confirm_user_id = Confirmed By
+export-system_request_list-confirm_time = Confirmed At
+export-system_request_list-confirm_note = Confirm Note

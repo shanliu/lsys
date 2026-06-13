@@ -1,10 +1,19 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useUserAppExportAction } from "@apps/main/hooks/use-user-app-export-action";
+import { EXPORT_TYPE_APP_SCRIPT_RECORDS } from "@shared/apis/user/file";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
-import { useDictData } from "@apps/main/hooks/use-dict-data";
+import {
+    useDictData,
+    type TypedDictData,
+} from "@apps/main/hooks/use-dict-data";
 import {
     DEFAULT_PAGE_SIZE,
     PagePagination,
@@ -41,18 +50,11 @@ import { useState } from "react";
 import { featureFileModuleConfig } from "../nav-info";
 import { CollectorFilesDrawer } from "./collector-files-drawer";
 import { CollectorListFilterFormSchema } from "./collector-list-schema";
+import * as z from "zod";
 import { CollectorLogsDrawer } from "./collector-logs-drawer";
-import { CollectorRecordsDrawer } from "./collector-records-drawer";
+import { CollectorRecordListDrawer } from "./collector-record-list-drawer";
 import { CollectorScriptDrawer } from "./collector-script-drawer";
 import { CollectorTriggerDialog } from "./collector-trigger-dialog";
-
-// 脚本状态样式映射
-const scriptStatusStyleMapper = createStatusMapper(
-    {
-        1: "success",
-        2: "danger",
-    },
-);
 
 export default function AppDetailFeatureCollectorListPage() {
     const { appId } = Route.useParams();
@@ -61,7 +63,7 @@ export default function AppDetailFeatureCollectorListPage() {
     // 字典数据
     const {
         dictData,
-    } = useDictData(["user_collector"] as const);
+    } = useDictData(["user_collector", "user_export"] as const);
 
     // 新增/编辑脚本抽屉
     const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
@@ -111,7 +113,7 @@ export default function AppDetailFeatureCollectorListPage() {
 
 interface CollectorListContentProps {
     appId: number;
-    dictData: ReturnType<typeof useDictData<readonly ["user_collector"]>>["dictData"];
+    dictData: TypedDictData<["user_collector", "user_export"]>;
     onEdit: (script: CollectorScriptItemType) => void;
 }
 
@@ -119,6 +121,15 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
     const queryClient = useQueryClient();
     const { success: showSuccess, error: showError } = useToast();
     const navigate = useNavigate();
+
+    // 脚本状态样式映射 — 基于后端字典数据
+    const scriptStatusMapper = createStatusMapper(
+        {
+            1: "success",
+            2: "danger",
+        },
+        (status) => dictData.script_status?.getLabel(String(status)) || String(status),
+    );
 
     const filterParam = Route.useSearch();
     const currentPage = filterParam.page || 1;
@@ -209,6 +220,36 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
         queryClient.invalidateQueries({ queryKey: ["collectorScriptList"] });
     };
 
+    const filterForm = useFilterBarForm<z.infer<typeof CollectorListFilterFormSchema>>({
+        defaultValues: { status: filterParam.status },
+        resolver: zodResolver(CollectorListFilterFormSchema) as any,
+        initValues: { status: undefined },
+        onSubmit: (data) => {
+            const d = data as { status?: number };
+            navigate({
+                to: "/user/app/$appId/features-file/collector",
+                params: { appId: appId },
+                search: { status: d.status, page: 1, limit: currentLimit },
+            });
+        },
+        onReset: () => {
+            navigate({
+                to: "/user/app/$appId/features-file/collector",
+                params: { appId: appId },
+                search: { page: 1, limit: currentLimit },
+            });
+        },
+    });
+
+    // 导出操作 hook（脚本记录）
+    const exportRecordsAction = useUserAppExportAction({
+        appId: appId,
+        exportType: EXPORT_TYPE_APP_SCRIPT_RECORDS,
+        params: {
+            status: filters.status ?? undefined,
+        },
+    });
+
     // 表格列定义
     const columns: ColumnDef<CollectorScriptItemType>[] = [
         {
@@ -236,8 +277,8 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
                 const status = getValue<number>();
                 return (
                     <div className="py-1">
-                        <Badge className={cn(scriptStatusStyleMapper.getClass(status))}>
-                            {dictData.script_status?.getLabel(String(status)) || String(status)}
+                        <Badge className={cn(scriptStatusMapper.getClass(status))}>
+                            {scriptStatusMapper.getText(status)}
                         </Badge>
                     </div>
                 );
@@ -428,66 +469,41 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
         <>
             <div className="flex flex-col min-h-0 space-y-3">
                 <div className="flex-shrink-0 mb-1 sm:mb-4 space-y-3">
-                    <FilterContainer
-                        defaultValues={{
-                            status: filterParam.status?.toString(),
-                        }}
-                        resolver={zodResolver(CollectorListFilterFormSchema) as any}
-                        onSubmit={(data) => {
-                            const transformedData = data as { status?: number };
-                            navigate({
-                                to: "/user/app/$appId/features-file/collector",
-                                params: { appId: appId },
-                                search: {
-                                    status: transformedData.status,
-                                    page: 1,
-                                    limit: currentLimit,
-                                },
-                            });
-                        }}
-                        onReset={() => {
-                            navigate({
-                                to: "/user/app/$appId/features-file/collector",
-                                params: { appId: appId },
-                                search: {
-                                    page: 1,
-                                    limit: currentLimit,
-                                },
-                            });
-                        }}
-                        countComponent={
+                    <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+                        <FilterBar.Summary>
                             <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
-                        }
-                        className="bg-card rounded-lg border shadow-sm relative"
-                    >
-                        {(layoutParams, form) => (
-                            <div className="flex-1 flex flex-wrap items-end gap-3">
-                                {/* 状态过滤 */}
-                                {dictData.script_status && (
-                                    <FilterDictSelect
-                                        name="status"
-                                        placeholder="选择状态"
-                                        label="状态"
-                                        disabled={isLoading}
-                                        dictData={dictData.script_status}
-                                        layoutParams={layoutParams}
-                                        allLabel="全部"
-                                        className={layoutParams.isMobile ? undefined : "min-w-[100px] max-w-[130px]"}
-                                    />
-                                )}
-
-                                {/* 动作按钮区域 */}
-                                <div className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}>
-                                    <FilterActions
-                                        form={form}
-                                        loading={isLoading}
-                                        layoutParams={layoutParams}
-                                        onRefreshSearch={clearCacheAndReload}
-                                    />
-                                </div>
-                            </div>
+                        </FilterBar.Summary>
+                        <FilterBar.MobileExtra>
+                            <ExportMobileButton activeCount={exportRecordsAction.activeCount} isLoading={exportRecordsAction.activeCount > 0} onClick={exportRecordsAction.openDrawer} />
+                        </FilterBar.MobileExtra>
+                        {dictData.script_status && (
+                            <FilterDictSelect name="status" placeholder="选择状态" label="状态" disabled={isLoading}
+                                dictData={dictData.script_status} allLabel="全部"
+                                className={"min-w-[100px] max-w-[130px]"} />
                         )}
-                    </FilterContainer>
+                        <FilterActions>
+                            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                            <FilterResetButton loading={isLoading} />
+                            <FilterBar.DesktopOnly>
+                                <ExportSplitButton activeCount={exportRecordsAction.activeCount} onSubmitExport={exportRecordsAction.submit}
+                                    onViewHistory={exportRecordsAction.openDrawer} isSubmitting={exportRecordsAction.isSubmitting} />
+                            </FilterBar.DesktopOnly>
+                        </FilterActions>
+                        <FilterBar.MobileFooter>
+                            {(closeDrawer) => (
+                                <ExportButton isSubmitting={exportRecordsAction.isSubmitting}
+                                    onSubmitExport={() => void exportRecordsAction.submit().then(closeDrawer).catch(() => {})} />
+                            )}
+                        </FilterBar.MobileFooter>
+                    </FilterBar>
+                    <ExportDrawer
+                        open={exportRecordsAction.drawerOpen}
+                        onOpenChange={(open) => open ? exportRecordsAction.openDrawer() : exportRecordsAction.closeDrawer()}
+                        statusDict={dictData.export_task_status!}
+                        tasks={exportRecordsAction.tasks} totalCount={exportRecordsAction.totalCount}
+                        currentPage={exportRecordsAction.currentPage} totalPages={exportRecordsAction.totalPages}
+                        onPageChange={exportRecordsAction.setPage} isLoading={exportRecordsAction.isLoadingTasks}
+                    />
                 </div>
 
                 {/* 表格和分页容器 */}
@@ -542,7 +558,7 @@ function CollectorListContent({ appId, dictData, onEdit }: CollectorListContentP
 
                 {/* 采集记录抽屉 */}
                 {recordsScript && (
-                    <CollectorRecordsDrawer
+                    <CollectorRecordListDrawer
                         appId={appId}
                         script={recordsScript}
                         isOpen={recordsDrawerOpen}

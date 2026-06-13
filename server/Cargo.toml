@@ -1,3 +1,4 @@
+
 [workspace]
 resolver = "2"
 members = [
@@ -6,6 +7,7 @@ members = [
     "lsys-lib-area",
     "lsys-lib-jsrun",
     "lsys-core",
+    "lsys-kms",
     "lsys-mfa",
     "lsys-rbac",
     "lsys-user",
@@ -15,7 +17,6 @@ members = [
     "lsys-app",
     "lsys-app-sender",
     "lsys-access",
-    "lsys-sdk",
     "lsys-file",
     "lsys-file-manager",
     "examples/*",
@@ -26,7 +27,8 @@ members = [
 opt-level = 0
 incremental = true
 lto = false
-debug = true
+debug = 1
+split-debuginfo = "off"
 panic = 'unwind'
 codegen-units = 64
 rpath = false

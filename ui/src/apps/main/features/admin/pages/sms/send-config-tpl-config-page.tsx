@@ -1,9 +1,12 @@
 "use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { SmsSendConfigNavContainer } from "@apps/main/features/admin/components/ui/sms-send-config-nav";
 import {
   DEFAULT_PAGE_SIZE,
@@ -129,6 +132,22 @@ export function SmsSendConfigTplConfigPage() {
   const refreshData = () => {
     queryClient.refetchQueries({ queryKey: ["admin-tpl-config-list"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof SmsSendConfigTplFilterFormSchema>>({
+    defaultValues: {
+      tpl: filterParam.tpl,
+    },
+    resolver: zodResolver(SmsSendConfigTplFilterFormSchema) as any,
+    initValues: {
+      tpl: undefined,
+    },
+    onSubmit: (data) => {
+      onNavigate({ ...filterParam, ...data, page: 1 });
+    },
+    onReset: () => {
+      onNavigate({ ...filterParam, tpl: undefined, page: 1 });
+    },
+  });
 
   // 定义表格列配置
   const columns: ColumnDef<SystemSenderSmsTplConfigItemType>[] = [
@@ -307,49 +326,16 @@ export function SmsSendConfigTplConfigPage() {
     >
       <div className="space-y-6">
 
-        <FilterContainer
-          defaultValues={{
-            tpl: filterParam.tpl,
-          }}
-          resolver={zodResolver(SmsSendConfigTplFilterFormSchema) as any}
-          onSubmit={(data) => {
-            onNavigate({
-              ...filterParam,
-              ...data,
-              page: 1,
-            });
-          }}
-          onReset={() => {
-            onNavigate({
-              ...filterParam,
-              tpl: undefined,
-              page: 1,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-        >
-          {(layoutParams, form) => (
-            <>
-              <FilterInput
-                name="tpl"
-                label="模板Key"
-                placeholder="请输入模板Key"
-                type="text"
-                layoutParams={layoutParams}
-              />
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-              />
-            </>
-          )}
-        </FilterContainer>
+        <FilterBar form={filterForm}>
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterInput name="tpl" label="模板Key" placeholder="请输入模板Key" type="text" />
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
 
         <DataTable
           columns={columns}

@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::RequestDao;
+use crate::dao::WebDao;
 use crate::handler::APP_FEATURE_FILE;
 use crate::handler::APP_FEATURE_MAIL;
 use crate::handler::APP_FEATURE_RBAC;
@@ -13,7 +14,7 @@ use lsys_app::model::AppStatus;
 use lsys_core::db::OffsetPageParam;
 use lsys_core::fluents::IntoFluentMessage;
 use serde_json::json;
-pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn mapping_data(req_dao: &RequestDao, web_dao: &WebDao) -> JsonResult<JsonResponse> {
     let mut exter_features = vec![
         const_json_format!(req_dao, APP_FEATURE_SMS, { "source": "code" }),
         const_json_format!(req_dao, APP_FEATURE_MAIL, { "source": "code" }),
@@ -21,8 +22,7 @@ pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
         const_json_format!(req_dao, APP_FEATURE_FILE, { "source": "code" }),
     ];
 
-    let db_exter_features = req_dao
-        .web_dao
+    let db_exter_features = web_dao
         .web_app
         .exter_feature_list(&OffsetPageParam::new(None))
         .await
@@ -32,7 +32,6 @@ pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse
             "key": item.key,
             "val": item.data.title,
             "source": "database",
-            "id": item.id,
         });
         exter_features.push(obj);
     }

@@ -1,10 +1,14 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+﻿import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { useAdminExportAction } from "@apps/main/hooks/use-admin-export-action";
 import { EXPORT_TYPE_SYSTEM_APP_LIST } from "@shared/apis/admin/export";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import {
   useDictData,
@@ -62,7 +66,7 @@ export function AppListPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["admin_app"] as const);
+  } = useDictData(["admin_app", "admin_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -87,7 +91,7 @@ export function AppListPage() {
 
 // 内容组件：负责内容加载和渲染
 interface AppListContentProps {
-  dictData: TypedDictData<["admin_app"]>;
+  dictData: TypedDictData<["admin_app", "admin_export"]>;
 }
 
 function AppListContent({ dictData }: AppListContentProps) {
@@ -120,6 +124,18 @@ function AppListContent({ dictData }: AppListContentProps) {
     client_id: filterParam.client_id || null,
     app_id: filterParam.app_id ?? null,
   };
+
+  // 导出操作 hook（内部自管理 drawerOpen，对外提供 mobileHeaderButton + element）
+  const exportAction = useAdminExportAction({
+    exportType: EXPORT_TYPE_SYSTEM_APP_LIST,
+    params: {
+      app_name: filters.app_name ?? undefined,
+      status: filters.status ?? undefined,
+      user_id: filters.user_id ?? undefined,
+      client_id: filters.client_id ?? undefined,
+      app_id: filters.app_id ?? undefined,
+    },
+  });
 
   // count_num 优化管理器（传入 filters 自动监听变化）
   const countNumManager = usePageCountNum(filters);
@@ -181,6 +197,32 @@ function AppListContent({ dictData }: AppListContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["appList"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof AdminAppListFilterFormSchema>>({
+    defaultValues: {
+      app_name: filterParam.app_name,
+      status: filterParam.status,
+      user_id: filterParam.user_id,
+      client_id: filterParam.client_id,
+      parent_app_id: filterParam.parent_app_id,
+      app_id: filterParam.app_id,
+    },
+    resolver: zodResolver(AdminAppListFilterFormSchema) as any,
+    initValues: {
+      app_name: undefined,
+      status: undefined,
+      user_id: undefined,
+      client_id: undefined,
+      parent_app_id: undefined,
+      app_id: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1 } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 处理分页变化
   const handlePageChange = (page: number) => {
@@ -444,122 +486,43 @@ function AppListContent({ dictData }: AppListContentProps) {
       <div className="container mx-auto p-4 max-w-[1600px] flex flex-col min-h-0 space-y-5">
         {/* 搜索和过滤 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          <FilterContainer
-            defaultValues={{
-              app_name: filterParam.app_name,
-              status: filterParam.status?.toString(),
-              user_id: filterParam.user_id?.toString(),
-              client_id: filterParam.client_id,
-              parent_app_id: filterParam.parent_app_id?.toString(),
-              app_id: filterParam.app_id?.toString(),
-            }}
-            resolver={zodResolver(AdminAppListFilterFormSchema) as any}
-            onSubmit={(data) => {
-              // zod schema 已经处理了类型转换和空值清理，直接使用数据
-              navigate({
-                search: { ...data, page: 1 } as any,
-              });
-            }}
-            onReset={() => {
-              navigate({
-                search: { page: 1, limit: currentLimit } as any,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotal())}
-                loading={isLoading}
-              />
-            }
-            className={cn("bg-card rounded-lg border shadow-sm relative")}
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                {/* 应用名称过滤 */}
-                <FilterInput
-                  name="app_name"
-                  placeholder="搜索应用名称"
-                  label="应用名称"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-40")}
-                />
-
-                {/* 状态过滤 */}
-                {dictData.app_status && (
-                  <FilterDictSelect
-                    name="status"
-                    placeholder="选择状态"
-                    label="应用状态"
-                    disabled={isLoading}
-                    dictData={dictData.app_status}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                    className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-                  />
-                )}
-
-                {/* 用户ID过滤 */}
-                <FilterInput
-                  name="user_id"
-                  placeholder="输入用户ID"
-                  type="number"
-                  label="用户ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-                />
-
-                {/* Client ID 过滤 */}
-                <FilterInput
-                  name="client_id"
-                  placeholder="输入Client ID"
-                  label="Client ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-40")}
-                />
-
-                {/* 应用ID过滤 */}
-                <FilterInput
-                  name="app_id"
-                  placeholder="输入应用ID"
-                  type="number"
-                  label="应用ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-                />
-
-                {/* 动作按钮区域 */}
-                <div
-                  className={cn(
-                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                  )}
-                >
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <AdminExportAction
-                        exportType={EXPORT_TYPE_SYSTEM_APP_LIST}
-                        params={{
-                          app_name: filters.app_name,
-                          status: filters.status,
-                          user_id: filters.user_id,
-                          client_id: filters.client_id,
-                          app_id: filters.app_id,
-                        }}
-                        layoutParams={layoutParams}
-                      />
-                    }
-                  />
-                </div>
-              </div>
+          <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterBar.MobileExtra>
+              <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+            </FilterBar.MobileExtra>
+            {/* 应用名称过滤 */}
+            <FilterInput name="app_name" placeholder="搜索应用名称" label="应用名称" disabled={isLoading} className={cn("w-40")} />
+            {/* 状态过滤 */}
+            {dictData.app_status && (
+              <FilterDictSelect name="status" placeholder="选择状态" label="应用状态" disabled={isLoading} dictData={dictData.app_status} allLabel="全部" className={cn("w-32")} />
             )}
-          </FilterContainer>
+            {/* 用户ID过滤 */}
+            <FilterInput name="user_id" placeholder="输入用户ID" type="number" label="用户ID" disabled={isLoading} className={cn("w-32")} />
+            {/* Client ID 过滤 */}
+            <FilterInput name="client_id" placeholder="输入Client ID" label="Client ID" disabled={isLoading} className={cn("w-40")} />
+            {/* 应用ID过滤 */}
+            <FilterInput name="app_id" placeholder="输入应用ID" type="number" label="应用ID" disabled={isLoading} className={cn("w-32")} />
+            {/* 动作按钮区域 */}
+            <div className={cn("flex-shrink-0")}>
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+                <FilterBar.DesktopOnly>
+                  <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                    onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+                </FilterBar.DesktopOnly>
+              </FilterActions>
+            </div>
+            <FilterBar.MobileFooter>
+              {(closeDrawer) => (
+                <ExportButton isSubmitting={exportAction.isSubmitting}
+                  onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+              )}
+            </FilterBar.MobileFooter>
+          </FilterBar>
         </div>
 
         {/* 表格和分页容器 */}
@@ -616,6 +579,16 @@ function AppListContent({ dictData }: AppListContentProps) {
           open={subAppDrawer.open}
           onClose={handleCloseSubAppDrawer}
           appStatusDict={dictData.app_status}
+        />
+
+        {/* 导出历史抽屉 */}
+        <ExportDrawer
+          open={exportAction.drawerOpen}
+          onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+          statusDict={dictData.export_task_status!}
+          tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+          currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+          onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
         />
       </div>
     </>

@@ -1,10 +1,14 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
+﻿import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { useAdminExportAction } from "@apps/main/hooks/use-admin-export-action";
 import { EXPORT_TYPE_SYSTEM_REQUEST_LIST } from "@shared/apis/admin/export";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { PermGuard } from "@apps/main/components/local/perm-guard";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import {
@@ -68,7 +72,7 @@ export function AppRequestPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["admin_app"] as const);
+  } = useDictData(["admin_app", "admin_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -93,7 +97,7 @@ export function AppRequestPage() {
 
 // 内容组件：负责内容加载和渲染
 interface AppRequestContentProps {
-  dictData: TypedDictData<["admin_app"]>;
+  dictData: TypedDictData<["admin_app", "admin_export"]>;
 }
 
 function AppRequestContent({ dictData }: AppRequestContentProps) {
@@ -114,6 +118,17 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     request_type: filterParam.request_type || null,
     status: filterParam.status || null,
   };
+
+  // 导出操作 hook（内部自管理 drawerOpen，对外提供 mobileHeaderButton + element）
+  const exportAction = useAdminExportAction({
+    exportType: EXPORT_TYPE_SYSTEM_REQUEST_LIST,
+    params: {
+      id: filters.id ?? undefined,
+      app_id: filters.app_id ?? undefined,
+      request_type: filters.request_type ?? undefined,
+      status: filters.status ?? undefined,
+    },
+  });
 
   // count_num 优化管理器（传入 filters 自动监听变化）
   const countNumManager = usePageCountNum(filters);
@@ -171,6 +186,28 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["appRequestList"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof AdminAppRequestFilterFormSchema>>({
+    defaultValues: {
+      id: filterParam.id,
+      app_id: filterParam.app_id,
+      request_type: filterParam.request_type,
+      status: filterParam.status,
+    },
+    resolver: zodResolver(AdminAppRequestFilterFormSchema) as any,
+    initValues: {
+      id: undefined,
+      app_id: undefined,
+      request_type: undefined,
+      status: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1 } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 处理分页变化
   const handlePageChange = (page: number) => {
@@ -425,105 +462,39 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
     <div className="container mx-auto p-4 max-w-[1600px] flex flex-col min-h-0 space-y-5">
       {/* 搜索和过滤 */}
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        <FilterContainer
-          defaultValues={{
-            id: filterParam.id?.toString(),
-            app_id: filterParam.app_id?.toString(),
-            request_type: filterParam.request_type,
-            status: filterParam.status,
-          }}
-          resolver={zodResolver(AdminAppRequestFilterFormSchema) as any}
-          onSubmit={(data) => {
-            // zod schema 已经处理了类型转换和空值清理，直接使用数据
-            navigate({
-              search: { ...data, page: 1 } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className={cn("bg-card rounded-lg border shadow-sm relative")}
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* ID过滤 */}
-              <FilterInput
-                name="id"
-                placeholder="输入请求ID"
-                type="number"
-                label="请求ID"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* 应用ID过滤 */}
-              <FilterInput
-                name="app_id"
-                placeholder="输入应用ID"
-                type="number"
-                label="应用ID"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* 请求类型过滤 */}
-              <FilterDictSelect
-                name="request_type"
-                placeholder="选择类型"
-                label="请求类型"
-                disabled={isLoading}
-                dictData={dictData.request_type}
-                layoutParams={layoutParams}
-                allLabel="全部"
-              />
-
-              {/* 状态过滤 */}
-              <FilterDictSelect
-                name="status"
-                placeholder="选择状态"
-                label="请求状态"
-                disabled={isLoading}
-                dictData={dictData.request_status}
-                layoutParams={layoutParams}
-                allLabel="全部"
-              />
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <AdminExportAction
-                      exportType={EXPORT_TYPE_SYSTEM_REQUEST_LIST}
-                      params={{
-                        id: filters.id,
-                        app_id: filters.app_id,
-                        request_type: filters.request_type,
-                        status: filters.status,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </FilterContainer>
+        <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterBar.MobileExtra>
+            <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+          </FilterBar.MobileExtra>
+          {/* ID过滤 */}
+          <FilterInput name="id" placeholder="输入请求ID" type="number" label="请求ID" disabled={isLoading} />
+          {/* 应用ID过滤 */}
+          <FilterInput name="app_id" placeholder="输入应用ID" type="number" label="应用ID" disabled={isLoading} />
+          {/* 请求类型过滤 */}
+          <FilterDictSelect name="request_type" placeholder="选择类型" label="请求类型" disabled={isLoading} dictData={dictData.request_type} allLabel="全部" />
+          {/* 状态过滤 */}
+          <FilterDictSelect name="status" placeholder="选择状态" label="请求状态" disabled={isLoading} dictData={dictData.request_status} allLabel="全部" />
+          {/* 动作按钮区域 */}
+          <div className={cn("flex-shrink-0")}>
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+              <FilterBar.DesktopOnly>
+                <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                  onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+              </FilterBar.DesktopOnly>
+            </FilterActions>
+          </div>
+          <FilterBar.MobileFooter>
+            {(closeDrawer) => (
+              <ExportButton isSubmitting={exportAction.isSubmitting}
+                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+            )}
+          </FilterBar.MobileFooter>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 */}
@@ -568,6 +539,16 @@ function AppRequestContent({ dictData }: AppRequestContentProps) {
               onAuditComplete={refreshData}
               requestTypeDict={dictData.request_type}
               requestStatusDict={dictData.request_status}
+            />
+
+            {/* 导出历史抽屉 */}
+            <ExportDrawer
+              open={exportAction.drawerOpen}
+              onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+              statusDict={dictData.export_task_status!}
+              tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+              currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+              onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
             />
           </div>
         </div>

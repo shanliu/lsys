@@ -129,6 +129,12 @@ export function getSystemMenu(): MenuConfig[] {
           path: '/admin/file/oss-config',
           permission: 'admin:file:oss-config',
           icon: Activity
+        },
+         {
+          name: '文件配置',
+          path: '/admin/file/runtime-setting',
+          permission: 'admin:file:runtime-setting',
+          icon: Activity
         }
       ]
     },

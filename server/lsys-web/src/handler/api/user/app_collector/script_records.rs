@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
@@ -30,26 +31,30 @@ pub struct ScriptRecordsParam {
     pub attr_file_tag: Option<bool>,
 }
 
-/// GET /api/user/collector/script_records — 按脚本查记录
 pub async fn script_records(
     param: &ScriptRecordsParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
     // 先查询脚本信息
-    let script = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let script = web_dao
+        .web_collector.collector
         .find_script_by_id(param.script_id)
         .await?
         .ok_or_else(|| {
             crate::common::JsonError::Message(
                 lsys_core::fluent_message!("collector-script-not-found",
                     {"script_id": param.script_id}
-                )
+                ),
             )
         })?;
 
@@ -63,19 +68,15 @@ pub async fn script_records(
         attr_file_tag: param.attr_file_tag,
     };
 
-    let (record_list, page_data) = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (record_list, page_data) = web_dao
+        .web_collector.collector
         .list_records(&script, None, param.status, &page, &attr)
         .await?;
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_records(&script, None, param.status, &TotalParam::default())
                 .await
                 .map(PageTotalRowValue::from)?,
@@ -91,7 +92,7 @@ pub async fn script_records(
                 "id": item.record.id,
                 "request_id": item.record.request_id,
                 "script_id": item.record.script_id,
-                "add_user_id": item.record.add_user_id,
+                "user_id": item.record.add_user_id,
                 "app_id": item.record.app_id,
                 "task_id": item.record.task_id,
                 "exec_params": item.record.exec_params,
@@ -108,16 +109,16 @@ pub async fn script_records(
         .collect();
 
     let cursor = PageCursorValue::from(&page_data);
-    
+
     let mut response_body = json!({
         "data": record_items,
         "cursor": cursor,
     });
-    
+
     if let Some(total) = total {
         response_body["total"] = json!(total);
     }
-    
+
     // 添加属性参数到响应中
     if param.attr_file.is_some() {
         response_body["attr_file"] = json!(param.attr_file);
@@ -131,6 +132,6 @@ pub async fn script_records(
     if param.attr_file_tag.is_some() {
         response_body["attr_file_tag"] = json!(param.attr_file_tag);
     }
-    
+
     Ok(JsonResponse::data(JsonData::body(response_body)))
 }

@@ -1,6 +1,7 @@
 use super::{app_check_get, inner_user_data_to_user_id};
 use crate::common::{JsonData, ToOffsetPageParam};
-use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_rbac::dao::{OpDataAttrParam, OpDataParam, RbacOpAddData, RbacOpData};
 use serde::{Deserialize, Serialize};
@@ -19,21 +20,27 @@ pub struct AppOpAddParam {
 }
 pub async fn app_op_add(
     param: &AppOpAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
 
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -66,19 +73,24 @@ pub struct AppOpEditParam {
 
 pub async fn app_op_edit(
     param: &AppOpEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let op = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let op = web_dao
         .web_rbac
         .rbac_dao
         .op
         .find_by_id(&param.op_id)
         .await?;
-    app_check_get(op.app_id, true, &auth_data, req_dao).await?;
-    req_dao
-        .web_dao
+    app_check_get(op.app_id, true, &auth_data, req_dao, web_dao).await?;
+    web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -107,20 +119,25 @@ pub struct AppOpDelParam {
 
 pub async fn app_op_del(
     param: &AppOpDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let op = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let op = web_dao
         .web_rbac
         .rbac_dao
         .op
         .find_by_id(&param.op_id)
         .await?;
-    app_check_get(op.app_id, true, &auth_data, req_dao).await?;
+    app_check_get(op.app_id, true, &auth_data, req_dao, web_dao).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -164,20 +181,26 @@ pub struct RbacOpRecord {
 }
 pub async fn app_op_data(
     param: &AppOpDataParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -210,8 +233,7 @@ pub async fn app_op_data(
         .collect::<Vec<RbacOpRecord>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .op

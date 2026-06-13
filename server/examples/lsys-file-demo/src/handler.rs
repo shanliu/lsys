@@ -25,6 +25,8 @@ pub struct UploadCreateReq {
     pub chunks: Vec<ChunkReq>,
     #[serde(default)]
     pub tag_names: Option<Vec<String>>,
+    #[serde(default)]
+    pub storage_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,7 +41,7 @@ pub struct ChunkReq {
 pub struct UploadRetokenReq {
     pub user_id: u64,
     pub app_id: u64,
-    pub file_id: u64,
+    pub file_ref_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,6 +49,7 @@ pub struct UploadByMd5Req {
     pub user_id: u64,
     pub app_id: u64,
     pub file_md5: String,
+    pub file_name: String,
     #[serde(default)]
     pub tag_names: Option<Vec<String>>,
 }
@@ -57,13 +60,12 @@ pub struct FromUrlReq {
     pub app_id: u64,
     pub source_url: String,
     #[serde(default)]
-    pub max_concurrency: Option<u32>,
-    #[serde(default)]
     pub tag_names: Option<Vec<String>>,
     #[serde(default)]
     pub wait_timeout: Option<u64>,
+    #[serde(default)]
+    pub storage_type: Option<String>,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct FileListReq {
@@ -83,9 +85,22 @@ pub struct FileListReq {
 
 #[derive(Debug, Deserialize)]
 pub struct FileDeleteReq {
+    pub file_ref_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FromLocalReq {
     pub user_id: u64,
     pub app_id: u64,
-    pub file_id: u64,
+    pub local_file_path: String,
+    #[serde(default)]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub tag_names: Option<Vec<String>>,
+    #[serde(default)]
+    pub storage_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +110,7 @@ pub struct FileUrlsReq {
 
 #[derive(Debug, Deserialize)]
 pub struct FileInfoReq {
-    pub file_user_ids: Vec<u64>,
+    pub file_ref_ids: Vec<u64>,
 }
 
 // ==================== 工具函数 ====================
@@ -141,6 +156,7 @@ pub async fn demo_upload_create(
             &req.file_name,
             &chunks,
             tag_refs.as_deref(),
+            req.storage_type.as_deref(),
         )
         .await
     {
@@ -161,7 +177,7 @@ pub async fn demo_upload_retoken(
 ) -> impl IntoResponse {
     match state
         .upstream
-        .file_upload_retoken(req.user_id, req.app_id, req.file_id)
+        .file_upload_retoken(req.user_id, req.app_id, req.file_ref_id)
         .await
     {
         Ok(resp) => ok_response(json!({
@@ -183,7 +199,7 @@ pub async fn demo_upload_by_md5(
 
     match state
         .upstream
-        .file_upload_by_md5(req.user_id, req.app_id, &req.file_md5, tag_refs.as_deref())
+        .file_upload_by_md5(req.user_id, req.app_id, &req.file_md5, &req.file_name, tag_refs.as_deref())
         .await
     {
         Ok(resp) => ok_response(json!({
@@ -210,9 +226,9 @@ pub async fn demo_from_url(
             req.user_id,
             req.app_id,
             &req.source_url,
-            req.max_concurrency,
             tag_refs.as_deref(),
             req.wait_timeout,
+            req.storage_type.as_deref(),
         )
         .await
     {
@@ -253,14 +269,15 @@ pub async fn demo_file_list(
                     next: None,
                     prev: None,
                 });
-            ok_response(
-                serde_json::to_value(JsonPageData::cursor(
-                    serde_json::to_value(&resp.data).unwrap_or_default(),
-                    cursor,
-                    resp.total.map(PageTotalRowValue::from),
-                ))
-                .unwrap(),
-            )
+            let page_data = JsonPageData::cursor(
+                serde_json::to_value(&resp.data).unwrap_or_default(),
+                cursor,
+                resp.total.map(PageTotalRowValue::from),
+            );
+            match serde_json::to_value(page_data) {
+                Ok(val) => ok_response(val),
+                Err(e) => err_response(&e.to_string()),
+            }
         }
         Err(e) => err_response(&e.to_string()),
     }
@@ -273,7 +290,7 @@ pub async fn demo_file_delete(
 ) -> impl IntoResponse {
     match state
         .upstream
-        .file_delete(req.user_id, req.app_id, req.file_id)
+        .file_delete(req.file_ref_id)
         .await
     {
         Ok(_) => ok_response(json!({})),
@@ -299,7 +316,7 @@ pub async fn demo_file_info(
     State(state): State<Arc<AppState>>,
     Json(req): Json<FileInfoReq>,
 ) -> impl IntoResponse {
-    match state.upstream.file_info(&req.file_user_ids).await {
+    match state.upstream.file_info(&req.file_ref_ids).await {
         Ok(resp) => ok_response(json!({
             "data": serde_json::to_value(&resp.data).unwrap_or_default(),
         })),
@@ -311,10 +328,45 @@ pub async fn demo_file_info(
 pub async fn demo_mapping(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     match state.upstream.file_mapping().await {
         Ok(resp) => ok_response(json!({
-            "min_chunk_size": resp.min_chunk_size,
             "max_upload_size": resp.max_upload_size,
-            "chunk_threshold": resp.chunk_threshold,
-            "default_chunk_size": resp.default_chunk_size,
+            "upload_chunk_max": resp.upload_chunk_max,
+        })),
+        Err(e) => err_response(&e.to_string()),
+    }
+}
+
+/// 从服务器本地文件导入
+pub async fn demo_from_local(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<FromLocalReq>,
+) -> impl IntoResponse {
+    let tag_refs: Option<Vec<&str>> = req
+        .tag_names
+        .as_ref()
+        .map(|t| t.iter().map(String::as_str).collect());
+
+    match state
+        .upstream
+        .file_from_local(
+            req.user_id,
+            req.app_id,
+            &req.local_file_path,
+            req.file_name.as_deref(),
+            req.mode.as_deref(),
+            tag_refs.as_deref(),
+            req.storage_type.as_deref(),
+        )
+        .await
+    {
+        Ok(resp) => ok_response(json!({
+            "id": resp.id,
+            "file_id": resp.file_id,
+            "file_name": resp.file_name,
+            "file_md5": resp.file_md5,
+            "file_size": resp.file_size,
+            "file_url": resp.file_url,
+            "storage_type": resp.storage_type,
+            "status": resp.status,
         })),
         Err(e) => err_response(&e.to_string()),
     }

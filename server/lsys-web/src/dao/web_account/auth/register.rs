@@ -351,12 +351,19 @@ impl WebUserAuth {
                 env_data,
             )
             .await?;
-        let _ = self
+        if let Err(e) = self
             .user_dao
             .account_dao
             .account_email
             .valid_code_clear(0, param.email)
-            .await;
+            .await
+        {
+            warn!(
+                "register_from_email: valid_code_clear failed for email={}: {}",
+                param.email,
+                e.to_fluent_message().default_format()
+            );
+        }
         Ok(user.id)
     }
 }
@@ -404,12 +411,19 @@ impl WebUserAuth {
                 env_data,
             )
             .await?;
-        let _ = self
+        if let Err(e) = self
             .user_dao
             .account_dao
             .account_mobile
             .valid_code_clear(param.area_code, param.mobile)
-            .await;
+            .await
+        {
+            warn!(
+                "register_from_mobile: valid_code_clear failed for mobile={}: {}",
+                param.mobile,
+                e.to_fluent_message().default_format()
+            );
+        }
         Ok(user.id)
     }
 }

@@ -20,8 +20,8 @@ CREATE TABLE `lst_account_address` (
     `address_code` varchar(21) NOT NULL COMMENT '地址代码',
     `address_info` varchar(64) NOT NULL COMMENT '地址信息,冗余,显示用',
     `address_detail` varchar(128) NOT NULL COMMENT '地址详细',
-    `name` varchar(12) NOT NULL COMMENT '姓名',
-    `mobile` varchar(13) NOT NULL COMMENT '电话',
+    `name` varchar(128) NOT NULL COMMENT '姓名(AES-256-GCM加密密文)',
+    `mobile` varchar(128) NOT NULL COMMENT '电话(AES-256-GCM加密密文)',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
     PRIMARY KEY (`id`)
@@ -29,11 +29,13 @@ CREATE TABLE `lst_account_address` (
 CREATE TABLE `lst_account_email` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
-    `email` varchar(150) NOT NULL COMMENT '邮箱',
+    `email` varchar(255) NOT NULL COMMENT '邮箱密文',
+    `email_hash` varchar(64) NOT NULL COMMENT '邮箱哈希值',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '绑定状态',
     `confirm_time` int unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    KEY `email_hash_idx` (`email_hash`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户关联邮箱';
 CREATE TABLE `lst_account_external` (
     `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -48,7 +50,7 @@ CREATE TABLE `lst_account_external` (
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
     `config_name` varchar(32) NOT NULL COMMENT '使用配置名',
     `change_time` int unsigned NOT NULL COMMENT '最后更改时间',
-    `token_data` varchar(255) NOT NULL DEFAULT '' COMMENT '外部站点登录TOKEN数据',
+    `token_data` varchar(2048) NOT NULL DEFAULT '' COMMENT '外部站点登录TOKEN数据(AES-256-GCM加密密文)',
     `token_timeout` int unsigned DEFAULT 0 COMMENT '外部站点登录超时',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '外部账号登录';
@@ -68,11 +70,13 @@ CREATE TABLE `lst_account_mobile` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `account_id` bigint unsigned NOT NULL COMMENT '用户ID',
     `area_code` char(4) NOT NULL COMMENT '电话区号',
-    `mobile` char(13) NOT NULL COMMENT '手机号',
+    `mobile` varchar(255) NOT NULL COMMENT '手机号(AES-256-GCM加密密文)',
+    `mobile_hash` varchar(64) NOT NULL COMMENT '手机号哈希值',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '绑定状态',
     `confirm_time` int unsigned NOT NULL DEFAULT 0 COMMENT '确认时间',
     `change_time` int unsigned NOT NULL DEFAULT 0 COMMENT '最后更改时间',
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    KEY `mobile_hash_idx` (`mobile_hash`)
 ) ENGINE = InnoDB CHARSET = utf8mb4 COMMENT = '用户登关联手机号';
 CREATE TABLE `lst_account_name` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,

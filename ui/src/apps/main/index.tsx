@@ -1,6 +1,7 @@
 
 import { Config } from '@shared/lib/config'
-import { initJwtSharingHost } from '@shared/lib/auth'
+import { initTokenSharingHost } from '@shared/lib/auth'
+import { initSessionAutoRefresh } from '@shared/lib/auth/session-refresh'
 import { queryClient } from '@shared/lib/query-client'
 import '@shared/styles/globals.css'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -10,9 +11,12 @@ import * as ReactDOM from 'react-dom/client'
 import { routeTree } from './routeTree.gen'
 import './styles/app.css'
 
-// Initialize JWT sharing for sub-services (barcode, etc.)
-// This allows sub-service domains to request JWT via postMessage
-initJwtSharingHost();
+// Initialize token sharing for sub-services (barcode, etc.)
+// This allows sub-service domains to request the auth token via postMessage
+initTokenSharingHost();
+
+// 客户端主动刷新：窗口可见/获得焦点且临近过期时轮换 token（非 cookie）。
+initSessionAutoRefresh();
 
 // Create a new router instance
 const router = createRouter({

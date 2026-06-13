@@ -1,21 +1,41 @@
 // 执行记录查询 + 计数 + 记录关联文件/日志独立查询
 
 use lsys_core::db::{
-    CursorPageData, CursorPageParam, OffsetPageParam, QueryBuilderExt, TableMeta, TotalParam,
+    CursorPageData, CursorPageParam, QueryBuilderExt, TableMeta, TotalParam,
     TotalRow, WhereClause,
 };
 use lsys_core::utils::{StringClear, string_clear};
-use lsys_file::dao::FileListAttrParam;
+use lsys_file::dao::{FileListAttrParam, FileLocalAttrData};
 use sqlx::{MySql, QueryBuilder};
 
 use crate::dao::result::FileManagerResult;
 use crate::model::*;
 
 use super::FileCollector;
-use super::script::{ScriptFileItem, ScriptFileTag};
+use super::script::ScriptFileTag;
 
-/// 记录关联的文件信息（含 URL + tag）
-pub type RecordFileItem = ScriptFileItem;
+/// 记录关联的文件信息（使用私有存储，通过 file_key 访问）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RecordFileItem {
+    pub file_id: u64,
+    pub file_name: String,
+    pub file_md5: String,
+    pub file_size: u64,
+    pub storage_type: String,
+    pub content_type: String,
+    pub file_key: String,
+    pub add_time: u64,
+    pub user_id: u64,
+    pub add_user_id: u64,
+    pub app_id: u64,
+    pub status: i8,
+    pub file_ref_status: i8,
+    pub source_url: String,
+    pub source_md5: String,
+    pub modify_time: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attr_local: Option<FileLocalAttrData>,
+}
 
 /// 记录关联的文件 tag
 pub type RecordFileTag = ScriptFileTag;
@@ -128,8 +148,7 @@ impl FileCollector {
 
             let file_attr = FileListAttrParam {
                 attr_local: attr.attr_file_local,
-                attr_oss: attr.attr_file_oss,
-                attr_tag: attr.attr_file_tag,
+                ..Default::default()
             };
 
             // 使用批量查询，每个标签获取最多 1 个文件（实际查询 2 个用于判断是否有更多）
@@ -137,7 +156,7 @@ impl FileCollector {
             let batch_result = self
                 .file_dao
                 .data_dao()
-                .batch_list_files_by_tags(
+                .list_files_by_batch_tags(
                     &tag_refs,
                     Some(script.add_user_id),
                     Some(script.app_id),
@@ -146,50 +165,9 @@ impl FileCollector {
                 )
                 .await?;
 
-            // 批量获取 URL
-            let all_file_models: Vec<lsys_file::model::FileModel> = batch_result
-                .values()
-                .filter_map(|(files, _)| files.first())
-                .map(|item| lsys_file::model::FileModel {
-                    id: item.item.file_id,
-                    storage_type: item.item.storage_type.clone(),
-                    status: item.item.status,
-                    file_name: item.item.file_name.clone(),
-                    file_md5: item.item.file_md5.clone(),
-                    file_size: item.item.file_size,
-                    modify_time: item.item.modify_time,
-                    content_type: item.item.content_type.clone(),
-                    copy_file_id: item.item.copy_file_id,
-                    from_user_id: item.item.from_user_id,
-                    add_time: item.item.add_time,
-                    change_time: item.item.change_time,
-                })
-                .collect();
-
-            let url_map = self
-                .file_dao
-                .get_file_urls(&all_file_models)
-                .await
-                .unwrap_or_else(|_| std::collections::HashMap::new());
-
-            // 构建 tag_name → (RecordFileItem, has_more) 的映射
+            // 构建 tag_name → (RecordFileItem, has_more) 的映射（不获取 URL）
             for (tag_name, (files, has_more)) in batch_result {
                 if let Some(item) = files.first() {
-                    let file_url = url_map.get(&item.item.file_id).cloned();
-                    let tags: Vec<RecordFileTag> = item
-                        .attr_tag
-                        .as_ref()
-                        .map(|t| {
-                            t.tags
-                                .iter()
-                                .map(|tag| RecordFileTag {
-                                    tag_name: tag.tag_name.clone(),
-                                    add_time: tag.add_time,
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
                     let file_item = RecordFileItem {
                         file_id: item.item.file_id,
                         file_name: item.item.file_name.clone(),
@@ -197,19 +175,17 @@ impl FileCollector {
                         file_size: item.item.file_size,
                         storage_type: item.item.storage_type.clone(),
                         content_type: item.item.content_type.clone(),
-                        file_url,
-                        add_time: item.item.file_user_add_time,
-                        tags,
+                        file_key: item.file_key.clone(),
+                        add_time: item.item.file_ref_add_time,
                         user_id: item.item.user_id,
                         add_user_id: item.item.add_user_id,
                         app_id: item.item.app_id,
                         status: item.item.status,
-                        file_user_status: item.item.file_user_status,
+                        file_ref_status: item.item.file_ref_status,
                         source_url: item.item.source_url.clone(),
                         source_md5: item.item.source_md5.clone(),
                         modify_time: item.item.modify_time,
                         attr_local: item.attr_local.clone(),
-                        attr_oss: item.attr_oss.clone(),
                     };
 
                     // 通过预建的映射获取 record_id
@@ -274,7 +250,7 @@ impl FileCollector {
             .build_query_scalar()
             .fetch_one(&self.db)
             .await
-            .unwrap_or(0i64) as u64;
+            .unwrap_or(0i64);
         Ok(query.finalize(count))
     }
 
@@ -296,10 +272,11 @@ impl FileCollector {
         let file_attr = FileListAttrParam {
             attr_local: Some(true),
             attr_oss: Some(false),
-            attr_tag: Some(true),
+            attr_tag_list: None,
+            ..Default::default()
         };
 
-        let (files, page_data): (Vec<lsys_file::dao::FileListItemAttr>, _) = self
+        let (files, page_data): (Vec<lsys_file::dao::FileListItemAttrData>, _) = self
             .file_dao
             .data_dao()
             .list_files_by_tag(
@@ -311,68 +288,27 @@ impl FileCollector {
             )
             .await?;
 
-        // 批量获取 URL
-        let file_models: Vec<lsys_file::model::FileModel> = files
+        // 不获取 URL，直接构建结果
+        let items: Vec<RecordFileItem> = files
             .iter()
-            .map(|item| lsys_file::model::FileModel {
-                id: item.item.file_id,
-                storage_type: item.item.storage_type.clone(),
-                status: item.item.status,
+            .map(|item| RecordFileItem {
+                file_id: item.item.file_id,
                 file_name: item.item.file_name.clone(),
                 file_md5: item.item.file_md5.clone(),
                 file_size: item.item.file_size,
-                modify_time: item.item.modify_time,
+                storage_type: item.item.storage_type.clone(),
                 content_type: item.item.content_type.clone(),
-                copy_file_id: item.item.copy_file_id,
-                from_user_id: item.item.from_user_id,
-                add_time: item.item.add_time,
-                change_time: item.item.change_time,
-            })
-            .collect();
-        let url_map = self
-            .file_dao
-            .get_file_urls(&file_models)
-            .await
-            .unwrap_or_else(|_| std::collections::HashMap::new());
-
-        let items: Vec<RecordFileItem> = files
-            .iter()
-            .map(|item| {
-                let file_url = url_map.get(&item.item.file_id).cloned();
-                let tags: Vec<RecordFileTag> = item
-                    .attr_tag
-                    .as_ref()
-                    .map(|t| {
-                        t.tags
-                            .iter()
-                            .map(|tag| RecordFileTag {
-                                tag_name: tag.tag_name.clone(),
-                                add_time: tag.add_time,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                RecordFileItem {
-                    file_id: item.item.file_id,
-                    file_name: item.item.file_name.clone(),
-                    file_md5: item.item.file_md5.clone(),
-                    file_size: item.item.file_size,
-                    storage_type: item.item.storage_type.clone(),
-                    content_type: item.item.content_type.clone(),
-                    file_url,
-                    add_time: item.item.file_user_add_time,
-                    tags,
-                    user_id: item.item.user_id,
-                    add_user_id: item.item.add_user_id,
-                    app_id: item.item.app_id,
-                    status: item.item.status,
-                    file_user_status: item.item.file_user_status,
-                    source_url: item.item.source_url.clone(),
-                    source_md5: item.item.source_md5.clone(),
-                    modify_time: item.item.modify_time,
-                    attr_local: item.attr_local.clone(),
-                    attr_oss: item.attr_oss.clone(),
-                }
+                file_key: item.file_key.clone(),
+                add_time: item.item.file_ref_add_time,
+                user_id: item.item.user_id,
+                add_user_id: item.item.add_user_id,
+                app_id: item.item.app_id,
+                status: item.item.status,
+                file_ref_status: item.item.file_ref_status,
+                source_url: item.item.source_url.clone(),
+                source_md5: item.item.source_md5.clone(),
+                modify_time: item.item.modify_time,
+                attr_local: item.attr_local.clone(),
             })
             .collect();
 
@@ -395,60 +331,4 @@ impl FileCollector {
             .await?)
     }
 
-    // ==================== 记录关联日志（按 request_id 查日志） ====================
-
-    /// 查询指定记录关联的日志列表（OffsetPageParam 分页）
-    ///
-    /// - `record`: 记录实体
-    /// - `level`: 可选日志级别过滤
-    /// - `page`: OffsetPageParam 分页
-    pub async fn list_record_logs(
-        &self,
-        record: &CollectorRecordModel,
-        level: Option<u8>,
-        page: &OffsetPageParam,
-    ) -> FileManagerResult<Vec<CollectorLogModel>> {
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "SELECT * FROM {}",
-            CollectorLogModel::table_name()
-        ));
-        qb.push_where()
-            .field_eq("request_id", record.request_id.to_owned());
-        if let Some(lv) = level {
-            qb.push_and().field_eq("level", lv);
-        }
-        qb.push(" ORDER BY id ASC");
-        page.push_limit(&mut qb);
-
-        let data = qb
-            .build_query_as::<CollectorLogModel>()
-            .fetch_all(&self.db)
-            .await?;
-
-        Ok(data)
-    }
-
-    /// 查询指定记录关联的日志总数
-    pub async fn count_record_logs(
-        &self,
-        record: &CollectorRecordModel,
-        level: Option<u8>,
-    ) -> FileManagerResult<u64> {
-        let mut qb = QueryBuilder::<MySql>::new(format!(
-            "SELECT COUNT(*) FROM {}",
-            CollectorLogModel::table_name()
-        ));
-        qb.push_where()
-            .field_eq("request_id", record.request_id.to_owned());
-        if let Some(lv) = level {
-            qb.push_and().field_eq("level", lv);
-        }
-
-        let count = qb
-            .build_query_scalar()
-            .fetch_one(&self.db)
-            .await
-            .unwrap_or(0i64);
-        Ok(count as u64)
-    }
 }

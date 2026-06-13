@@ -5,6 +5,7 @@ use lsys_app_sender::dao::SenderError;
 use lsys_core::app_core::AppCoreError;
 use lsys_core::fluent_message;
 use lsys_core::fluents::{FluentMessage, IntoFluentMessage};
+use lsys_core::secret::SecretError;
 use lsys_core::remote_notify::RemoteNotifyError;
 use lsys_core::valid_code::ValidCodeError;
 use lsys_core::valid_param::ValidError;
@@ -36,6 +37,7 @@ pub enum WebError {
     LoggerError(LoggerError),
     ValidError(ValidError),
     ValidCodeError(ValidCodeError),
+    SecretError(SecretError),
     Message(FluentMessage),
     JsonResponse(Box<JsonData>, FluentMessage),
 }
@@ -59,10 +61,17 @@ impl IntoFluentMessage for WebError {
             WebError::LoggerError(err) => err.to_fluent_message(),
             WebError::ValidError(err) => err.to_fluent_message(),
             WebError::ValidCodeError(err) => err.to_fluent_message(),
+            WebError::SecretError(err) => err.to_fluent_message(),
             WebError::Message(err) => err.to_owned(),
             WebError::JsonResponse(_, err) => err.to_owned(),
             WebError::AccessError(err) => err.to_fluent_message(),
         }
+    }
+}
+
+impl From<SecretError> for WebError {
+    fn from(value: SecretError) -> Self {
+        Self::SecretError(value)
     }
 }
 
@@ -179,6 +188,9 @@ pub type WebResult<T> = Result<T, WebError>;
 // 这样在导出器实现中可以使用 ? 操作符自动转换
 impl From<WebError> for FileManagerError {
     fn from(e: WebError) -> Self {
-        FileManagerError::Message(fluent_message!("web-error",e.to_fluent_message().default_format()))
+        FileManagerError::Message(fluent_message!(
+            "web-error",
+            e.to_fluent_message().default_format()
+        ))
     }
 }

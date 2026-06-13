@@ -5,12 +5,23 @@ use crate::{AreaError, AreaResult};
 #[allow(dead_code)]
 pub(crate) fn read_file_md5(path: &PathBuf) -> String {
     use sha2::{Digest, Sha256};
-    use std::{fs, io};
+    use std::{fmt::Write, fs, io::Read};
     if let Ok(mut file) = fs::File::open(path) {
         let mut hasher = Sha256::new();
-        if io::copy(&mut file, &mut hasher).is_ok() {
-            return format!("{:x}", hasher.finalize());
+        let mut buffer = [0u8; 8192];
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => hasher.update(&buffer[..n]),
+                Err(_) => return "".to_string(),
+            }
         }
+        let hash = hasher.finalize();
+        let mut hex_str = String::with_capacity(hash.len() * 2);
+        for b in hash {
+            let _ = write!(hex_str, "{:02x}", b);
+        }
+        return hex_str;
     }
     "".to_string()
 }

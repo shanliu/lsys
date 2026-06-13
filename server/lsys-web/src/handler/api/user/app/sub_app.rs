@@ -1,6 +1,7 @@
 use crate::common::{JsonData, JsonError, JsonResult, ToOffsetPageParam};
 
-use crate::common::{JsonResponse, PageParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, PageParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{
     CheckUserAppEdit, CheckUserAppSenderSmsConfig, CheckUserAppView,
@@ -25,19 +26,19 @@ pub struct RequestExterSubAppParam {
 
 pub async fn sub_app_request(
     param: &RequestExterSubAppParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -46,8 +47,7 @@ pub async fn sub_app_request(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -64,11 +64,17 @@ pub struct SubAppNotifyGetConfigParam {
 
 pub async fn sub_app_notify_get_config(
     param: &SubAppNotifyGetConfigParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -84,8 +90,7 @@ pub async fn sub_app_notify_get_config(
         like_client_id: None,
         app_id: Some(param.app_id),
     };
-    let apps = req_dao
-        .web_dao
+    let apps = web_dao
         .web_app
         .app_dao
         .app
@@ -96,8 +101,7 @@ pub async fn sub_app_notify_get_config(
             &OffsetPageParam::new(None),
         )
         .await?;
-    let notify = req_dao
-        .web_dao
+    let notify = web_dao
         .web_app
         .app_dao
         .app_notify
@@ -140,19 +144,19 @@ pub struct SubAppNotifySetConfigParam {
 
 pub async fn sub_app_notify_set_config(
     param: &SubAppNotifySetConfigParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -167,8 +171,7 @@ pub async fn sub_app_notify_set_config(
             "app-notify-only-parent"
         )));
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app_notify
@@ -215,22 +218,22 @@ pub struct ShowSubAppRecord {
 //用户层的子应用列表
 pub async fn sub_app_list(
     param: &SubAppListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    // 获取父应用信息
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
 
+    // 获取父应用信息
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+
     // 权限验证
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -273,8 +276,7 @@ pub async fn sub_app_list(
         sub_req_pending_count: true,
     };
 
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -309,8 +311,7 @@ pub async fn sub_app_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -322,7 +323,7 @@ pub async fn sub_app_list(
     };
 
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        json!(bind_vec_user_info_from_req!(req_dao, out, user_id, false)),
+        json!(bind_vec_user_info_from_req!(web_dao, out, user_id, false)),
         count,
     ))))
 }

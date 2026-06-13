@@ -1,8 +1,10 @@
-//后台页面接口(jwt 接口)
-use crate::common::handler::RestQuery;
+//后台页面接口
+use crate::common::handler::{RestQuery, ReqQuery};
 use crate::common::handler::{ResponseJson, ResponseJsonResult};
 use actix_service::ServiceFactory;
 use actix_web::post;
+use actix_web::web::Data;
+use lsys_web::dao::WebDao;
 use actix_web::{App, Error, dev::ServiceRequest, web::scope};
 pub(crate) fn router<T>(app: App<T>) -> App<T>
 where
@@ -13,18 +15,19 @@ where
 }
 
 #[post("test")]
-pub(crate) async fn demo_app(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
+pub(crate) async fn demo_app(rest: RestQuery, req_dao: ReqQuery, web_dao: Data<WebDao>) -> ResponseJsonResult<ResponseJson> {
     Ok(match rest.rfc.method.as_deref().unwrap_or_default() {
         "api1" => {
             lsys_web_subapp_demo::handler::demo_api1(
                 &rest.param::<lsys_web_subapp_demo::handler::DemoParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
         var => handler_not_found!(var),
     }
-    .map_err(|e| rest.fluent_error_json_response(&e))?
+    .map_err(|e| req_dao.fluent_error_json_response(&e))?
     .into())
 }

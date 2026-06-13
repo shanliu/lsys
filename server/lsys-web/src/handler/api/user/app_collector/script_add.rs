@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
@@ -15,19 +16,23 @@ pub struct ScriptAddParam {
     pub memory_limit: Option<u64>,
 }
 
-/// POST /api/user/collector/script_add — 创建脚本（绑定到用户应用）
 pub async fn script_add(
     param: &ScriptAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_id = auth_data.user_id();
 
-    let script_id = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let script_id = web_dao
+        .web_collector.collector
         .script_add(
             user_id,
             app.id,

@@ -39,6 +39,10 @@ pub struct ExportTaskModel {
     #[sqlx(default)]
     pub export_params: String,
 
+    /// 请求语言标识（如 zh_CN、en_US），用于导出文件头国际化
+    #[sqlx(default)]
+    pub lang: String,
+
     /// 状态: 1=Pending 2=Running 3=Success 4=Failed 5=Deleted
     #[sqlx(default)]
     pub status: i8,

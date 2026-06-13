@@ -2,6 +2,7 @@
 mod macros;
 mod api;
 mod demo;
+mod file_token_upload;
 mod rest;
 mod service;
 mod web;

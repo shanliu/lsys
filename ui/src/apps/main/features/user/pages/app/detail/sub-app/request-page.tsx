@@ -1,9 +1,9 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { SubAppRequestDataDisplay } from "@apps/main/features/user/components/ui/sub-app-request-data-display";
@@ -50,6 +50,7 @@ import { requestPromptModuleConfig } from "../nav-info";
 import { SubAppRequestAuditActionDrawer } from "./request-audit-action-drawer";
 import { SubAppRequestAuditInfoDrawer } from "./request-audit-info-drawer";
 import { SubAppRequestFilterFormSchema } from "./request-schema";
+import * as z from "zod";
 
 export function SubAppRequestPage() {
   // docs\api\user\app\sub_request_list.md
@@ -177,6 +178,23 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["appSubRequestList"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof SubAppRequestFilterFormSchema>>({
+    defaultValues: {
+      id: filterParam.id,
+      sub_app_id: filterParam.sub_app_id,
+      request_type: filterParam.request_type,
+      status: filterParam.status,
+    },
+    resolver: zodResolver(SubAppRequestFilterFormSchema) as any,
+    initValues: { id: undefined, sub_app_id: undefined, request_type: undefined, status: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 对话框状态管理
   const [selectedRequestForInfo, setSelectedRequestForInfo] =
@@ -395,102 +413,25 @@ function SubAppRequestContent({ dictData }: SubAppRequestContentProps) {
     <div className="flex flex-col min-h-0 space-y-3">
       <div className="flex-shrink-0 mb-1 sm:mb-4">
         {/* 过滤器 */}
-        <FilterContainer
-          defaultValues={{
-            id: filterParam.id?.toString(),
-            sub_app_id: filterParam.sub_app_id?.toString(),
-            request_type: filterParam.request_type?.toString(),
-            status: filterParam.status?.toString(),
-          }}
-          resolver={zodResolver(SubAppRequestFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* 请求ID过滤 */}
-              <FilterInput
-                name="id"
-                placeholder="输入请求ID"
-                type="number"
-                label="请求ID"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* 子应用ID过滤 */}
-              <FilterInput
-                name="sub_app_id"
-                placeholder="输入子应用ID"
-                type="number"
-                label="子应用ID"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* 请求类型过滤 */}
-              {dictData.request_type && (
-                <FilterDictSelect
-                  name="request_type"
-                  placeholder="选择类型"
-                  label="请求类型"
-                  disabled={isLoading}
-                  dictData={dictData.request_type}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 状态过滤 */}
-              {dictData.request_status && (
-                <FilterDictSelect
-                  name="status"
-                  placeholder="选择状态"
-                  label="请求状态"
-                  disabled={isLoading}
-                  dictData={dictData.request_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-                extraActions={
-                  <UserExportAction
-                    appId={Number(appId)}
-                    exportType="user_sub_request"
-                    params={{
-                      app_id: Number(appId),
-                      id: filters.id ?? undefined,
-                      sub_app_id: filters.sub_app_id ?? undefined,
-                      status: filters.status ?? undefined,
-                    }}
-                  />
-                }
-              />
-            </div>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterInput name="id" placeholder="输入请求ID" type="number" label="请求ID" disabled={isLoading} />
+          <FilterInput name="sub_app_id" placeholder="输入子应用ID" type="number" label="子应用ID" disabled={isLoading} />
+          {dictData.request_type && (
+            <FilterDictSelect name="request_type" placeholder="选择类型" label="请求类型"
+              disabled={isLoading} dictData={dictData.request_type} allLabel="全部" />
           )}
-        </FilterContainer>
+          {dictData.request_status && (
+            <FilterDictSelect name="status" placeholder="选择状态" label="请求状态"
+              disabled={isLoading} dictData={dictData.request_status} allLabel="全部" />
+          )}
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 - 确保不超出页面高度 */}

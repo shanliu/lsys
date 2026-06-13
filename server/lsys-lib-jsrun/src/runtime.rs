@@ -29,6 +29,7 @@ use std::time::Duration;
 
 use rquickjs::{AsyncContext, AsyncRuntime, CatchResultExt, Object};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tracing::warn;
 
 use crate::core::cache::{SharedCache, new_shared_cache};
 use crate::core::file::FileTracker;
@@ -379,9 +380,10 @@ impl JsEngine {
         let st = state.clone();
         ctx.with(|ctx| {
             // Store FileTracker as context userdata
-            let _ = ctx
-                .store_userdata(st.file_tracker.clone())
-                .map_err(|_| rquickjs::Error::Unknown)?;
+            ctx.store_userdata(st.file_tracker.clone()).map_err(|e| {
+                warn!("failed to store userdata: {}", e);
+                rquickjs::Error::Unknown
+            })?;
 
             // Create `runtime` global namespace
             let globals = ctx.globals();

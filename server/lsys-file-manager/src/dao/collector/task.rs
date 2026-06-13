@@ -8,9 +8,9 @@ use lsys_core::db::{Insert, QueryBuilderExt, Update, utils::FetchField};
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::{RequestEnv, now_time};
-use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidStrlen};
 use lsys_core::valid_key;
-use lsys_file::dao::LocalFileMode;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidStrlen};
+use lsys_file::dao::{LocalFileMode, LocalFileSource};
 use lsys_lib_jsrun::runner::{TaskOutcome, TaskResult};
 use lsys_lib_jsrun::{
     FileLocalSyncHandler, LogHandler, MESSAGE_TYPE_GET_ENV, MESSAGE_TYPE_GET_PARAM, MessageHandler,
@@ -67,14 +67,12 @@ impl FileCollector {
             .add(
                 valid_key!("request_id"),
                 &request_id,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(1, request_id_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, request_id_max)),
             )
             .add(
                 valid_key!("exec_params"),
                 &params_json,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::max(exec_params_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::max(exec_params_max)),
             )
             .check()?;
 
@@ -129,7 +127,7 @@ impl FileCollector {
             })
         });
 
-        // file_sync_handler: 调用 FileDao.create_from_local_file + 打 4 个 TAG
+        // file_sync_handler: 调用 FileDao.create_from_local_file + 打 TAG
         let file_dao = self.file_dao.clone();
         let tag_script_name = format!("script_name_{}", script.name);
         let tag_script_md5 = format!("script_md5_{}", script.script_md5);
@@ -144,24 +142,25 @@ impl FileCollector {
                 let tag2 = tag_script_md5.clone();
                 let tag3 = tag_script_id.clone();
                 let tag4 = tag_request_id.clone();
-                let tag5=tag_script_record.clone();
+                let tag5 = tag_script_record.clone();
 
                 Box::pin(async move {
                     let path_str = file_path.to_string_lossy().to_string();
-                    let tag_names: Vec<&str> = vec![&tag1, &tag2, &tag3, &tag4,&tag5];
+                    let tag_names: Vec<&str> = vec![&tag1, &tag2, &tag3, &tag4, &tag5];
 
-                    let (file_model, _file_user) = file_dao
+                    let (file_model, _file_ref) = file_dao
                         .create_from_local_file(
                             &path_str,
                             user_id,
                             add_user_id,
                             app_id,
-                            lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
+                            lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PRIVATE,
                             None,
                             LocalFileMode::Move,
-                            None,
-                            None,
+                            LocalFileSource::Plaintext,
+                            false,
                             &tag_names,
+                            None, // expire_time
                             None,
                         )
                         .await
@@ -170,7 +169,7 @@ impl FileCollector {
                     Ok(serde_json::json!({
                         "file_id": file_model.id,
                         "file_md5": file_model.file_md5,
-                        "file_name": file_model.file_name,
+                        "file_name": file_model.origin_name,
                         "file_size": file_model.file_size,
                     }))
                 })

@@ -4,6 +4,7 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::RequestDao;
+use crate::dao::WebDao;
 
 use crate::common::JsonData;
 use crate::common::ToOffsetPageParam;
@@ -31,8 +32,9 @@ pub async fn role_user_add(
     param: &RoleUserAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let mut add_user = Vec::with_capacity(param.user_data.len());
     for e in param.user_data.iter() {
         if e.use_app_user {
@@ -41,8 +43,7 @@ pub async fn role_user_add(
                 timeout: e.timeout,
             });
         } else {
-            let user_info = req_dao
-                .web_dao
+            let user_info = web_dao
                 .web_access
                 .access_dao
                 .user
@@ -61,16 +62,14 @@ pub async fn role_user_add(
         }
     }
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
     inner_app_self_check(app, role.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -90,19 +89,18 @@ pub async fn role_user_del(
     param: &RoleUserDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
     inner_app_self_check(app, role.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -132,18 +130,17 @@ pub async fn role_user_data(
     param: &RoleUserDataParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
-    let role = req_dao
-        .web_dao
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
     inner_app_self_check(app, role.app_id)?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -151,8 +148,7 @@ pub async fn role_user_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role
@@ -163,7 +159,7 @@ pub async fn role_user_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data":  bind_vec_user_info_from_req!(req_dao, res, user_id),
+        "data":  bind_vec_user_info_from_req!(web_dao, res, user_id),
         "count": count
     }))))
 }

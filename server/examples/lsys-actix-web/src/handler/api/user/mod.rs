@@ -1,5 +1,10 @@
 pub mod app;
+pub mod app_collector;
+pub mod app_file;
+pub mod app_rbac;
+pub mod app_sender;
 mod base;
+pub mod file;
 mod mfa;
 pub mod profile;
 pub mod rbac;

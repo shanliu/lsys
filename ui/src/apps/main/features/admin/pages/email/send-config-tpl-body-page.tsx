@@ -1,9 +1,12 @@
 "use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { EmailSendConfigNavContainer } from "@apps/main/features/admin/components/ui/email-send-config-nav";
 import {
   DEFAULT_PAGE_SIZE,
@@ -131,6 +134,22 @@ export function EmailSendConfigTplBodyPage() {
     queryClient.invalidateQueries({ queryKey: ["admin-mail-tpl-list"] });
   };
 
+  const filterForm = useFilterBarForm<z.infer<typeof EmailSendConfigTplBodyFilterFormSchema>>({
+    defaultValues: {
+      tpl_id: filterParam.tpl_id,
+    },
+    resolver: zodResolver(EmailSendConfigTplBodyFilterFormSchema) as any,
+    initValues: {
+      tpl_id: undefined,
+    },
+    onSubmit: (data) => {
+      onNavigate({ ...data, page: 1, limit: currentLimit });
+    },
+    onReset: () => {
+      onNavigate({ page: 1, limit: currentLimit });
+    },
+  });
+
   // 定义表格列配置
   const columns: ColumnDef<SystemSenderMailerTplBodyItemType>[] = [
     {
@@ -245,46 +264,16 @@ export function EmailSendConfigTplBodyPage() {
 
         <div className="flex-shrink-0">
           {/* 过滤器 */}
-          <FilterContainer
-            defaultValues={{
-              tpl_id: filterParam.tpl_id,
-            }}
-            resolver={zodResolver(EmailSendConfigTplBodyFilterFormSchema) as any}
-            onSubmit={(data) => {
-              onNavigate({ ...data, page: 1, limit: currentLimit });
-            }}
-            onReset={() => {
-              onNavigate({ page: 1, limit: currentLimit });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotal())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                {/* 模板ID过滤 */}
-                <FilterInput
-                  name="tpl_id"
-                  label="模板ID"
-                  placeholder="输入模板ID"
-                  type="text"
-                  layoutParams={layoutParams}
-                />
-
-                {/* 动作按钮区域 */}
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                />
-              </div>
-            )}
-          </FilterContainer>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterInput name="tpl_id" label="模板ID" placeholder="输入模板ID" type="text" />
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+            </FilterActions>
+          </FilterBar>
         </div>
 
         {/* 表格和分页容器 */}

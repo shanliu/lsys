@@ -7,3 +7,4 @@ pub mod app_rbac;
 pub mod app_sender;
 pub mod export_task;
 pub mod rbac;
+pub mod file;

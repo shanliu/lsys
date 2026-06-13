@@ -1,6 +1,7 @@
 use crate::common::JsonData;
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult};
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppView;
 use chrono::{Duration, NaiveDate};
@@ -245,21 +246,24 @@ fn fill_notify_stats_all_status(
 }
 
 /// 获取应用统计数据
-pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    // 验证应用存在且用户有权限访问
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+pub async fn stat(
+    param: &AppStatParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
 
+    // 验证应用存在且用户有权限访问
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+
     // 检查权限
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -280,8 +284,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let date_labels = build_date_range(days, end_ts);
 
     // 获取通知数据统计（一次查询）
-    let notify_stats_raw = req_dao
-        .web_dao
+    let notify_stats_raw = web_dao
         .web_app
         .app_notify_data(app.id, days)
         .await?
@@ -318,8 +321,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     );
 
     // 获取OAuth客户端访问统计
-    let oauth_access_raw = req_dao
-        .web_dao
+    let oauth_access_raw = web_dao
         .web_app
         .app_oauth_client_access(app.id, days)
         .await?
@@ -332,8 +334,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     let oauth_access = fill_daily_stats(&date_labels, &oauth_access_raw);
 
     // 获取子应用统计（一次查询）
-    let sub_app_stats_raw = req_dao
-        .web_dao
+    let sub_app_stats_raw = web_dao
         .web_app
         .app_day_stat(app.id, days)
         .await?
@@ -357,8 +358,7 @@ pub async fn stat(param: &AppStatParam, req_dao: &UserAuthQueryDao) -> JsonResul
     );
 
     // 获取应用请求统计（一次查询）
-    let request_stats_raw = req_dao
-        .web_dao
+    let request_stats_raw = web_dao
         .web_app
         .app_request(app.id, days)
         .await?

@@ -1,15 +1,15 @@
 use std::sync::OnceLock;
 
 use crate::common::{FileError, FileResult, OssProvider};
-use crate::model::{FileModel, FileUserModel};
+use crate::model::{FileModel, FileRefModel};
 use lsys_core::fluent_message;
 
 use super::file_helpers::FileHelper;
-use super::file_oss_config::FileOssConfigDao;
+use super::file_setting_oss::FileOssConfigDao;
 
 /// 文件操作上下文
 ///
-/// 统一封装 `file_user` / `file` / `oss_provider` 三级参数，
+/// 统一封装 `file_ref` / `file` / `oss_provider` 三级参数，
 /// 调用方按需提供，避免各方法签名中重复出现 3~4 个同质参数。
 ///
 /// `helper` 和 `oss_config` 在构造时传入，之后 `file()` / `oss_provider()`
@@ -22,7 +22,7 @@ use super::file_oss_config::FileOssConfigDao;
 ///
 /// ```ignore
 /// // 通过 FileDao 创建（推荐）
-/// let ctx = file_dao.create_context(&file_user).with_file(&file)?;
+/// let ctx = file_dao.create_context(&file_ref).with_file(&file)?;
 ///
 /// // file() / oss_provider() 首次调用自动加载，后续命中缓存
 /// let file = ctx.file().await?;
@@ -30,7 +30,7 @@ use super::file_oss_config::FileOssConfigDao;
 /// // 两者可同时使用，无借用冲突
 /// ```
 pub struct FileOpContext<'a> {
-    pub file_user: &'a FileUserModel,
+    pub file_ref: &'a FileRefModel,
     helper: &'a FileHelper,
     oss_config: &'a FileOssConfigDao,
     file_external: Option<&'a FileModel>,
@@ -41,12 +41,12 @@ pub struct FileOpContext<'a> {
 
 impl<'a> FileOpContext<'a> {
     pub fn new(
-        file_user: &'a FileUserModel,
+        file_ref: &'a FileRefModel,
         helper: &'a FileHelper,
         oss_config: &'a FileOssConfigDao,
     ) -> Self {
         Self {
-            file_user,
+            file_ref,
             helper,
             oss_config,
             file_external: None,
@@ -58,12 +58,12 @@ impl<'a> FileOpContext<'a> {
 
     /// 附加 FileModel（避免内部重复查询）
     ///
-    /// 校验 `file.id == file_user.file_id`，不一致时返回错误。
+    /// 校验 `file.id == file_ref.file_id`，不一致时返回错误。
     pub fn with_file(mut self, file: &'a FileModel) -> FileResult<Self> {
-        if file.id != self.file_user.file_id {
+        if file.id != self.file_ref.file_id {
             return Err(FileError::Param(fluent_message!(
                 "file-id-mismatch",
-                {"file_id": file.id, "file_user_file_id": self.file_user.file_id}
+                {"file_id": file.id, "file_ref_file_id": self.file_ref.file_id}
             )));
         }
         self.file_external = Some(file);
@@ -119,7 +119,7 @@ impl<'a> FileOpContext<'a> {
         }
         let file = self
             .helper
-            .find_file_by_id(self.file_user.file_id)
+            .find_file_by_id(self.file_ref.file_id)
             .await?
             .ok_or_else(|| FileError::Param(fluent_message!("file-not-found")))?;
         Ok(self.file_loaded.get_or_init(|| file))

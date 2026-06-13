@@ -2,9 +2,8 @@ use std::pin::Pin;
 
 use aws_sdk_s3::Client;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
 
-use crate::common::{FileResult, OssProvider, OssProviderConfig, OssResult, UploadFileInfo};
+use crate::common::{FileResult, OssObjectMeta, OssProvider, OssProviderConfig, OssResult, UploadFileInfo};
 use crate::model::FileOssModel;
 
 // ==================== 配置结构 ====================
@@ -78,42 +77,59 @@ impl OssProvider for AwsOssProvider {
         PROVIDER_TYPE
     }
 
-    fn download_to_local(
+    fn download_stream(
         &self,
         file_oss: &FileOssModel,
-        local_path: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<()>> + Send + '_>> {
-        let local_path = local_path.to_string();
+        offset: Option<u64>,
+        length: Option<u64>,
+    ) -> Pin<
+        Box<
+            dyn std::future::Future<Output = FileResult<crate::common::OssDownloadResult>>
+                + Send
+                + '_,
+        >,
+    > {
         let object_key = file_oss.object_key.clone();
         Box::pin(async move {
-            let mut resp = self
+            let mut request = self
                 .client
                 .get_object()
                 .bucket(&self.config.bucket)
-                .key(&object_key)
-                .send()
-                .await
-                .map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!("aws-s3-error", e))
-                })?;
+                .key(&object_key);
 
-            let mut file = tokio::fs::File::create(&local_path).await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-            })?;
-
-            while let Some(bytes) = resp.body.try_next().await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("aws-s3-error", e))
-            })? {
-                file.write_all(&bytes).await.map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-                })?;
+            // AWS S3 支持 Range 请求
+            if let Some(start) = offset {
+                let range_value = if let Some(len) = length {
+                    format!("bytes={}-{}", start, start + len - 1)
+                } else {
+                    format!("bytes={}-", start)
+                };
+                request = request.range(range_value);
             }
 
-            file.flush().await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
+            let mut resp = request.send().await.map_err(|e| {
+                crate::common::FileError::System(lsys_core::fluent_message!("aws-s3-error", e))
             })?;
 
-            Ok(())
+            let stream = async_stream::try_stream! {
+                let mut downloaded: u64 = 0;
+                while let Some(bytes) = resp.body.try_next().await.map_err(|e| {
+                    crate::common::FileError::System(lsys_core::fluent_message!("aws-s3-error", e))
+                })? {
+                    let chunk_size = bytes.len() as u64;
+                    downloaded += chunk_size;
+                    yield crate::common::OssDownloadChunk {
+                        data: bytes,
+                        offset: offset.map(|o| o + downloaded - chunk_size),
+                        downloaded,
+                    };
+                }
+            };
+
+            // AWS S3 支持 Range 请求
+            Ok(crate::common::OssDownloadResult::RangeSupported(
+                Box::pin(stream) as crate::common::OssDownloadStream,
+            ))
         })
     }
 
@@ -137,7 +153,7 @@ impl OssProvider for AwsOssProvider {
             let ext = crate::common::extract_extension(Some(&file_name));
             let object_key = format!(
                 "{}/{}{}",
-                chrono::Local::now().format("%Y/%m/%d"),
+                chrono::Local::now().format("%Y%m%d"),
                 file_md5,
                 if ext.is_empty() {
                     String::new()
@@ -173,8 +189,6 @@ impl OssProvider for AwsOssProvider {
                 modify_time: Some(chrono::Utc::now().timestamp() as u64),
                 file_name: Some(file_name),
                 region: Some(self.config.region.clone()),
-                local_file_id: None,
-                source_url: None,
             })
         })
     }
@@ -196,6 +210,64 @@ impl OssProvider for AwsOssProvider {
                 })?;
 
             Ok(())
+        })
+    }
+
+    fn object_meta(
+        &self,
+        file_oss: &FileOssModel,
+    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<OssObjectMeta>> + Send + '_>> {
+        let object_key = file_oss.object_key.clone();
+        Box::pin(async move {
+            let result = self
+                .client
+                .head_object()
+                .bucket(&self.config.bucket)
+                .key(&object_key)
+                .send()
+                .await;
+
+            let output = match result {
+                Ok(o) => o,
+                Err(e) => {
+                    let not_found = e
+                        .as_service_error()
+                        .map(|se| se.is_not_found())
+                        .unwrap_or(false);
+                    if not_found {
+                        return Ok(OssObjectMeta {
+                            exists: false,
+                            file_size: None,
+                            content_md5: None,
+                            content_type: None,
+                            last_modified: None,
+                        });
+                    }
+                    return Err(crate::common::FileError::System(
+                        lsys_core::fluent_message!("aws-s3-error", e),
+                    ));
+                }
+            };
+
+            let file_size = output.content_length().map(|v| v as u64);
+            // ETag = "hexmd5"；分片上传时含 '-'，不代表文件 MD5
+            let content_md5 = output
+                .e_tag()
+                .map(|s| s.trim_matches('"').to_string())
+                .filter(|s| !s.contains('-'));
+            let content_type = output.content_type().map(|s| s.to_string());
+            let last_modified = output
+                .last_modified()
+                .and_then(|dt| dt.to_millis().ok())
+                .map(|ms| (ms as u64) / 1000);
+
+            Ok(OssObjectMeta {
+                exists: true,
+                file_size,
+                content_md5,
+                content_type,
+                last_modified,
+            })
         })
     }
 }

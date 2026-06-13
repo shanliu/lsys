@@ -56,7 +56,7 @@ impl LocalCacheClearItem<'_> for AccountLocalCacheClear {
             Self::UserEmail(cache) => cache.config().cache_name,
         }
     }
-    async fn clear_from_message(&self, msg: &str) -> Result<(), String> {
+    async fn clear_from_message(&self, msg: &str, _clear_all: bool) -> Result<(), String> {
         let key = &u64::from_str(msg).map_err(|e| e.to_string())?;
         match self {
             Self::Account(cache) => cache.del(key).await,

@@ -1,8 +1,10 @@
 use crate::common::PageParam;
-use crate::common::{JsonData, JsonResponse, JsonResult, ToOffsetPageParam, UserAuthQueryDao};
+use crate::common::{
+    JsonData, JsonResponse, JsonResult, RequestDao, ToOffsetPageParam, UserAuthQueryDao,
+};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserFileView;
-use crate::dao::export_task::ExportTaskListAttr;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
 use serde::Deserialize;
@@ -29,13 +31,19 @@ pub struct ExportListParam {
 /// 导出任务列表（游标分页）
 pub async fn app_export_list(
     param: &ExportListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let user_id = auth_data.user_id();
-    super::app_check_get(param.app_id, false, &auth_data, req_dao).await?;
-    req_dao
-        .web_dao
+    super::app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -47,36 +55,28 @@ pub async fn app_export_list(
 
     let page = param.page.to_offset_page_param();
     let export_type_ref = param.export_type.as_deref();
-    let request_id_ref = req_dao.req_env.request_id.as_deref();
 
-    let tasks = req_dao
-        .web_dao
-        .web_files
-        .export_task
+    let tasks = web_dao
+        .web_export.export_task
         .list_tasks(
-            user_id,
+            Some(user_id),
             Some(param.app_id),
             export_type_ref,
-            request_id_ref,
+            None,
             param.status,
             &page,
-            &ExportTaskListAttr {
-                attr_file: Some(true),
-            },
         )
         .await?;
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .export_task
+            web_dao
+                .web_export.export_task
                 .count_tasks(
-                    user_id,
+                    Some(user_id),
                     Some(param.app_id),
                     export_type_ref,
-                    request_id_ref,
+                    None,
                     param.status,
                 )
                 .await?,

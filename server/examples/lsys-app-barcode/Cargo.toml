@@ -8,7 +8,7 @@ edition = "2024"
 tracing = { version = "0.1.*" }
 tracing-subscriber = { version = "0.3.*", features = ["env-filter"] }
 
-tokio = { version = "~1.51.0", features = [
+tokio = { version = "~1.52.0", features = [
     "rt-multi-thread",
     "macros",
     "fs",
@@ -30,7 +30,7 @@ tempfile = "3.10.1"
 lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
 lsys-logger = { path = "../../lsys-logger" }
 
-lsys-sdk = { path = "../../lsys-sdk" }
+lsys-sdk = { path = "../lsys-sdk" }
 
 image = { version = "0.25.1", default-features = false, features = [
     "png",
@@ -46,5 +46,5 @@ rxing = { version = "0.7.1", default-features = false, features = [
     "image",
     "svg_read",
 ] }
-sha2 = "~0.10.8"
+sha2 = "~0.11.0"
 md5 = "~0.8.0"

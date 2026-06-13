@@ -2,7 +2,8 @@ use crate::common::{
     app::exter_type_data,
     handler::{ReqQuery, ResponseJson, ResponseJsonResult},
 };
-use actix_web::post;
+use actix_web::{post, web};
+use lsys_web::dao::WebDao;
 
 use lsys_web::{
     common::{JsonData, JsonResponse},
@@ -11,8 +12,8 @@ use lsys_web::{
 use serde_json::json;
 
 #[post("/info")]
-pub async fn site_info(req_dao: ReqQuery) -> ResponseJsonResult<ResponseJson> {
-    let site_setting = config_data(&req_dao)
+pub async fn site_info(req_dao: ReqQuery, web_dao: web::Data<WebDao>) -> ResponseJsonResult<ResponseJson> {
+    let site_setting = config_data(web_dao.as_ref())
         .await
         .map_err(|e| req_dao.fluent_error_json_response(&e))?;
     Ok(JsonResponse::data(JsonData::body(json!({

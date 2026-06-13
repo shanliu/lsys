@@ -1,5 +1,6 @@
-use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery};
-use actix_web::post;
+use crate::common::handler::{ResponseJson, ResponseJsonResult, RestQuery, ReqQuery};
+use actix_web::{post, web};
+use lsys_web::dao::WebDao;
 use lsys_web::handler::rest::rbac::{
     RoleAddParam, RoleDataParam, RoleDelParam, RoleEditParam, RolePermAddParam, RolePermDelParam,
     RolePermParam, RoleUserAddParam, RoleUserDataParam, RoleUserDelParam, role_add, role_data,
@@ -8,13 +9,14 @@ use lsys_web::handler::rest::rbac::{
 };
 
 #[post("/role")]
-pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
+pub async fn role(rest: RestQuery, req_dao: ReqQuery, web_dao: web::Data<WebDao>) -> ResponseJsonResult<ResponseJson> {
     let data = match rest.rfc.method.as_deref().unwrap_or_default() {
         "add" => {
             role_add(
                 &rest.param::<RoleAddParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -22,7 +24,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_edit(
                 &rest.param::<RoleEditParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -30,7 +33,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_del(
                 &rest.param::<RoleDelParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -38,7 +42,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_data(
                 &rest.param::<RoleDataParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -46,7 +51,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_perm_add(
                 &rest.param::<RolePermAddParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -54,7 +60,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_perm_del(
                 &rest.param::<RolePermDelParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -62,7 +69,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_perm_data(
                 &rest.param::<RolePermParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -70,7 +78,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_user_add(
                 &rest.param::<RoleUserAddParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -78,7 +87,8 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_user_del(
                 &rest.param::<RoleUserDelParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
@@ -86,13 +96,14 @@ pub async fn role(rest: RestQuery) -> ResponseJsonResult<ResponseJson> {
             role_user_data(
                 &rest.param::<RoleUserDataParam>()?,
                 &rest.get_app().await?,
-                &rest,
+                &req_dao,
+                web_dao.as_ref(),
             )
             .await
         }
         name => handler_not_found!(name),
     };
     Ok(data
-        .map_err(|e| rest.fluent_error_json_response(&e))?
+        .map_err(|e| req_dao.fluent_error_json_response(&e))?
         .into())
 }

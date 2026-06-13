@@ -4,7 +4,7 @@ use lsys_access::dao::AccessSession;
 use serde::Serialize;
 use serde_json::json;
 
-/// 验证JWT Token返回的用户信息
+/// login Token返回的用户信息
 #[derive(Debug, Serialize)]
 pub struct VerifyResult {
     pub user_id: u64,
@@ -14,9 +14,9 @@ pub struct VerifyResult {
     pub username: String,
 }
 
-/// 验证JWT Token并返回用户信息
+/// login Token并返回用户信息
 ///
-/// 该接口用于服务间调用验证JWT Token的有效性，
+/// 该接口用于服务间调用验证login Token的有效性，
 /// 并返回Token对应的用户基本信息
 pub async fn verify<T, D, S>(req_dao: &RequestAuthDao<T, D, S>) -> JsonResult<JsonResponse>
 where

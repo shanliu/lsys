@@ -16,6 +16,7 @@ use lsys_core::db::{FieldValue, Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
+use lsys_core::secret::FieldEncryptor;
 use tracing::log::warn;
 
 use super::AccountError;
@@ -29,6 +30,7 @@ pub struct AccountMobile {
     pub(crate) cache: Arc<LocalCache<u64, AccountMobileModel>>,
     pub(crate) account_cache: Arc<LocalCache<u64, Vec<u64>>>,
     logger: Arc<ChangeLoggerDao>,
+    encryptor: Arc<FieldEncryptor>,
 }
 
 impl AccountMobile {
@@ -40,6 +42,7 @@ impl AccountMobile {
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
+        encryptor: Arc<FieldEncryptor>,
     ) -> Self {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
@@ -48,6 +51,7 @@ impl AccountMobile {
             redis,
             index,
             logger,
+            encryptor,
         }
     }
 
@@ -65,17 +69,19 @@ impl AccountMobile {
         if mobile.is_empty() {
             return Err(sqlx::Error::RowNotFound.into());
         }
-        let res = sqlx::query_as::<_, AccountMobileModel>(&format!(
-            "select * from {} where mobile=? and area_code=?  and status in (?,?) order by id desc",
+        let mobile_hash = self.encryptor.hash_str(&mobile)?;
+        let mut res = sqlx::query_as::<_, AccountMobileModel>(&format!(
+            "select * from {} where mobile_hash=? and area_code=?  and status in (?,?) order by id desc",
             AccountMobileModel::table_name(),
         ))
-        .bind(&mobile)
+        .bind(&mobile_hash)
         .bind(&area_code)
         .bind(AccountMobileStatus::Init as i8)
         .bind(AccountMobileStatus::Valid as i8)
         .fetch_one(&self.db)
         .await?;
 
+        res.mobile = self.encryptor.decrypt_str(&res.mobile)?;
         Ok(res)
     }
     async fn mobile_param_valid(&self, area_code: &str, mobile: &str) -> AccountResult<()> {
@@ -105,25 +111,27 @@ impl AccountMobile {
         if status == AccountMobileStatus::Delete {
             status = AccountMobileStatus::Init;
         }
+        let mobile_hash = self.encryptor.hash_str(mobile)?;
         let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&format!(
-            "select * from {} where area_code=? and mobile=? and status in (?,?)",
+            "select * from {} where area_code=? and mobile_hash=? and status in (?,?)",
             AccountMobileModel::table_name(),
         ))
         .bind(area_code)
-        .bind(mobile)
+        .bind(&mobile_hash)
         .bind(AccountMobileStatus::Valid as i8)
         .bind(AccountMobileStatus::Init as i8)
         .fetch_one(&self.db)
         .await;
 
         match mobile_res {
-            Ok(mobile) => {
-                if mobile.account_id == account.id {
-                    return Ok(mobile.id);
+            Ok(mut mobile_model) => {
+                mobile_model.mobile = self.encryptor.decrypt_str(&mobile_model.mobile)?;
+                if mobile_model.account_id == account.id {
+                    return Ok(mobile_model.id);
                 } else {
                     return Err(AccountError::System(
                         fluent_message!("account-mobile-exits",
-                            {"mobile":mobile.mobile,"id":mobile.account_id }//"mobile {$name} bind on other account[{$id}]",
+                            {"mobile": mobile_model.mobile, "id": mobile_model.account_id}
                         ),
                     ));
                 }
@@ -137,7 +145,7 @@ impl AccountMobile {
         let time = now_time()?;
         let _status = status as i8;
         let area_code_ow = area_code.to_string();
-        let mobile_ow = mobile.to_string();
+        let mobile_ow = self.encryptor.encrypt_str(mobile)?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -146,6 +154,7 @@ impl AccountMobile {
 
         let res = Insert::<_, AccountMobileModel>::new()
             .set(AccountMobileModel::MOBILE, mobile_ow)
+            .set(AccountMobileModel::MOBILE_HASH, mobile_hash)
             .set(AccountMobileModel::STATUS, _status)
             .set(AccountMobileModel::AREA_CODE, area_code_ow)
             .set(AccountMobileModel::ACCOUNT_ID, account.id)
@@ -307,11 +316,11 @@ impl AccountMobile {
         }
 
         let mobile_res = sqlx::query_as::<_, AccountMobileModel>(&format!(
-            "select * from {} where  area_code=? and mobile=? and status=? and account_id!=? and id!=?",
+            "select * from {} where  area_code=? and mobile_hash=? and status=? and account_id!=? and id!=?",
             AccountMobileModel::table_name(),
         ))
         .bind(&account_mobile.area_code)
-        .bind(&account_mobile.mobile)
+        .bind(&account_mobile.mobile_hash)
         .bind(AccountMobileStatus::Valid as i8)
         .bind(account_mobile.account_id)
         .bind(account_mobile.id)
@@ -319,10 +328,11 @@ impl AccountMobile {
         .await;
 
         match mobile_res {
-            Ok(mobile) => {
+            Ok(mut mobile) => {
+                mobile.mobile = self.encryptor.decrypt_str(&mobile.mobile)?;
                 return Err(AccountError::System(
                     fluent_message!("account-mobile-exits",
-                        {"mobile":mobile.mobile,"id":mobile.account_id }//"confirm error : mobile {$name} bind on other account[{$id}]",
+                        {"mobile": mobile.mobile, "id": mobile.account_id}
                     ),
                 ));
             }
@@ -475,7 +485,7 @@ impl AccountMobile {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountMobileModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::one(&self.db, |qb| {
+        let mut res = Fetch::<MySql, AccountMobileModel>::one(&self.db, |qb| {
             qb.field_eq("id", *id);
             qb.push_and().field_in_copied(
                 "status",
@@ -485,14 +495,16 @@ impl AccountMobile {
                 ],
             );
         })
-        .await?)
+        .await?;
+        res.mobile = self.encryptor.decrypt_str(&res.mobile)?;
+        Ok(res)
     }
     pub async fn find_by_ids(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, AccountMobileModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::map(
+        let mut res = Fetch::<MySql, AccountMobileModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
@@ -506,11 +518,15 @@ impl AccountMobile {
             },
             |v| v.id,
         )
-        .await?)
+        .await?;
+        for v in res.values_mut() {
+            v.mobile = self.encryptor.decrypt_str(&v.mobile)?;
+        }
+        Ok(res)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountMobileModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::vec(&self.db, |qb| {
+        let mut res = Fetch::<MySql, AccountMobileModel>::vec(&self.db, |qb| {
             qb.field_eq("account_id", *id);
             qb.push_and().field_in_copied(
                 "status",
@@ -521,14 +537,18 @@ impl AccountMobile {
             );
             qb.push(" ORDER BY id DESC");
         })
-        .await?)
+        .await?;
+        for v in res.iter_mut() {
+            v.mobile = self.encryptor.decrypt_str(&v.mobile)?;
+        }
+        Ok(res)
     }
     pub async fn find_by_account_ids_vec(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, Vec<AccountMobileModel>>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountMobileModel>::group(
+        let mut res = Fetch::<MySql, AccountMobileModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
@@ -543,7 +563,13 @@ impl AccountMobile {
             },
             |v| v.account_id,
         )
-        .await?)
+        .await?;
+        for vec in res.values_mut() {
+            for v in vec.iter_mut() {
+                v.mobile = self.encryptor.decrypt_str(&v.mobile)?;
+            }
+        }
+        Ok(res)
     }
     pub fn cache(&'_ self) -> AccountMobileCache<'_> {
         AccountMobileCache { dao: self }

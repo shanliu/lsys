@@ -1,6 +1,7 @@
 use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
+use crate::dao::WebDao;
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{ResTypeListParam as RbacResTypeListParam, ResTypeParam};
 use serde::Deserialize;
@@ -20,13 +21,14 @@ pub async fn res_type_data(
     param: &ResTypeListParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
     let res_type_param = param.res_type.as_ref().and_then(|e| {
@@ -42,8 +44,7 @@ pub async fn res_type_data(
         res_type: res_type_param.map(|x| x.as_str()),
     };
 
-    let rows = req_dao
-        .web_dao
+    let rows = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -51,8 +52,7 @@ pub async fn res_type_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res
@@ -63,7 +63,7 @@ pub async fn res_type_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, rows, user_id),
+        bind_vec_user_info_from_req!(web_dao, rows, user_id),
         count,
     ))))
 }
@@ -82,19 +82,19 @@ pub async fn res_type_op_add(
     param: &ResTypeAddOpParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
     let mut op_data = vec![];
-    for tmp in req_dao
-        .web_dao
+    for tmp in web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -106,8 +106,7 @@ pub async fn res_type_op_add(
         op_data.push(tmp.1);
     }
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -140,18 +139,18 @@ pub async fn res_type_op_del(
     param: &ResDelOpParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -185,13 +184,14 @@ pub async fn res_type_op_data(
     param: &ResTypeOpListParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
@@ -201,8 +201,7 @@ pub async fn res_type_op_data(
         app_id: app.id,
     };
 
-    let rows = req_dao
-        .web_dao
+    let rows = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -210,8 +209,7 @@ pub async fn res_type_op_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res
@@ -223,8 +221,7 @@ pub async fn res_type_op_data(
     };
 
     let user_id = rows.iter().map(|e| e.op_res.user_id).collect::<Vec<_>>();
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user

@@ -42,7 +42,7 @@ export type MobileListDataResType = z.infer<typeof MobileListDataResSchema>;
 
 // 添加手机号参数
 export const MobileListDataParamSchema = z.object({
-    status: z.number().optional(),
+    status: z.coerce.number().optional(),
 });
 export type MobileListDataParamType = z.infer<typeof MobileListDataParamSchema>;
 
@@ -174,7 +174,7 @@ export const EmailListDataResSchema = z.object({
 });
 export type EmailListDataResType = z.infer<typeof EmailListDataResSchema>;
 export const EmailListDataParamSchema = z.object({
-    status: z.number().optional(),
+    status: z.coerce.number().optional(),
 });
 export type EmailListDataParamType = z.infer<typeof EmailListDataParamSchema>;
 /**

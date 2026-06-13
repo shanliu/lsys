@@ -4,7 +4,7 @@
 //! and are intended for use by internal services
 //!
 //! Available endpoints:
-//! - POST /service/auth/verify - Verify JWT and get user info (requires forward headers)
+//! - POST /service/auth/verify - Verify auth token and get user info (requires forward headers)
 //! - POST /service/rbac/check - Check RBAC permissions for multiple items
 //! - POST /service/app/{method} - App related operations (feature, secret)
 
@@ -24,6 +24,8 @@ where
         .service(auth::verify)
         .service(rbac::check)
         .service(app::app)
+        // 令牌上传端点 /service/file/upload_by_token（multipart + 仅令牌鉴权）
+        .service(scope("/file").service(super::file_token_upload::service_upload_by_token))
         .service(file::file);
 
     app.service(service_scope)

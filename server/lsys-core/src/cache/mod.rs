@@ -166,12 +166,41 @@ where
         }
         self.cache_data.lock().await.remove(key);
     }
+    pub async fn clear_all_local(&self) {
+        if self.cache_config.cache_size == 0 {
+            return;
+        }
+        self.cache_data.lock().await.clear();
+    }
     pub async fn clear(&self, key: &K) {
         if self.cache_config.cache_size == 0 {
             return;
         }
         self.del(key).await;
         let send_msg = LocalCacheMessage::new(self.cache_config.cache_name, &key.to_string());
+        if let Err(err) = self
+            .remote_notify
+            .call(
+                REMOTE_NOTIFY_TYPE_CACHE,
+                send_msg,
+                None,
+                LocalExecType::RemoteExec,
+                None,
+            )
+            .await
+        {
+            warn!(
+                "notify clear cache error:{}",
+                err.to_fluent_message().default_format()
+            );
+        }
+    }
+    pub async fn clear_all(&self) {
+        if self.cache_config.cache_size == 0 {
+            return;
+        }
+        self.clear_all_local().await;
+        let send_msg = LocalCacheMessage::new_clear_all(self.cache_config.cache_name);
         if let Err(err) = self
             .remote_notify
             .call(

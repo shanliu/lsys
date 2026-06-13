@@ -36,7 +36,7 @@ impl LocalCacheClearItem<'_> for AccessLocalCacheClear {
             Self::AuthSessionData(cache) => cache.config().cache_name,
         }
     }
-    async fn clear_from_message(&self, msg: &str) -> Result<(), String> {
+    async fn clear_from_message(&self, msg: &str, _clear_all: bool) -> Result<(), String> {
         match self {
             Self::AuthUser(cache) => {
                 cache

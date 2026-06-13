@@ -1,5 +1,6 @@
 use crate::common::{JsonError, JsonResult};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -20,28 +21,27 @@ pub struct ConfirmOAuthClientParam {
 
 pub async fn oauth_server_client_confirm(
     param: &ConfirmOAuthClientParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    let parent_app = req_dao
-        .web_dao
+    let parent_app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(app.parent_app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -56,16 +56,14 @@ pub async fn oauth_server_client_confirm(
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server
         .oauth_check(&parent_app)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -91,11 +89,17 @@ pub struct ConfirmOAuthClientScopeParam {
 
 pub async fn oauth_server_client_scope_confirm(
     param: &ConfirmOAuthClientScopeParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let req_app = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
@@ -103,8 +107,7 @@ pub async fn oauth_server_client_scope_confirm(
         .await?;
 
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -115,16 +118,14 @@ pub async fn oauth_server_client_scope_confirm(
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
 
-    let parent_app = req_dao
-        .web_dao
+    let parent_app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(app.parent_app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -136,8 +137,7 @@ pub async fn oauth_server_client_scope_confirm(
 
     //开通过的不影响scope申请审核
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -161,19 +161,19 @@ pub struct OAuthServerRequestParam {
 
 pub async fn oauth_server_request(
     param: &OAuthServerRequestParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -184,8 +184,7 @@ pub async fn oauth_server_request(
         .await?;
 
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server
@@ -209,18 +208,18 @@ pub struct ConfirmOAuthServerSettingParam {
 
 pub async fn oauth_server_setting(
     param: &ConfirmOAuthServerSettingParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -230,8 +229,7 @@ pub async fn oauth_server_setting(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server
@@ -247,8 +245,7 @@ pub async fn oauth_server_setting(
             desc: &e.desc,
         })
         .collect::<Vec<_>>();
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server

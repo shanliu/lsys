@@ -8,15 +8,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 // App list grid inlined (removed separate component)
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_APP_LIST } from "@shared/apis/user/file";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
-import { formatTotalCount } from "@shared/lib/utils/format-utils";
-import { FilterUserParentAppSelector } from "@apps/main/components/filter-container/filter-user-parent-app-selector";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount, FilterUserParentAppSelector } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { userQueryKey } from "@apps/main/lib/auth-utils";
 import {
   PagePagination,
@@ -34,7 +31,9 @@ import { cn, getQueryResponseData } from "@shared/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Shield } from "lucide-react";
 import { AppCard } from "./list-app-card";
+import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppListFilterFormSchema } from "./list-schema";
+import * as z from "zod";
 
 // 应用列表页面组件
 export default function AppListPage() {
@@ -137,107 +136,42 @@ function AppListContent({ dictData }: AppListContentProps) {
 
   const apps = getQueryResponseData<AppListItemType[]>(appListResult, []);
 
+  const filterForm = useFilterBarForm<z.infer<typeof AppListFilterFormSchema>>({
+    defaultValues: {
+      status: currentFilter.status,
+      parent_app_id: currentFilter.parent_app_id,
+      client_id: currentFilter.client_id ?? undefined,
+      app_id: currentFilter.app_id,
+    },
+    resolver: zodResolver(AppListFilterFormSchema) as any,
+    initValues: { status: undefined, parent_app_id: undefined, client_id: undefined, app_id: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1 } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
+
   return (
     <div className="container mx-auto px-4  py-6 max-w-[1600px] space-y-5">
       {/* 过滤区域 */}
-      <FilterContainer
-        defaultValues={{
-          status: currentFilter.status?.toString(),
-          parent_app_id: currentFilter.parent_app_id?.toString(),
-          client_id: currentFilter.client_id,
-          app_id: currentFilter.app_id?.toString(),
-        }}
-        resolver={zodResolver(AppListFilterFormSchema) as any}
-        onSubmit={(data) => {
-          // zod schema 已经处理了类型转换和空值清理，直接使用数据
-          navigate({
-            search: { ...data, page: 1 } as any,
-          });
-        }}
-        onReset={() => {
-          navigate({
-            search: { page: 1, limit: currentLimit } as any,
-          });
-        }}
-        countComponent={
-          <FilterTotalCount
-            value={formatTotalCount(countNumManager.getTotal())}
-            loading={isAppListLoading}
-          />
-        }
-      >
-        {(layoutParams, form) => (
-          <>
-            {/* 表单字段区域 */}
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* 状态过滤 */}
-              <FilterDictSelect
-                name="status"
-                placeholder="选择状态"
-                label="状态"
-                disabled={isAppListLoading}
-                dictData={dictData.app_status}
-                layoutParams={layoutParams}
-                allLabel="全部"
-              />
-
-              {/* 父应用过滤 */}
-              {!hideParentAppFilter && (
-                <FilterUserParentAppSelector
-                  name="parent_app_id"
-                  placeholder="请选择"
-                  label="父级应用"
-                  disabled={isAppListLoading}
-                  layoutParams={layoutParams}
-                />
-              )}
-
-              {/* Client ID 过滤 */}
-              <FilterInput
-                name="client_id"
-                placeholder="输入 Client ID"
-                label="Client ID"
-                disabled={isAppListLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* App ID 过滤 */}
-              <FilterInput
-                name="app_id"
-                placeholder="输入 App ID"
-                type="number"
-                label="App ID"
-                disabled={isAppListLoading}
-                layoutParams={layoutParams}
-              />
-            </div>
-
-            {/* 动作按钮区域 */}
-            <div
-              className={cn(layoutParams.isMobile ? "w-full" : "flex-shrink-0")}
-            >
-              <FilterActions
-                form={form}
-                loading={isAppListLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={() => refetch()}
-                extraActions={
-                  <UserExportAction
-                    exportType={EXPORT_TYPE_USER_APP_LIST}
-                    params={{
-                      parent_app_id: filters.parent_app_id ?? undefined,
-                      status: filters.status ?? undefined,
-                      client_id: filters.client_id || undefined,
-                      app_id: filters.app_id ?? undefined,
-                    }}
-                    layoutParams={layoutParams}
-                  />
-                }
-              />
-            </div>
-          </>
+      <FilterBar form={filterForm}>
+        <FilterBar.Summary>
+          <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isAppListLoading} />
+        </FilterBar.Summary>
+        <FilterDictSelect name="status" placeholder="选择状态" label="状态" disabled={isAppListLoading}
+          dictData={dictData.app_status} allLabel="全部" />
+        {!hideParentAppFilter && (
+          <FilterUserParentAppSelector name="parent_app_id" placeholder="请选择" label="父级应用" disabled={isAppListLoading} />
         )}
-      </FilterContainer>
+        <FilterInput name="client_id" placeholder="输入 Client ID" label="Client ID" disabled={isAppListLoading} />
+        <FilterInput name="app_id" placeholder="输入 App ID" type="number" label="App ID" disabled={isAppListLoading} />
+        <FilterActions>
+          <FilterSearchButton loading={isAppListLoading} onRefreshSearch={() => refetch()} />
+          <FilterResetButton loading={isAppListLoading} />
+        </FilterActions>
+      </FilterBar>
 
       {/* 应用列表区域 */}
       <div className="flex-1 flex flex-col space-y-4">

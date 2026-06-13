@@ -1,4 +1,4 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao};
 use crate::dao::{
     COLLECTOR_LOG_LEVEL_DEBUG, COLLECTOR_LOG_LEVEL_ERROR, COLLECTOR_LOG_LEVEL_INFO,
     COLLECTOR_LOG_LEVEL_SYSTEM, COLLECTOR_LOG_LEVEL_WARN, CollectorRecordStatus,
@@ -7,8 +7,7 @@ use crate::dao::{
 
 use serde_json::json;
 
-/// POST /api/user/file/collector/mapping — 采集字典映射
-pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn mapping_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "script_status": vec![
             status_json_format!(req_dao, CollectorScriptStatus::Enable),

@@ -3,44 +3,59 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use lsys_core::fluents::FluentMgr;
+
 use lsys_core::db::{QueryBuilderExt, TableMeta, Update};
 
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::now_time;
-use lsys_file::dao::LocalFileMode;
+use lsys_file::dao::{LocalFileMode, LocalFileSource};
+use sqlx::{MySql, Pool};
+use tokio::sync::{Semaphore, mpsc};
 use tracing::{error, info, warn};
 
 use crate::dao::result::FileManagerResult;
 use crate::model::*;
 
-use super::ExportTask;
+use super::ExportTaskConfig;
+use super::exporter::Exporter;
 
-impl ExportTask {
-    /// 触发导出：向 channel 发送信号
-    ///
-    /// 多处可调用（submit 后、定时任务等），
-    /// 内部只是发信号，不阻塞。
-    pub fn trigger(&self) {
-        if let Err(e) = self.trigger_tx.try_send(()) {
-            warn!("export_task: trigger send failed: {}", e);
-        }
-    }
+/// 导出任务调度器
+///
+/// 独立结构，仅用于执行后台调度循环。
+/// 通过 Arc 共享 ExportTask 的部分字段，并独占 trigger_rx。
+pub struct ExportTaskDispatcher {
+    /// 数据库连接池（clone Pool，内部是 Arc）
+    pub(crate) db: Pool<MySql>,
+    /// 文件 DAO（Arc clone，共享引用）
+    pub(crate) file_dao: Arc<lsys_file::dao::FileDao>,
+    /// 配置（clone 值）
+    pub(crate) config: ExportTaskConfig,
+    /// 导出器注册表（Arc clone，共享引用）
+    pub(crate) exporters: Arc<HashMap<String, Box<dyn Exporter<crate::dao::FileManagerError>>>>,
+    /// 并发控制信号量（Arc clone，共享引用）
+    pub(crate) semaphore: Arc<Semaphore>,
+    /// 触发信号接收端（独占所有权）
+    pub(crate) trigger_rx: mpsc::Receiver<()>,
+    /// 多语言管理器，供 exporter 解析 locale
+    pub(crate) fluent_mgr: Arc<FluentMgr>,
+}
 
+
+impl ExportTaskDispatcher {
     /// 后台调度循环（应在应用启动时 spawn 一次）
     ///
     /// 持续监听 trigger 信号，收到后从 DB 拉取 Pending 记录并投递到执行池。
-    pub async fn dispatch_loop(&self) {
-        let mut rx = self.trigger_rx.lock().await;
-
+    pub async fn dispatch_loop(mut self) {
         loop {
             // 等待触发信号
-            if rx.recv().await.is_none() {
+            if self.trigger_rx.recv().await.is_none() {
                 info!("export_task: trigger channel closed, stopping dispatch loop");
                 break;
             }
 
             // 收到信号后，先把 channel 里积压的信号全部清空
-            while rx.try_recv().is_ok() {}
+            while self.trigger_rx.try_recv().is_ok() {}
 
             // 从 DB 拉取 Pending 记录
             if let Err(e) = self.dispatch_pending().await {
@@ -125,11 +140,12 @@ impl ExportTask {
             let db = self.db.clone();
             let file_dao = self.file_dao.clone();
             let exporters = Arc::clone(&self.exporters);
+            let fluent_mgr = Arc::clone(&self.fluent_mgr);
 
             join_set.spawn(async move {
                 let _permit = permit; // 持有 permit 直到任务结束
 
-                Self::execute_task(&db, &file_dao, &exporters, record).await;
+                Self::execute_task(&db, &file_dao, &exporters, fluent_mgr, record).await;
             });
         }
 
@@ -162,6 +178,7 @@ impl ExportTask {
             String,
             Box<dyn super::exporter::Exporter<crate::dao::FileManagerError>>,
         >,
+        fluent_mgr: Arc<FluentMgr>,
         record: ExportTaskModel,
     ) {
         let task_id = record.id;
@@ -195,11 +212,12 @@ impl ExportTask {
         let add_user_id = record.add_user_id;
         let record_user_id = record.user_id;
         let request_id = record.request_id.clone();
+        let lang = if record.lang.is_empty() { None } else { Some(record.lang.clone()) };
 
         // 3. 执行导出（record 按值传入，future 内部拥有所有权）
         // exporter 返回的已经是 FileManagerError
         let result: Result<std::path::PathBuf, crate::dao::FileManagerError> =
-            exporter.export(record, params).await;
+            exporter.export(record, params, lang, fluent_mgr).await;
 
         match result {
             Err(e) => {
@@ -224,20 +242,21 @@ impl ExportTask {
                         record_user_id,
                         add_user_id,
                         app_id,
-                        lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
+                        lsys_file::model::FileModel::STORAGE_TYPE_LOCAL_PRIVATE,
                         None,
                         LocalFileMode::Move,
-                        None,
-                        None,
+                        LocalFileSource::Plaintext,
+                        false,
                         &tag_names,
+                        None, // expire_time
                         None,
                     )
                     .await
                 {
-                    Ok((file_model, _file_user)) => {
+                    Ok((file_model, _file_ref)) => {
                         info!(
                             "export_task: task id={} file created: file_id={}, file_name={}",
-                            task_id, file_model.id, file_model.file_name
+                            task_id, file_model.id, file_model.origin_name
                         );
                         Self::mark_success(db, task_id).await;
                     }
@@ -287,5 +306,41 @@ impl ExportTask {
                 task_id, e
             );
         }
+    }
+}
+
+impl ExportTaskDispatcher {
+    /// 超时检测：将长时间处于 Running 的任务标记为 Failed
+    ///
+    /// - `timeout_secs`: 超过此秒数仍为 Running 的记录将被标记失败
+    ///
+    /// 返回受影响的行数。
+    async fn mark_timeout_tasks(&self, timeout_secs: u64) -> FileManagerResult<u64> {
+        let now = now_time().unwrap_or_default();
+        let threshold = now.saturating_sub(timeout_secs);
+
+        let affected = Update::<_, ExportTaskModel>::new()
+            .set(ExportTaskModel::STATUS, ExportTaskStatus::Failed as i8)
+            .set(
+                ExportTaskModel::ERROR_MESSAGE,
+                format!("timeout: exceeded {}s", timeout_secs),
+            )
+            .set(ExportTaskModel::CHANGE_TIME, now)
+            .execute(&self.db, |qb| {
+                qb.push_where()
+                    .field_eq("status", ExportTaskStatus::Running as i8);
+                qb.push_and().field_lt("add_time", threshold);
+            })
+            .await?
+            .rows_affected();
+
+        if affected > 0 {
+            info!(
+                "export_task: marked {} timed-out tasks as Failed (threshold={}s)",
+                affected, timeout_secs
+            );
+        }
+
+        Ok(affected)
     }
 }

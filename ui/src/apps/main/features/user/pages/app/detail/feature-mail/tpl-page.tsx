@@ -6,12 +6,12 @@ import {
   type UserSenderMailerTplBodyItemType,
 } from "@shared/apis/user/sender-mailer";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_MAILER_TPL_BODY } from "@shared/apis/user/file";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import {
@@ -46,6 +46,7 @@ import React from "react";
 import { featureMailModuleConfig } from "../nav-info";
 import { MailTplDrawer } from "./tpl-drawer";
 import { MailTplFilterFormSchema } from "./tpl-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureMailTplPage() {
   // user\app_sender_mailer\tpl_body_add.md
@@ -249,6 +250,18 @@ export default function AppDetailFeatureMailTplPage() {
     },
   ];
 
+  const filterForm = useFilterBarForm<z.infer<typeof MailTplFilterFormSchema>>({
+    defaultValues: { tpl_id: filterParam.tpl_id },
+    resolver: zodResolver(MailTplFilterFormSchema) as any,
+    initValues: { tpl_id: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
+
   return (
     <>
       <AppDetailNavContainer
@@ -270,60 +283,16 @@ export default function AppDetailFeatureMailTplPage() {
         <div className="flex flex-col min-h-0 space-y-3">
           <div className="flex-shrink-0 mb-1 sm:mb-4">
             {/* 过滤器 */}
-            <FilterContainer
-              defaultValues={{
-                tpl_id: filterParam.tpl_id,
-              }}
-              resolver={zodResolver(MailTplFilterFormSchema) as any}
-              onSubmit={(data) => {
-                navigate({
-                  search: { ...data, page: 1, limit: currentLimit } as any,
-                });
-              }}
-              onReset={() => {
-                navigate({
-                  search: { page: 1, limit: currentLimit } as any,
-                });
-              }}
-              countComponent={
-                <FilterTotalCount
-                  value={formatTotalCount(countNumManager.getTotal())}
-                  loading={isLoading}
-                />
-              }
-              className="bg-card rounded-lg border shadow-sm relative"
-            >
-              {(layoutParams, form) => (
-                <div className="flex-1 flex flex-wrap items-end gap-3">
-                  {/* 模板ID过滤 */}
-                  <FilterInput
-                    name="tpl_id"
-                    label="模板ID"
-                    placeholder="输入模板ID"
-                    type="text"
-                    layoutParams={layoutParams}
-                  />
-
-                  {/* 动作按钮区域 */}
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <UserExportAction
-                        appId={Number(appId)}
-                        exportType={EXPORT_TYPE_USER_MAILER_TPL_BODY}
-                        params={{
-                          app_id: Number(appId),
-                          tpl_id: filters.tpl_id,
-                        }}
-                      />
-                    }
-                  />
-                </div>
-              )}
-            </FilterContainer>
+            <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+              <FilterBar.Summary>
+                <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+              </FilterBar.Summary>
+              <FilterInput name="tpl_id" label="模板ID" placeholder="输入模板ID" type="text" />
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+              </FilterActions>
+            </FilterBar>
           </div>
 
           {/* 表格和分页容器 */}

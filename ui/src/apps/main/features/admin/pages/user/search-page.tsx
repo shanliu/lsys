@@ -1,10 +1,10 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
-import { EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH } from "@shared/apis/admin/export";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import {
   useDictData,
   type TypedDictData,
@@ -119,6 +119,7 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
     enable: filterParam.enable, // 保持 undefined，不转为 null
   };
 
+
   const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
 
   // 分页状态 - 直接从 URL 参数派生
@@ -183,6 +184,38 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["systemUserAccountSearch"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof UserAccountFilterFormSchema>>({
+    defaultValues: {
+      key_word: filters.key_word ?? "",
+      enable: filters.enable ?? undefined,
+    },
+    resolver: zodResolver(UserAccountFilterFormSchema) as any,
+    initValues: {
+      key_word: undefined,
+      enable: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({
+        search: {
+          ...filterParam,
+          key_word: data.key_word || undefined,
+          enable: data.enable,
+          pos: null,
+          forward: true,
+        } as any,
+      });
+    },
+    onReset: () => {
+      navigate({
+        search: {
+          pos: null,
+          limit: currentLimit,
+          forward: true,
+        } as any,
+      });
+    },
+  });
 
   // 获取API响应数据
   const users = getQueryResponseData<SystemUserAccountItemType[]>(userData, []);
@@ -391,16 +424,6 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
 
   const isLoading = userIsLoading;
 
-  // 表单默认值
-  const defaultValues = {
-    key_word: filters.key_word ?? "",
-    enable:
-      filters.enable === true
-        ? "true"
-        : filters.enable === false
-          ? "false"
-          : "",
-  };
 
   return (
     <div className="container mx-auto p-4  max-w-[1600px] flex flex-col min-h-0 space-y-5">
@@ -419,101 +442,25 @@ function UserSearchContent({ dictData }: UserSearchContentProps) {
 
       {/* 筛选区域 */}
       <div className="flex-shrink-0">
-        <FilterContainer
-          defaultValues={defaultValues}
-          resolver={zodResolver(UserAccountFilterFormSchema) as any}
-          onSubmit={(data) => {
-            // 转换 enable 字段：空字符串视为 undefined（全部）
-            const enableValue =
-              data.enable === "true"
-                ? true
-                : data.enable === "false"
-                  ? false
-                  : undefined;
-            navigate({
-              search: {
-                ...filterParam,
-                key_word: data.key_word || undefined,
-                enable: enableValue,
-                pos: null,
-                forward: true,
-              } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: {
-                pos: null,
-                limit: currentLimit,
-                forward: true,
-              } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotalInfo())}
-              loading={isLoading}
-            />
-          }
-          className={cn("bg-card rounded-lg border shadow-sm relative")}
-        >
-          {(layoutParams, form) => (
-            <div
-              className={cn(
-                "flex items-end gap-4 flex-wrap",
-                layoutParams.isMobile && "flex-col items-stretch",
-              )}
-            >
-              <div className="flex-1 min-w-[180px] max-w-[280px]">
-                <FilterInput
-                  name="key_word"
-                  label="关键词搜索"
-                  placeholder="搜索昵称/用户名/邮箱/手机"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-              </div>
-
-              <div className="flex-1 min-w-[140px] max-w-[180px]">
-                <FilterSelect
-                  name="enable"
-                  label="账号状态"
-                  placeholder="全部状态"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                  options={[
-                    { label: "启用", value: "true" },
-                    { label: "未启用", value: "false" },
-                  ]}
-                />
-              </div>
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <AdminExportAction
-                      exportType={EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH}
-                      params={{
-                        key_word: filters.key_word,
-                        enable: filters.enable,
-                      }}
-                    />
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </FilterContainer>
+        <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+          </FilterBar.Summary>
+          <div className="flex-1 min-w-[180px] max-w-[280px]">
+            <FilterInput name="key_word" label="关键词搜索" placeholder="搜索昵称/用户名/邮箱/手机" disabled={isLoading} />
+          </div>
+          <div className="flex-1 min-w-[140px] max-w-[180px]">
+            <FilterSelect name="enable" label="账号状态" placeholder="全部状态" disabled={isLoading} allLabel="全部"
+              options={[{ label: "启用", value: "true" }, { label: "未启用", value: "false" }]} />
+          </div>
+          {/* 动作按钮区域 */}
+          <div className={cn("flex-shrink-0")}>
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+            </FilterActions>
+          </div>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 */}

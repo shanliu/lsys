@@ -1,7 +1,8 @@
 use crate::common::ToOffsetPageParam;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::AccessSession;
@@ -17,19 +18,27 @@ pub struct ResAddParam {
     pub res_data: String,
 }
 //资源添加
-pub async fn res_add(param: &ResAddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn res_add(
+    param: &ResAddParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacEdit {},
         )
         .await?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -66,27 +75,31 @@ pub struct ResEditParam {
 //资源编辑
 pub async fn res_edit(
     param: &ResEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacEdit {},
         )
         .await?;
-    let op = req_dao
-        .web_dao
+    let op = web_dao
         .web_rbac
         .rbac_dao
         .res
         .find_by_id(&param.res_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -114,27 +127,39 @@ pub struct ResDelParam {
     pub res_id: u64,
 }
 //资源删除
-pub async fn res_del(param: &ResDelParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn res_del(
+    param: &ResDelParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacEdit {},
         )
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let res = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .res
         .find_by_id(&param.res_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -182,19 +207,27 @@ pub struct RbacResRecord {
 }
 
 //资源列表
-pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn res_data(
+    param: &ResParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -216,8 +249,7 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res
@@ -250,7 +282,7 @@ pub async fn res_data(param: &ResParam, req_dao: &UserAuthQueryDao) -> JsonResul
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, res, user_id, false),
+        bind_vec_user_info_from_req!(web_dao, res, user_id, false),
         count,
     ))))
 }

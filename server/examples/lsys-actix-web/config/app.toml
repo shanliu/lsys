@@ -3,10 +3,11 @@
 #app_host="127.0.0.1"
 #app_port=8080
 #app_ssl_port=443
+#app_env="development"
 #app_ssl_cert = "config/lsys.cc_bundle.crt"
 #app_ssl_key = "config/lsys.cc.key"
 #日志配置
-log_level = "sqlx_core=info,lsys_app_sender=debug,lsys_app=trace,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,sqlx=trace,redis=debug"
+log_level = "sqlx_core=info,lsys_app_sender=debug,lsys_app=trace,axtix_web=debug,actix=info,mio=error,lsys_access=trace,lsys_web=trace,lsys_core=trace,lsys_user=trace,lsys_rbac=trace,lsys_docs=trace,lsys_actix_web=trace,lsys_file=trace,lsys_file_manager=trace,sqlx=trace,redis=debug"
 log_dir = "logs"
 log_name = "app"
 #数据库配置
@@ -56,9 +57,52 @@ ip_city_db = "data/IP2LOCATION-LITE-DB11.BIN"
 #snowflake_machine_id=1 #最大31
 #snowflake_node_id=1 #最大31
 
-# jwt token 
-#app_jwt_key = "bbb" #jwt 密钥
 
+# 登录会话数量限制（按 login_type 单独配置，key = login_type，value = 最多保留的有效会话数）
+# 超出时踢出该类型中最早登录的会话；不配置或值为 0 = 不限制
+# [login_max_per_type]
+# name = 3
+# email = 5
+# mobile = 2
+
+[secret.login_key]
+source = "plain"
+value  = "raw:bbb"
+
+[secret.file_key_salt]
+source = "plain"
+value  = "raw:your-file-salt"
+
+# 字段加密密钥（用于 Email/Mobile/SMTP密码 等敏感数据加密）
+# 生成方式: openssl rand -hex 32
+# 注意: 密钥必须是32字节（64个十六进制字符）
+[secret.field_encrypt_key]
+source = "plain"
+value  = "hex:6368616e67652d746869732d746f2d796f757273656372657421213233343536373839303132333435363738393031"
+
+# 密码 pepper（可选，增强用户密码哈希安全性）
+[secret.password_pepper]
+source = "plain"
+value  = "raw:kkkkkkkkk"
+
+# 生产环境推荐使用 KMS 加密密钥:
+# [secret.field_encrypt_key]
+# source     = "kms"
+# kms        = "aliyun"  # 或 "tencent"
+# ciphertext = "base64:AQICAHhPTpXk8xY3..."
+
+# ===== KMS 配置（可选）=====
+# 阿里云 KMS 配置
+# [kms_aliyun]
+# access_key_id     = "your-access-key-id"
+# access_key_secret = "your-access-key-secret"
+# region             = "cn-beijing"  # 支持: cn-beijing, cn-shanghai, cn-shenzhen, cn-hong-kong, ap-southeast-1
+
+# 腾讯云 KMS 配置
+# [kms_tencent]
+# secret_id = "your-secret-id"
+# secret_key = "your-secret-key"
+# region    = "ap-beijing"  # 支持: ap-beijing, ap-shanghai, ap-guangzhou, ap-hongkong, ap-singapore
 
 #接口允许域名
 api_allow_origin = "*"
@@ -66,15 +110,11 @@ api_allow_origin = "*"
 service_api_key = "xxx"
 
 # 文件服务配置
-# 存储基础路径 (默认: /tmp)
+# 存储基础路径，public/private/crypto 子目录会自动派生（默认: /tmp）
 file_storage_base_path = "./data/files"
-# 本地文件URL前缀 (默认: /file/)
-file_local_url_prefix = "/file/"
 # 清理开关 (默认: true)
 file_cleanup_enabled = true
-# 最小分片大小（字节）(默认: 1048576 即 1MB)
-file_min_chunk_size = 1048576
-# 最大下载并发数 (默认: 10)
-file_max_download_concurrency = 10
-# 下载超时时间（秒）(默认: 60)
-file_download_timeout_secs = 60
+# 下载单分片大小上限（字节）(默认: 5242880 即 5MB)
+file_download_chunk_max = 5242880
+# 上传单分片大小上限（字节）(默认: 5242880 即 5MB)
+file_upload_chunk_max = 5242880

@@ -148,7 +148,7 @@ export const AppListParamSchema = z.object({
     /** 客户端ID */
     client_id: z.string().optional(),
     /** 客户端ID */
-    detail_data: z.boolean().default(false),
+    detail_data: z.coerce.boolean().default(false),
     ...PageParam,
 });
 export type AppListParamType = z.infer<typeof AppListParamSchema>;

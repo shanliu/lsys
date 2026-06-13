@@ -1,6 +1,7 @@
 // REST 采集接口 — 对外调用
 
 use crate::common::{JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::rest::CheckRestApp;
 use lsys_app::model::AppModel;
@@ -63,7 +64,7 @@ pub struct RecordLogsParam {
     pub request_id: String,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub level: Option<u8>,
-    pub page: Option<crate::common::PageParam>,
+    pub limit: Option<crate::common::LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
@@ -75,17 +76,16 @@ pub async fn trigger(
     param: &TriggerParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -98,10 +98,8 @@ pub async fn trigger(
 
     let params = param.params.clone().unwrap_or(serde_json::json!({}));
 
-    let (record_id, task_id, script_name) = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (record_id, task_id, script_name) = web_dao
+        .web_collector.collector
         .submit_task(
             param.script_id,
             app.user_id,
@@ -126,17 +124,16 @@ pub async fn status(
     param: &StatusParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -144,10 +141,8 @@ pub async fn status(
         )
         .await?;
 
-    let record = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let record = web_dao
+        .web_collector.collector
         .find_record_by_request_id(&param.request_id)
         .await?;
 
@@ -181,17 +176,16 @@ pub async fn records(
     param: &RecordsParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -203,17 +197,15 @@ pub async fn records(
     let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
     // 先查询脚本信息
-    let script = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let script = web_dao
+        .web_collector.collector
         .find_script_by_id(param.script_id)
         .await?
         .ok_or_else(|| {
             crate::common::JsonError::Message(
                 lsys_core::fluent_message!("collector-script-not-found",
                     {"script_id": param.script_id}
-                )
+                ),
             )
         })?;
 
@@ -224,10 +216,8 @@ pub async fn records(
         attr_file_tag: param.attr_file_tag,
     };
 
-    let (record_list, page_data) = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (record_list, page_data) = web_dao
+        .web_collector.collector
         .list_records(
             &script,
             param.request_id.as_deref(),
@@ -259,10 +249,8 @@ pub async fn records(
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_records(
                     &script,
                     param.request_id.as_deref(),
@@ -277,16 +265,16 @@ pub async fn records(
     };
 
     let cursor = PageCursorValue::from(&page_data);
-    
+
     let mut response_body = json!({
         "data": record_items,
         "cursor": cursor,
     });
-    
+
     if let Some(total) = total {
         response_body["total"] = json!(total);
     }
-    
+
     // 添加属性参数到响应中
     if param.attr_file.is_some() {
         response_body["attr_file"] = json!(param.attr_file);
@@ -300,7 +288,7 @@ pub async fn records(
     if param.attr_file_tag.is_some() {
         response_body["attr_file_tag"] = json!(param.attr_file_tag);
     }
-    
+
     Ok(JsonResponse::data(JsonData::body(response_body)))
 }
 
@@ -309,17 +297,16 @@ pub async fn record_files(
     param: &RecordFilesParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -327,10 +314,8 @@ pub async fn record_files(
         )
         .await?;
 
-    let record = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let record = web_dao
+        .web_collector.collector
         .find_record_by_request_id(&param.request_id)
         .await?
         .ok_or_else(|| {
@@ -342,26 +327,14 @@ pub async fn record_files(
     use crate::common::ToCursorPageParam;
     let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let (files, page_data) = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (files, page_data) = web_dao
+        .web_collector.collector
         .list_record_files(&record, &page, Some(app.id))
         .await?;
 
     let items: Vec<serde_json::Value> = files
         .iter()
         .map(|item| {
-            let tags: Vec<serde_json::Value> = item
-                .tags
-                .iter()
-                .map(|tag| {
-                    json!({
-                        "tag_name": tag.tag_name,
-                        "add_time": tag.add_time,
-                    })
-                })
-                .collect();
             json!({
                 "file_id": item.file_id,
                 "file_name": item.file_name,
@@ -369,19 +342,16 @@ pub async fn record_files(
                 "file_size": item.file_size,
                 "storage_type": item.storage_type,
                 "content_type": item.content_type,
-                "file_url": item.file_url,
+                "file_key": item.file_key,
                 "add_time": item.add_time,
-                "tags": tags,
             })
         })
         .collect();
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_record_files(&record, Some(app.id), &TotalParam::default())
                 .await
                 .map(PageTotalRowValue::from)?,
@@ -401,17 +371,16 @@ pub async fn record_logs(
     param: &RecordLogsParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -419,10 +388,8 @@ pub async fn record_logs(
         )
         .await?;
 
-    let record = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let record = web_dao
+        .web_collector.collector
         .find_record_by_request_id(&param.request_id)
         .await?
         .ok_or_else(|| {
@@ -431,13 +398,11 @@ pub async fn record_logs(
             ))
         })?;
 
-    use crate::common::ToOffsetPageParam;
-    let page = param.page.to_offset_page_param();
+    use crate::common::ToCursorPageParam;
+    let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let logs = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (logs, page_data) = web_dao
+        .web_collector.collector
         .list_record_logs(&record, param.level, &page)
         .await?;
 
@@ -459,18 +424,18 @@ pub async fn record_logs(
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_record_logs(&record, param.level)
-                .await?,
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        items, total,
+    let cursor = PageCursorValue::from(&page_data);
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
     ))))
 }

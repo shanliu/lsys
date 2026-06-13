@@ -284,6 +284,7 @@ async fn test_listen_notify() {
         ),
         "app",
         None,
+        None,
     )
     .await
     .unwrap();

@@ -1,6 +1,7 @@
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
 use crate::common::{JsonResult, PageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
@@ -24,12 +25,18 @@ pub struct SystemRoleAddParam {
 
 pub async fn system_role_add(
     param: &SystemRoleAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -52,8 +59,7 @@ pub async fn system_role_add(
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -82,19 +88,24 @@ pub struct SystemRoleEditParam {
 
 pub async fn system_role_edit(
     param: &SystemRoleEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let role = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -117,8 +128,7 @@ pub async fn system_role_edit(
         },
     };
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -141,20 +151,25 @@ pub struct SystemRoleDelParam {
 
 pub async fn system_role_del(
     param: &SystemRoleDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -164,8 +179,7 @@ pub async fn system_role_del(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -219,11 +233,17 @@ pub struct SystemRoleDataRecord {
 
 pub async fn system_role_data(
     param: &SystemRoleDataParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -244,8 +264,7 @@ pub async fn system_role_data(
         None
     };
 
-    let role_data = req_dao
-        .web_dao
+    let role_data = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -288,8 +307,7 @@ pub async fn system_role_data(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role

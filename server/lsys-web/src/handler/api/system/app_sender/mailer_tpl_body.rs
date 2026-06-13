@@ -1,7 +1,8 @@
 use crate::common::ToOffsetPageParam;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminMailMgr,
 };
 use lsys_access::dao::AccessSession;
@@ -22,12 +23,18 @@ pub struct MailerTplListParam {
 }
 pub async fn mailer_tpl_body_list(
     param: &MailerTplListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -35,8 +42,7 @@ pub async fn mailer_tpl_body_list(
         )
         .await?;
 
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .tpl
         .list_data(
@@ -50,8 +56,7 @@ pub async fn mailer_tpl_body_list(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .tpl
                 .list_count(
@@ -78,20 +83,25 @@ pub struct MailerTplAddParam {
 }
 pub async fn mailer_tpl_body_add(
     param: &MailerTplAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminMailMgr {},
         )
         .await?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .app_sender
         .tpl
         .add(
@@ -115,21 +125,26 @@ pub struct MailerTplEditParam {
 }
 pub async fn mailer_tpl_body_edit(
     param: &MailerTplEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminMailMgr {},
         )
         .await?;
-    let tpl = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
-    req_dao
-        .web_dao
+    let tpl = web_dao.app_sender.tpl.find_by_id(&param.id).await?;
+    web_dao
         .app_sender
         .tpl
         .edit(
@@ -149,21 +164,26 @@ pub struct MailerTplDelParam {
 }
 pub async fn mailer_tpl_body_del(
     param: &MailerTplDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminMailMgr {},
         )
         .await?;
-    let data = req_dao.web_dao.app_sender.tpl.find_by_id(&param.id).await?;
-    req_dao
-        .web_dao
+    let data = web_dao.app_sender.tpl.find_by_id(&param.id).await?;
+    web_dao
         .app_sender
         .tpl
         .del(&data, auth_data.user_id(), Some(&req_dao.req_env))

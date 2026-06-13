@@ -1,33 +1,37 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
-use lsys_core::api_utils::JsonPageData;
+use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
+use lsys_core::db::CursorPageSort;
 use serde::Deserialize;
 use serde_json::json;
+
 #[derive(Debug, Deserialize)]
 pub struct RecordLogsParam {
-    #[serde(deserialize_with = "crate::common::deserialize_u64")]
-    pub app_id: u64,
     pub request_id: String,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_u8")]
     pub level: Option<u8>,
-    pub page: Option<crate::common::PageParam>,
+    pub limit: Option<crate::common::LimitParam>,
     #[serde(default, deserialize_with = "crate::common::deserialize_option_bool")]
     pub count_num: Option<bool>,
 }
 
-/// GET /api/user/collector/record_logs — 记录关联日志列表
 pub async fn record_logs(
     param: &RecordLogsParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let record = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let record = web_dao
+        .web_collector.collector
         .find_record_by_request_id(&param.request_id)
         .await?
         .ok_or_else(|| {
@@ -35,14 +39,13 @@ pub async fn record_logs(
                 "collector-record-not-found"
             ))
         })?;
+    app_check_get(record.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    use crate::common::ToOffsetPageParam;
-    let page = param.page.to_offset_page_param();
+    use crate::common::ToCursorPageParam;
+    let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let logs = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let (logs, page_data) = web_dao
+        .web_collector.collector
         .list_record_logs(&record, param.level, &page)
         .await?;
 
@@ -64,18 +67,18 @@ pub async fn record_logs(
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_record_logs(&record, param.level)
-                .await?,
+                .await
+                .map(PageTotalRowValue::from)?,
         )
     } else {
         None
     };
 
-    Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        items, total,
+    let cursor = PageCursorValue::from(&page_data);
+    Ok(JsonResponse::data(JsonData::body(JsonPageData::cursor(
+        items, cursor, total,
     ))))
 }

@@ -2,10 +2,12 @@
 //
 //   UserLoginHistoryExporter — 用户自身的登录历史
 //     CSV 列: id, login_type, login_account, login_ip, login_city, account_id, is_login, login_msg, add_time
+//   UserLoginHistoryExportCheck — 权限检查器
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use lsys_access::dao::AccessDao;
 use lsys_core::db::{CursorConfig, CursorLimit, CursorPageDir, CursorPageParam, CursorPageSort};
 use lsys_user::dao::AccountDao;
 
@@ -13,20 +15,21 @@ use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserInfoEdit;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::{ExportTaskModel, WebExporter, WebResult};
+use crate::dao::{ExportTaskModel, WebExporterCheck, WebExportCheckParam, WebResult};
 
 pub const EXPORT_TYPE_USER_LOGIN_HISTORY: &str = "user_login_history";
-pub struct UserLoginHistoryExporter {
-    pub account_dao: Arc<AccountDao>,
+
+/// 登录历史权限检查器
+pub struct UserLoginHistoryExportCheck {
     pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
 #[async_trait::async_trait]
-impl WebExporter for UserLoginHistoryExporter {
+impl WebExporterCheck for UserLoginHistoryExportCheck {
     async fn check(
         &self,
         check_env: &RbacAccessCheckEnv<'_>,
-        param: &crate::dao::ExportCheckParam<'_>,
+        param: &WebExportCheckParam<'_>,
     ) -> WebResult<()> {
         self.web_rbac
             .check(
@@ -40,23 +43,37 @@ impl WebExporter for UserLoginHistoryExporter {
     }
 }
 
+/// 登录历史导出器
+pub struct UserLoginHistoryExporter {
+    pub account_dao: Arc<AccountDao>,
+    pub access_dao: Arc<AccessDao>,
+}
+
 impl Exporter<crate::dao::WebError> for UserLoginHistoryExporter {
     fn export<'a>(
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<lsys_core::fluents::FluentMgr>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
     > {
         Box::pin(async move {
-            let account_id = params["account_id"].as_u64();
+            // user_id 是 UserModel.id，account_id 是 AccountModel.id（存于 UserModel.user_data）
+            // 必须通过 access_dao 查 UserModel 才能获得正确的 account_id
+            let user_model = self.access_dao.user.cache().find_by_id(&record.user_id).await?;
+            let account_id = user_model.user_data.parse::<u64>().ok();
             let login_type = params["login_type"].as_str();
             let login_account = params["login_account"].as_str();
             let login_ip = params["login_ip"].as_str();
             let is_login = params["is_login"].as_i64().map(|v| v as i8);
 
+            let fluent = fluent_mgr.locale(lang.as_deref());
             let mut w = CsvWriter::new(&record)
-                .header((
+                .header(export_header!(
+                    fluent,
+                    EXPORT_TYPE_USER_LOGIN_HISTORY,
                     "id",
                     "login_type",
                     "login_account",

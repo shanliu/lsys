@@ -1,6 +1,9 @@
 use crate::{
-    common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
+    dao::{
+        WebDao,
+        access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    },
 };
 
 use lsys_access::dao::AccessSession;
@@ -18,12 +21,18 @@ pub struct ConfirmOAuthClientParam {
 //oauth 接入申请审核
 pub async fn oauth_client_confirm(
     param: &ConfirmOAuthClientParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -31,15 +40,8 @@ pub async fn oauth_client_confirm(
         )
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -65,35 +67,38 @@ pub struct ConfirmOAuthClientScopeParam {
 //oauth 接入申请新权限审核
 pub async fn oauth_client_scope_confirm(
     param: &ConfirmOAuthClientScopeParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let req_app = req_dao
-        .web_dao
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
         .request_find_by_id(param.app_req_id)
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(req_app.app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -117,27 +122,26 @@ pub struct ClearOAuthClientAccessTokenParam {
 }
 pub async fn oauth_client_clear_access_token(
     param: &ClearOAuthClientAccessTokenParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -154,27 +158,26 @@ pub struct ClearOAuthClientRefreshTokenParam {
 }
 pub async fn oauth_client_clear_refresh_token(
     param: &ClearOAuthClientRefreshTokenParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_app
         .app_dao
         .oauth_client

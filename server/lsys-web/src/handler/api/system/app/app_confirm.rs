@@ -1,4 +1,5 @@
-use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminApp;
 use lsys_access::dao::AccessSession;
@@ -15,25 +16,32 @@ pub struct ConfirmParam {
     pub confirm_note: String,
 }
 //APP 申请审核
-pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+pub async fn confirm(
+    param: &ConfirmParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let req_app = req_dao
-        .web_dao
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
         .request_find_by_id(param.app_req_id)
         .await?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -47,8 +55,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
     }
 
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

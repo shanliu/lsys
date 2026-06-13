@@ -3,7 +3,7 @@ mod utils;
 use crate::utils::{RenameRule, infer_table_name, resolve_column_name};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Meta, NestedMeta, parse_macro_input};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Expr, Fields, Lit, Meta, Token, parse_macro_input, punctuated::Punctuated};
 
 /// # lsys_model 属性宏
 ///
@@ -41,22 +41,24 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut table_name: Option<String> = None;
     let mut rename_all: Option<RenameRule> = None;
 
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+    let args = syn::parse_macro_input!(args with Punctuated::<Meta, Token![,]>::parse_terminated);
 
     for arg in args.iter() {
-        if let NestedMeta::Meta(Meta::NameValue(nv)) = arg {
+        if let Meta::NameValue(nv) = arg {
             let name = nv.path.get_ident().map(|i| i.to_string());
 
             match name.as_deref() {
                 Some("table_name") => {
-                    if let syn::Lit::Str(lit) = &nv.lit {
-                        table_name = Some(lit.value());
-                    }
+                    if let Expr::Lit(expr_lit) = &nv.value
+                        && let Lit::Str(lit) = &expr_lit.lit {
+                            table_name = Some(lit.value());
+                        }
                 }
                 Some("rename_all") => {
-                    if let syn::Lit::Str(lit) = &nv.lit {
-                        rename_all = Some(RenameRule::from_str(&lit.value()));
-                    }
+                    if let Expr::Lit(expr_lit) = &nv.value
+                        && let Lit::Str(lit) = &expr_lit.lit {
+                            rename_all = Some(RenameRule::from_str(&lit.value()));
+                        }
                 }
                 _ => {}
             }
@@ -187,25 +189,16 @@ pub fn lsys_model(args: TokenStream, item: TokenStream) -> TokenStream {
 pub fn lsys_model_status(args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let struct_name = &input.ident;
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
+    let args = syn::parse_macro_input!(args with Punctuated::<Meta, Token![,]>::parse_terminated);
     let mut field_type = None;
 
     for cattr in args.iter() {
-        if let NestedMeta::Meta(Meta::NameValue(attr_ident)) = cattr {
-            let name = attr_ident.clone();
-            let name = name.path.get_ident().unwrap().to_string();
-            let name = name.as_str();
-            let ident = attr_ident.clone();
-            if name == "field_type" {
-                field_type = Some(
-                    match ident.lit {
-                        syn::Lit::Str(val) => val,
-                        _ => unreachable!("status type must be string"),
+        if let Meta::NameValue(nv) = cattr
+            && nv.path.get_ident().map(|i| i == "field_type").unwrap_or(false)
+                && let Expr::Lit(expr_lit) = &nv.value
+                    && let Lit::Str(lit) = &expr_lit.lit {
+                        field_type = Some(lit.value());
                     }
-                    .value(),
-                );
-            }
-        }
     }
     let field_type = field_type.expect("status type not set");
     let field_type = quote::format_ident!("{}", field_type);

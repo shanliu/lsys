@@ -1,5 +1,6 @@
 use crate::common::JsonData;
-use crate::common::{JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppSenderSmsConfig;
 use lsys_access::dao::AccessSession;
@@ -18,11 +19,17 @@ pub struct SmserHwConfigListParam {
 
 pub async fn smser_hw_config_list(
     param: &SmserHwConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -32,8 +39,7 @@ pub async fn smser_hw_config_list(
         )
         .await?;
 
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .smser
         .hwyun_sender
@@ -70,12 +76,25 @@ pub struct SmserAppHwConfigAddParam {
 
 pub async fn smser_hw_app_config_add(
     param: &SmserAppHwConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    super::smser_inner_access_check(param.app_id, auth_data.user_id(), req_dao).await?;
-    let row = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    super::smser_inner_access_check(
+        param.app_id,
+        auth_data.user_id(),
+        req_dao,
+        auth_dao,
+        web_dao,
+    )
+    .await?;
+    let row = web_dao
         .app_sender
         .smser
         .hwyun_sender

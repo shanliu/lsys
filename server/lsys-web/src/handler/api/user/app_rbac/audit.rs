@@ -3,7 +3,8 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::ToCursorPageParam;
-use crate::common::UserAuthQueryDao;
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -39,14 +40,15 @@ pub struct AppAuditParam {
 //查自身或子用户授权信息
 pub async fn app_audit_data(
     param: &AppAuditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = parent_app_check(req_dao).await?;
-    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = parent_app_check(auth_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
     let user_id = if let Some(user_data) = &param.user_param {
         //必须是子用户
-        let audit_user = req_dao
-            .web_dao
+        let audit_user = web_dao
             .web_access
             .access_dao
             .user
@@ -57,8 +59,7 @@ pub async fn app_audit_data(
     } else {
         None
     };
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -76,8 +77,7 @@ pub async fn app_audit_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .access
@@ -98,8 +98,7 @@ pub async fn app_audit_data(
     } else {
         None
     };
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user

@@ -1,6 +1,7 @@
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::common::{JsonError, JsonResult, PageParam};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{CheckUserRbacEdit, CheckUserRbacView};
 use lsys_access::dao::AccessSession;
@@ -24,20 +25,25 @@ pub struct SystemRolePermAddParam {
 
 pub async fn system_role_perm_add(
     param: &SystemRolePermAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -49,20 +55,8 @@ pub async fn system_role_perm_add(
 
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
     let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
-    let op_data = req_dao
-        .web_dao
-        .web_rbac
-        .rbac_dao
-        .op
-        .find_by_ids(&op_id)
-        .await?;
-    let res_data = req_dao
-        .web_dao
-        .web_rbac
-        .rbac_dao
-        .res
-        .find_by_ids(&res_id)
-        .await?;
+    let op_data = web_dao.web_rbac.rbac_dao.op.find_by_ids(&op_id).await?;
+    let res_data = web_dao.web_rbac.rbac_dao.res.find_by_ids(&res_id).await?;
 
     let mut param_data = Vec::with_capacity(param.perm_data.len());
     for pr in param.perm_data.iter() {
@@ -86,8 +80,7 @@ pub async fn system_role_perm_add(
         };
         param_data.push(RolePerm { op, res });
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -111,20 +104,25 @@ pub struct SystemRolePermDelParam {
 
 pub async fn system_role_perm_del(
     param: &SystemRolePermDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -136,20 +134,8 @@ pub async fn system_role_perm_del(
 
     let op_id = param.perm_data.iter().map(|e| e.op_id).collect::<Vec<_>>();
     let res_id = param.perm_data.iter().map(|e| e.res_id).collect::<Vec<_>>();
-    let op_data = req_dao
-        .web_dao
-        .web_rbac
-        .rbac_dao
-        .op
-        .find_by_ids(&op_id)
-        .await?;
-    let res_data = req_dao
-        .web_dao
-        .web_rbac
-        .rbac_dao
-        .res
-        .find_by_ids(&res_id)
-        .await?;
+    let op_data = web_dao.web_rbac.rbac_dao.op.find_by_ids(&op_id).await?;
+    let res_data = web_dao.web_rbac.rbac_dao.res.find_by_ids(&res_id).await?;
 
     let mut param_data = Vec::with_capacity(param.perm_data.len());
     for pr in param.perm_data.iter() {
@@ -173,8 +159,7 @@ pub async fn system_role_perm_del(
         };
         param_data.push(RolePerm { op, res });
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -200,20 +185,25 @@ pub struct SystemRolePermDataParam {
 
 pub async fn system_role_perm_data(
     param: &SystemRolePermDataParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -223,8 +213,7 @@ pub async fn system_role_perm_data(
         )
         .await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -232,8 +221,7 @@ pub async fn system_role_perm_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role

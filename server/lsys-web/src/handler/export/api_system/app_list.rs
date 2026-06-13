@@ -22,28 +22,32 @@ use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminApp;
 use crate::dao::export_task::exporter::Exporter;
 use crate::dao::export_task::writer::CsvWriter;
-use crate::dao::{ExportTaskModel, WebExporter, WebResult};
+use crate::dao::{ExportTaskModel, WebExporterCheck, WebExportCheckParam, WebResult};
 
 pub const EXPORT_TYPE_SYSTEM_APP_LIST: &str = "system_app_list";
 pub const EXPORT_TYPE_SYSTEM_SUB_APP_LIST: &str = "system_sub_app_list";
 pub const EXPORT_TYPE_SYSTEM_REQUEST_LIST: &str = "system_request_list";
 
-/// 系统所有APP列表导出
-pub struct SystemAppListExporter {
-    pub app_dao: Arc<AppDao>,
+/// 系统所有APP列表权限检查器
+pub struct SystemAppListExportCheck {
     pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
 #[async_trait::async_trait]
-impl WebExporter for SystemAppListExporter {
+impl WebExporterCheck for SystemAppListExportCheck {
     async fn check(
         &self,
         check_env: &RbacAccessCheckEnv<'_>,
-        _param: &crate::dao::ExportCheckParam<'_>,
+        _param: &WebExportCheckParam<'_>,
     ) -> WebResult<()> {
         self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
         Ok(())
     }
+}
+
+/// 系统所有APP列表导出器
+pub struct SystemAppListExporter {
+    pub app_dao: Arc<AppDao>,
 }
 
 impl Exporter<crate::dao::WebError> for SystemAppListExporter {
@@ -51,6 +55,8 @@ impl Exporter<crate::dao::WebError> for SystemAppListExporter {
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<lsys_core::fluents::FluentMgr>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
     > {
@@ -71,8 +77,11 @@ impl Exporter<crate::dao::WebError> for SystemAppListExporter {
                 app_name,
             };
 
+            let fluent = fluent_mgr.locale(lang.as_deref());
             let mut w = CsvWriter::new(&record)
-                .header((
+                .header(export_header!(
+                    fluent,
+                    EXPORT_TYPE_SYSTEM_APP_LIST,
                     "id",
                     "name",
                     "client_id",
@@ -113,22 +122,26 @@ impl Exporter<crate::dao::WebError> for SystemAppListExporter {
     }
 }
 
-/// 系统子应用列表导出
-pub struct SystemSubAppListExporter {
-    pub app_dao: Arc<AppDao>,
+/// 系统子应用列表权限检查器
+pub struct SystemSubAppListExportCheck {
     pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
 #[async_trait::async_trait]
-impl WebExporter for SystemSubAppListExporter {
+impl WebExporterCheck for SystemSubAppListExportCheck {
     async fn check(
         &self,
         check_env: &RbacAccessCheckEnv<'_>,
-        _param: &crate::dao::ExportCheckParam<'_>,
+        _param: &WebExportCheckParam<'_>,
     ) -> WebResult<()> {
         self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
         Ok(())
     }
+}
+
+/// 系统子应用列表导出器
+pub struct SystemSubAppListExporter {
+    pub app_dao: Arc<AppDao>,
 }
 
 impl Exporter<crate::dao::WebError> for SystemSubAppListExporter {
@@ -136,6 +149,8 @@ impl Exporter<crate::dao::WebError> for SystemSubAppListExporter {
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<lsys_core::fluents::FluentMgr>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
     > {
@@ -151,8 +166,11 @@ impl Exporter<crate::dao::WebError> for SystemSubAppListExporter {
                 app_id,
             };
 
+            let fluent = fluent_mgr.locale(lang.as_deref());
             let mut w = CsvWriter::new(&record)
-                .header((
+                .header(export_header!(
+                    fluent,
+                    EXPORT_TYPE_SYSTEM_SUB_APP_LIST,
                     "id",
                     "name",
                     "client_id",
@@ -193,22 +211,26 @@ impl Exporter<crate::dao::WebError> for SystemSubAppListExporter {
     }
 }
 
-/// 系统审核请求列表导出
-pub struct SystemRequestListExporter {
-    pub app_dao: Arc<AppDao>,
+/// 系统审核请求列表权限检查器
+pub struct SystemRequestListExportCheck {
     pub web_rbac: Arc<crate::dao::WebRbac>,
 }
 
 #[async_trait::async_trait]
-impl WebExporter for SystemRequestListExporter {
+impl WebExporterCheck for SystemRequestListExportCheck {
     async fn check(
         &self,
         check_env: &RbacAccessCheckEnv<'_>,
-        _param: &crate::dao::ExportCheckParam<'_>,
+        _param: &WebExportCheckParam<'_>,
     ) -> WebResult<()> {
         self.web_rbac.check(check_env, &CheckAdminApp {}).await?;
         Ok(())
     }
+}
+
+/// 系统审核请求列表导出器
+pub struct SystemRequestListExporter {
+    pub app_dao: Arc<AppDao>,
 }
 
 impl Exporter<crate::dao::WebError> for SystemRequestListExporter {
@@ -216,6 +238,8 @@ impl Exporter<crate::dao::WebError> for SystemRequestListExporter {
         &'a self,
         record: ExportTaskModel,
         params: serde_json::Value,
+        lang: Option<String>,
+        fluent_mgr: Arc<lsys_core::fluents::FluentMgr>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<PathBuf, crate::dao::WebError>> + Send + 'a>,
     > {
@@ -238,8 +262,11 @@ impl Exporter<crate::dao::WebError> for SystemRequestListExporter {
                 request_type,
             };
 
+            let fluent = fluent_mgr.locale(lang.as_deref());
             let mut w = CsvWriter::new(&record)
-                .header((
+                .header(export_header!(
+                    fluent,
+                    EXPORT_TYPE_SYSTEM_REQUEST_LIST,
                     "id",
                     "app_id",
                     "parent_app_id",

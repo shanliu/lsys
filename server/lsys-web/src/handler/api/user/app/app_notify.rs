@@ -1,7 +1,8 @@
 use crate::common::JsonData;
 use crate::common::ToCursorPageParam;
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult, LimitParam};
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserNotifyView;
 use lsys_access::dao::AccessSession;
@@ -44,11 +45,17 @@ pub struct NotifyDataListRecord {
 
 pub async fn notify_data_list(
     param: &NotifyDataListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -71,8 +78,7 @@ pub async fn notify_data_list(
         ])
     };
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_app
         .app_dao
         .app_notify
@@ -110,8 +116,7 @@ pub async fn notify_data_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app_notify
@@ -143,12 +148,18 @@ pub struct NotifyDataDelParam {
 
 pub async fn notify_data_del(
     param: &NotifyDataDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let notify = req_dao
-        .web_dao
+    let notify = web_dao
         .web_app
         .app_dao
         .app_notify
@@ -156,15 +167,13 @@ pub async fn notify_data_del(
         .find_data_by_id(&param.id)
         .await?;
 
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(notify.app_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -174,8 +183,7 @@ pub async fn notify_data_del(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app_notify

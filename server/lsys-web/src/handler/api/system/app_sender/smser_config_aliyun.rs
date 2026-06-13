@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
@@ -33,20 +34,25 @@ pub struct ShowAliYunConfigRecord {
 pub async fn smser_ali_config_list(
     param: &SmserAliConfigListParam,
     callback_call: impl Fn(&SettingData<AliYunConfig>) -> String,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .aliyun_sender
@@ -85,12 +91,18 @@ pub struct SmserAliConfigAddParam {
 
 pub async fn smser_ali_config_add(
     param: &SmserAliConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -98,8 +110,7 @@ pub async fn smser_ali_config_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .aliyun_sender
@@ -132,12 +143,18 @@ pub struct SmserAliConfigEditParam {
 
 pub async fn smser_ali_config_edit(
     param: &SmserAliConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -145,8 +162,7 @@ pub async fn smser_ali_config_edit(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .aliyun_sender
@@ -173,20 +189,25 @@ pub struct SmserAliConfigDelParam {
 
 pub async fn smser_ali_config_del(
     param: &SmserAliConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .aliyun_sender
@@ -207,12 +228,18 @@ pub struct SmserAppAliConfigAddParam {
 
 pub async fn smser_tpl_config_ali_add(
     param: &SmserAppAliConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -220,8 +247,7 @@ pub async fn smser_tpl_config_ali_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .aliyun_sender

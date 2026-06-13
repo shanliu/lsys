@@ -1,9 +1,11 @@
 "use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { useDictData, type TypedDictData } from "@apps/main/hooks/use-dict-data";
@@ -46,6 +48,7 @@ import { BarcodeCreateConfigPreviewDrawer } from "./list-create-preview-drawer";
 import {
   BarcodeCreateConfigFilterFormSchema
 } from "./list-create-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureBarCodeListCreatePage() {
   // user\app_barcode\create_config_add.md
@@ -211,6 +214,21 @@ function BarcodeCreateConfigContent({ dictData }: BarcodeCreateConfigContentProp
     queryClient.invalidateQueries({ queryKey: ["barcode-create-config-list"] });
   };
 
+  const filterForm = useFilterBarForm<z.infer<typeof BarcodeCreateConfigFilterFormSchema>>({
+    defaultValues: {
+      barcode_type: filterParam.barcode_type ?? undefined,
+      status: filterParam.status,
+    },
+    resolver: zodResolver(BarcodeCreateConfigFilterFormSchema) as any,
+    initValues: { barcode_type: undefined, status: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
+
   const createConfigStatusMapper = createStatusMapper<string>(
     {
       "1": "neutral",
@@ -372,68 +390,19 @@ function BarcodeCreateConfigContent({ dictData }: BarcodeCreateConfigContentProp
     <div className="flex flex-col min-h-0 space-y-3">
       <div className="flex-shrink-0 mb-1 sm:mb-4">
         {/* 过滤器 */}
-        <FilterContainer
-          defaultValues={{
-            barcode_type: filterParam.barcode_type ?? undefined,
-            status: filterParam.status,
-          }}
-          resolver={zodResolver(BarcodeCreateConfigFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* 条码类型过滤 */}
-              {
-                <FilterDictSelect
-                  name="barcode_type"
-                  placeholder="选择条码类型"
-                  label="条码类型"
-                  disabled={isLoading}
-                  dictData={dictData.barcode_type}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              }
-
-              {/* 状态过滤 */}
-              {
-                <FilterDictSelect
-                  name="status"
-                  placeholder="选择状态"
-                  label="状态"
-                  disabled={isLoading}
-                  dictData={dictData.create_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              }
-
-              {/* 动作按钮区域 */}
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-              />
-            </div>
-          )}
-        </FilterContainer>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterDictSelect name="barcode_type" placeholder="选择条码类型" label="条码类型"
+            disabled={isLoading} dictData={dictData.barcode_type} allLabel="全部" />
+          <FilterDictSelect name="status" placeholder="选择状态" label="状态"
+            disabled={isLoading} dictData={dictData.create_status} allLabel="全部" />
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 - 确保不超出页面高度 */}

@@ -23,7 +23,7 @@ pub struct AppState {
 pub async fn run() -> Result<(), String> {
     let app_dir = std::env::var("APP_DIR").unwrap_or_else(|_| "./".to_string());
 
-    let app_core = AppCore::new(&app_dir, "config", "app-file-demo", None)
+    let app_core = AppCore::new(&app_dir, "config", "app-file-demo", None, None)
         .await
         .map_err(|e| format!("appcore init error: {e:?}"))?;
     let app_core = Arc::new(app_core);
@@ -41,12 +41,9 @@ pub async fn run() -> Result<(), String> {
         .get_string("service_api_key")
         .unwrap_or_else(|_| "".to_string());
 
-
     // 创建 SDK 客户端
     let upstream = ServiceClient::new(&upstream_url, &service_api_key)
         .map_err(|e| format!("upstream client error: {e}"))?;
-
-  
 
     // CORS 配置
     let cors_layer = {
@@ -73,10 +70,7 @@ pub async fn run() -> Result<(), String> {
         }
     };
 
-    let state = Arc::new(AppState {
-        app_core,
-        upstream,
-    });
+    let state = Arc::new(AppState { app_core, upstream });
 
     // 路由
     let app = Router::new()
@@ -86,6 +80,7 @@ pub async fn run() -> Result<(), String> {
         .route("/demo/upload_retoken", post(handler::demo_upload_retoken))
         .route("/demo/upload_by_md5", post(handler::demo_upload_by_md5))
         .route("/demo/from_url", post(handler::demo_from_url))
+        .route("/demo/from_local", post(handler::demo_from_local))
         .route("/demo/file_list", post(handler::demo_file_list))
         .route("/demo/file_delete", post(handler::demo_file_delete))
         .route("/demo/file_urls", post(handler::demo_file_urls))

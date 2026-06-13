@@ -1,6 +1,7 @@
 use crate::common::JsonResult;
 
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -14,19 +15,19 @@ pub struct RequestExterLoginFeatureParam {
 
 pub async fn request_inner_feature_exter_login_request(
     param: &RequestExterLoginFeatureParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -36,8 +37,7 @@ pub async fn request_inner_feature_exter_login_request(
         )
         .await?;
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .exter_login

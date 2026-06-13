@@ -1,6 +1,7 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::{
-    common::{JsonResponse, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::SetPasswordData,
 };
 use lsys_access::dao::AccessSession;
@@ -13,11 +14,17 @@ pub struct SetPasswordParam {
 }
 pub async fn set_password(
     param: &SetPasswordParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let pid = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let pid = web_dao
         .web_user
         .auth
         .user_set_password(

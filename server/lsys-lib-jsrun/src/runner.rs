@@ -398,7 +398,9 @@ async fn background_loop(
             }
 
             // Notify awaiter
-            let _ = envelope.result_tx.send(result);
+            if let Err(e) = envelope.result_tx.send(result) {
+                warn!("failed to send task result: {:?}", e);
+            }
 
             // Decrement in-flight counter
             if in_flight.fetch_sub(1, Ordering::AcqRel) == 1 {

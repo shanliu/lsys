@@ -4,10 +4,12 @@
 import { userSenderMailerConfigDel, UserSenderMailerConfigItem, userSenderMailerConfigList } from "@shared/apis/user/sender-mailer";
 import { SenderRuleConfigView } from "@apps/main/components/local/sender-config/rule-config-view";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { PageSkeletonTable } from "@shared/components/custom/page-placeholder/skeleton-table";
@@ -30,6 +32,7 @@ import React from "react";
 import { featureMailModuleConfig } from "../nav-info";
 import { MailConfigDrawer } from "./config-drawer";
 import { MailConfigFilterFormSchema } from "./config-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureMailConfigPage() {
   // user\app_sender_mailer\config_add.md
@@ -261,58 +264,35 @@ export function MailConfigContent({ dictData }: MailConfigContentProps) {
     },
   ];
 
+  const filterForm = useFilterBarForm<z.infer<typeof MailConfigFilterFormSchema>>({
+    defaultValues: { config_type: filterParam.config_type },
+    resolver: zodResolver(MailConfigFilterFormSchema) as any,
+    initValues: { config_type: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
+
   return (
     <div className="flex flex-col min-h-0 space-y-3">
       <div className="flex-shrink-0 mb-1 sm:mb-4">
         {/* 过滤器 */}
-        <FilterContainer
-          defaultValues={{
-            config_type: filterParam.config_type,
-          }}
-          resolver={zodResolver(MailConfigFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(configs.length)}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* 配置类型过滤 */}
-              {dictData.mail_config_type && (
-                <FilterDictSelect
-                  name="config_type"
-                  placeholder="选择配置类型"
-                  label="配置类型"
-                  disabled={isLoading}
-                  dictData={dictData.mail_config_type}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-              />
-            </div>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(configs.length)} loading={isLoading} />
+          </FilterBar.Summary>
+          {dictData.mail_config_type && (
+            <FilterDictSelect name="config_type" placeholder="选择配置类型" label="配置类型"
+              disabled={isLoading} dictData={dictData.mail_config_type} allLabel="全部" />
           )}
-        </FilterContainer>
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 - 确保不超出页面高度 */}

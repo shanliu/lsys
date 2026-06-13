@@ -1,5 +1,6 @@
 use crate::common::{JsonError, JsonResult};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 
@@ -17,19 +18,19 @@ pub struct RequestExterFeatureParam {
 
 pub async fn request_exter_feature(
     param: &RequestExterFeatureParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -44,8 +45,7 @@ pub async fn request_exter_feature(
     for fk in param.featuer_data.iter() {
         match fk.as_str() {
             crate::handler::APP_FEATURE_RBAC => {
-                req_dao
-                    .web_dao
+                web_dao
                     .web_app
                     .app_dao
                     .app
@@ -60,16 +60,14 @@ pub async fn request_exter_feature(
     }
 
     if app.parent_app_id > 0 {
-        let parent_app = req_dao
-            .web_dao
+        let parent_app = web_dao
             .web_app
             .app_dao
             .app
             .find_by_id(app.parent_app_id)
             .await?;
         //父应用必须已开通对应外部权限
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .app
@@ -77,8 +75,7 @@ pub async fn request_exter_feature(
             .await?;
     }
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -103,19 +100,24 @@ pub struct ConfirmExterFeatureParam {
 
 pub async fn confirm_exter_feature(
     param: &ConfirmExterFeatureParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let req_app = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
         .request_find_by_id(param.app_req_id)
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -126,16 +128,14 @@ pub async fn confirm_exter_feature(
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
     //在申请入口判断父应用是否有对应外部权限,已申请正常审核
-    let parent_app = req_dao
-        .web_dao
+    let parent_app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(app.parent_app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -145,8 +145,7 @@ pub async fn confirm_exter_feature(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

@@ -6,10 +6,11 @@ edition = "2024"
 
 [dependencies]
 lsys-web = { path = "../../lsys-web", features = [] }
+lsys-file-manager = { path = "../../lsys-file-manager" }
 lsys-web-module-oauth = { path = "../lsys-web-module-oauth" }
 lsys-web-subapp-demo = { path = "../lsys-web-subapp-demo" }
 
-tokio = { version = "~1.51.0", features = ["fs"] }
+tokio = { version = "~1.52.0", features = ["fs"] }
 tracing = { version = "~0.1.*" }                   # log-always 保持log的输出 当使用tracing时会出现两次
 
 
@@ -31,9 +32,6 @@ rustls = { version = "~0.23.25", default-features = false, features = [
     "tls12",
 ] }
 pin-project = "~1.1.*"
-jsonwebtoken = { version = "~10.3.0", default-features = false, features = [
-    "aws_lc_rs",
-] }
 serde = { version = "~1.0.*" }
 serde_json = "~1.0.*"
 serde_urlencoded = "~0.7"
@@ -49,12 +47,17 @@ form_urlencoded = "~1.2.0"
 futures-util = "~0.3.*"
 md5 = "~0.8.0"
 mime = "~0.3.16"
+mime_guess = "~2.0"
 nanoid = "~0.4.0"
+async-stream = "~0.3.*"
+urlencoding = "~2.1.*"
 
 
 time = { version = "0.3.36" }
 
 async-trait = "~0.1.*"
+parking_lot = "~0.12.*"
+dashmap = "~6.1"  # 无锁并发HashMap，用于高性能熔断器
 
 [features]
 default = []

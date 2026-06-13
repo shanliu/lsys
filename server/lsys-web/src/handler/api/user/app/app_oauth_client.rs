@@ -1,5 +1,6 @@
 use crate::common::{JsonData, JsonResult};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -13,11 +14,10 @@ pub struct OAuthClientScopeDataParam {
 
 pub async fn oauth_client_scope_data(
     param: &OAuthClientScopeDataParam,
-    req_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     let papp = if param.app_id.unwrap_or_default() > 0 {
-        let parent_app = req_dao
-            .web_dao
+        let parent_app = web_dao
             .web_app
             .app_dao
             .app
@@ -25,8 +25,7 @@ pub async fn oauth_client_scope_data(
             .find_by_id(param.app_id.unwrap_or_default())
             .await?;
         //父应用必须已开通OAUTH SERVER功能
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .oauth_server
@@ -36,8 +35,7 @@ pub async fn oauth_client_scope_data(
     } else {
         None
     };
-    let server_spoce = req_dao
-        .web_dao
+    let server_spoce = web_dao
         .web_app
         .app_oauth_server_scope_data(papp.as_ref())
         .await?;
@@ -55,19 +53,19 @@ pub struct OAuthClientRequestParam {
 
 pub async fn oauth_client_request(
     param: &OAuthClientRequestParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -78,16 +76,14 @@ pub async fn oauth_client_request(
         .await?;
     app.app_status_check()?;
     if app.parent_app_id > 0 {
-        let parent_app = req_dao
-            .web_dao
+        let parent_app = web_dao
             .web_app
             .app_dao
             .app
             .find_by_id(app.parent_app_id)
             .await?;
         //父应用必须已开通OAUTH SERVER功能
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .oauth_server
@@ -95,8 +91,7 @@ pub async fn oauth_client_request(
             .await?;
     }
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -116,19 +111,19 @@ pub async fn oauth_client_request(
 
 pub async fn oauth_client_scope_request(
     param: &OAuthClientRequestParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
     //开通过 oauth_server 不影响scope申请
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -137,8 +132,7 @@ pub async fn oauth_client_scope_request(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -165,19 +159,19 @@ pub struct ConfirmOAuthClientSetDomainParam {
 
 pub async fn oauth_client_set_domain(
     param: &ConfirmOAuthClientSetDomainParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -187,16 +181,14 @@ pub async fn oauth_client_set_domain(
         )
         .await?;
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
         .oauth_check(&app)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -221,19 +213,19 @@ pub struct AddOAuthSecretParam {
 
 pub async fn oauth_secret_add(
     param: &AddOAuthSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -244,8 +236,7 @@ pub async fn oauth_secret_add(
         .await?;
     app.app_status_check()?;
 
-    let secret_data = req_dao
-        .web_dao
+    let secret_data = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -275,19 +266,19 @@ pub struct ChangeOAuthSecretParam {
 
 pub async fn oauth_secret_change(
     param: &ChangeOAuthSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -298,8 +289,7 @@ pub async fn oauth_secret_change(
         .await?;
     app.app_status_check()?;
 
-    let secret_data = req_dao
-        .web_dao
+    let secret_data = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -327,19 +317,19 @@ pub struct DelOAuthSecretParam {
 
 pub async fn oauth_secret_del(
     param: &DelOAuthSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -349,8 +339,7 @@ pub async fn oauth_secret_del(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client

@@ -155,13 +155,188 @@ var-sender-tpl = 发送模版管理
 var-sender-app-config = 发送应用配置
 var-sender-config = 发送配置
 var-message-view = 发送消息查看
-# Collector Script Status
-status-CollectorScriptStatus-Enable = 启用
-status-CollectorScriptStatus-Disable = 禁用
-status-CollectorScriptStatus-Deleted = 已删除
-# Collector Record Status
-status-CollectorRecordStatus-Pending = 待执行
-status-CollectorRecordStatus-Running = 执行中
-status-CollectorRecordStatus-Success = 成功
-status-CollectorRecordStatus-Failed = 失败
-status-CollectorRecordStatus-Timeout = 超时
+# 文件存储类型
+# CSV导出列头
+
+# user_file_list
+export-user_file_list-id = ID
+export-user_file_list-file_name = 文件名
+export-user_file_list-file_md5 = 文件MD5
+export-user_file_list-file_size = 文件大小
+export-user_file_list-storage_type = 存储类型
+export-user_file_list-status = 状态
+export-user_file_list-content_type = 内容类型
+export-user_file_list-add_time = 创建时间
+
+# user_login_history
+export-user_login_history-id = ID
+export-user_login_history-login_type = 登录类型
+export-user_login_history-login_account = 登录账号
+export-user_login_history-login_ip = 登录IP
+export-user_login_history-login_city = 登录城市
+export-user_login_history-account_id = 账号ID
+export-user_login_history-is_login = 是否登录
+export-user_login_history-login_msg = 登录消息
+export-user_login_history-add_time = 创建时间
+
+# user_mailer_message_list
+export-user_mailer_message_list-id = ID
+export-user_mailer_message_list-snid = 发送批次
+export-user_mailer_message_list-to_mail = 收件邮箱
+export-user_mailer_message_list-try_num = 发送次数
+export-user_mailer_message_list-status = 状态
+export-user_mailer_message_list-add_time = 创建时间
+export-user_mailer_message_list-send_time = 发送时间
+export-user_mailer_message_list-setting_id = 配置ID
+
+# user_smser_message_list
+export-user_smser_message_list-id = ID
+export-user_smser_message_list-snid = 发送批次
+export-user_smser_message_list-area = 区号
+export-user_smser_message_list-mobile = 手机号
+export-user_smser_message_list-try_num = 发送次数
+export-user_smser_message_list-status = 状态
+export-user_smser_message_list-add_time = 创建时间
+export-user_smser_message_list-send_time = 发送时间
+export-user_smser_message_list-setting_id = 配置ID
+
+# app_notify_list
+export-app_notify_list-id = ID
+export-app_notify_list-app_id = 应用ID
+export-app_notify_list-notify_type = 通知类型
+export-app_notify_list-notify_method = 通知方式
+export-app_notify_list-notify_key = 通知键
+export-app_notify_list-status = 状态
+export-app_notify_list-try_num = 发送次数
+export-app_notify_list-try_max = 最大重试次数
+export-app_notify_list-publish_time = 发布时间
+export-app_notify_list-next_time = 下次时间
+
+# app_script_records
+export-app_script_records-id = ID
+export-app_script_records-request_id = 请求ID
+export-app_script_records-script_id = 脚本ID
+export-app_script_records-add_user_id = 创建用户ID
+export-app_script_records-app_id = 应用ID
+export-app_script_records-status = 状态
+export-app_script_records-elapsed_ms = 耗时(ms)
+export-app_script_records-error_message = 错误信息
+export-app_script_records-add_time = 创建时间
+export-app_script_records-start_time = 开始时间
+export-app_script_records-finish_time = 完成时间
+
+# app_file_list
+export-app_file_list-id = ID
+export-app_file_list-file_name = 文件名
+export-app_file_list-file_md5 = 文件MD5
+export-app_file_list-file_size = 文件大小
+export-app_file_list-storage_type = 存储类型
+export-app_file_list-status = 状态
+export-app_file_list-content_type = 内容类型
+export-app_file_list-add_time = 创建时间
+
+# app_role_data
+export-app_role_data-role_id = 角色ID
+export-app_role_data-role_key = 角色键
+export-app_role_data-role_name = 角色名称
+export-app_role_data-user_range = 用户范围
+export-app_role_data-res_range = 资源范围
+export-app_role_data-user_id = 用户ID
+export-app_role_data-user_timeout = 用户超时
+export-app_role_data-op_key = 操作键
+export-app_role_data-op_name = 操作名称
+export-app_role_data-res_type = 资源类型
+export-app_role_data-res_data = 资源数据
+export-app_role_data-res_name = 资源名称
+
+# app_res_data
+export-app_res_data-id = ID
+export-app_res_data-user_id = 用户ID
+export-app_res_data-res_type = 资源类型
+export-app_res_data-res_data = 资源数据
+export-app_res_data-res_name = 资源名称
+export-app_res_data-change_time = 修改时间
+export-app_res_data-op_count = 操作数量
+export-app_res_data-perm_count = 权限数量
+
+# system_admin_file_list
+export-system_admin_file_list-id = ID
+export-system_admin_file_list-file_name = 文件名
+export-system_admin_file_list-file_md5 = 文件MD5
+export-system_admin_file_list-file_size = 文件大小
+export-system_admin_file_list-storage_type = 存储类型
+export-system_admin_file_list-status = 状态
+export-system_admin_file_list-content_type = 内容类型
+export-system_admin_file_list-user_id = 用户ID
+export-system_admin_file_list-add_time = 创建时间
+
+# system_user_change_log
+export-system_user_change_log-id = ID
+export-system_user_change_log-log_type = 日志类型
+export-system_user_change_log-add_user_id = 创建用户ID
+export-system_user_change_log-log_data = 日志数据
+export-system_user_change_log-add_time = 创建时间
+
+# system_user_access
+export-system_user_access-id = ID
+export-system_user_access-app_id = 应用ID
+export-system_user_access-oauth_app_id = OAuth应用ID
+export-system_user_access-user_id = 用户ID
+export-system_user_access-token_data = Token数据
+export-system_user_access-login_type = 登录类型
+export-system_user_access-login_ip = 登录IP
+export-system_user_access-status = 状态
+export-system_user_access-add_time = 创建时间
+export-system_user_access-expire_time = 过期时间
+export-system_user_access-logout_time = 退出时间
+
+# system_mailer_message_list
+export-system_mailer_message_list-id = ID
+export-system_mailer_message_list-snid = 发送批次
+export-system_mailer_message_list-to_mail = 收件邮箱
+export-system_mailer_message_list-try_num = 发送次数
+export-system_mailer_message_list-status = 状态
+export-system_mailer_message_list-add_time = 创建时间
+export-system_mailer_message_list-send_time = 发送时间
+export-system_mailer_message_list-setting_id = 配置ID
+
+# system_smser_message_list
+export-system_smser_message_list-id = ID
+export-system_smser_message_list-snid = 发送批次
+export-system_smser_message_list-area = 区号
+export-system_smser_message_list-mobile = 手机号
+export-system_smser_message_list-try_num = 发送次数
+export-system_smser_message_list-status = 状态
+export-system_smser_message_list-add_time = 创建时间
+export-system_smser_message_list-send_time = 发送时间
+export-system_smser_message_list-setting_id = 配置ID
+
+# system_app_list
+export-system_app_list-id = ID
+export-system_app_list-name = 名称
+export-system_app_list-client_id = 客户端ID
+export-system_app_list-status = 状态
+export-system_app_list-user_id = 用户ID
+export-system_app_list-change_user_id = 修改用户ID
+export-system_app_list-change_time = 修改时间
+
+# system_sub_app_list
+export-system_sub_app_list-id = ID
+export-system_sub_app_list-name = 名称
+export-system_sub_app_list-client_id = 客户端ID
+export-system_sub_app_list-status = 状态
+export-system_sub_app_list-user_id = 用户ID
+export-system_sub_app_list-change_user_id = 修改用户ID
+export-system_sub_app_list-change_time = 修改时间
+
+# system_request_list
+export-system_request_list-id = ID
+export-system_request_list-app_id = 应用ID
+export-system_request_list-parent_app_id = 父应用ID
+export-system_request_list-status = 状态
+export-system_request_list-request_type = 请求类型
+export-system_request_list-request_user_id = 请求用户ID
+export-system_request_list-request_time = 请求时间
+export-system_request_list-confirm_user_id = 审核用户ID
+export-system_request_list-confirm_time = 审核时间
+export-system_request_list-confirm_note = 审核备注

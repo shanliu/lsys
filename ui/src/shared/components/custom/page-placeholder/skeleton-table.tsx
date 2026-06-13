@@ -1,10 +1,12 @@
 import { Skeleton } from "@shared/components/ui/skeleton";
 import { cn } from "@shared/lib/utils";
 import { useIsMobile } from "@shared/hooks/use-mobile";
-import { PageSkeletonBaseProps } from "./base";
+
 import { PageSkeletonCard } from "./skeleton-card";
 
-export interface TableSkeletonProps extends PageSkeletonBaseProps {
+export interface TableSkeletonProps {
+    /** 外层容器 class */
+    className?: string;
     /** 表格列数量（0 表示自动计算） */
     columns?: number;
     /** 表格行数量（0 表示自动计算接近满屏） */

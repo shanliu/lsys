@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminSmsConfig;
 use crate::dao::access::api::system::admin::CheckAdminSmsMgr;
@@ -32,12 +33,18 @@ pub struct ShowNeteaseConfigRecord {
 pub async fn smser_netease_config_list(
     param: &SmserNetEaseConfigListParam,
     callback_call: impl Fn(&SettingData<NetEaseConfig>) -> String,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -45,8 +52,7 @@ pub async fn smser_netease_config_list(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .netease_sender
@@ -83,12 +89,18 @@ pub struct SmserNetEaseConfigAddParam {
 
 pub async fn smser_netease_config_add(
     param: &SmserNetEaseConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -96,8 +108,7 @@ pub async fn smser_netease_config_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .netease_sender
@@ -126,12 +137,18 @@ pub struct SmserNetEaseConfigEditParam {
 
 pub async fn smser_netease_config_edit(
     param: &SmserNetEaseConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -139,8 +156,7 @@ pub async fn smser_netease_config_edit(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .netease_sender
@@ -165,12 +181,18 @@ pub struct SmserNetEaseConfigDelParam {
 
 pub async fn smser_netease_config_del(
     param: &SmserNetEaseConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -178,8 +200,7 @@ pub async fn smser_netease_config_del(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .netease_sender
@@ -200,12 +221,18 @@ pub struct SmserAppNetEaseConfigAddParam {
 
 pub async fn smser_tpl_config_netease_add(
     param: &SmserAppNetEaseConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -213,8 +240,7 @@ pub async fn smser_tpl_config_netease_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .netease_sender

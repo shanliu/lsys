@@ -1,6 +1,7 @@
 use super::{app_check_get, inner_user_data_to_user_id};
 use crate::common::{JsonData, ToOffsetPageParam};
-use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::JsonPageData;
 use lsys_rbac::{
@@ -24,15 +25,22 @@ pub struct AppResTypeListParam {
 
 pub async fn app_res_type_data(
     param: &AppResTypeListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
@@ -52,8 +60,7 @@ pub async fn app_res_type_data(
             .map(|e| e.as_str()),
     };
 
-    let rows = req_dao
-        .web_dao
+    let rows = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -61,8 +68,7 @@ pub async fn app_res_type_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res
@@ -91,21 +97,27 @@ pub struct AppResTypeAddOpParam {
 
 pub async fn app_res_type_op_add(
     param: &AppResTypeAddOpParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let op_data = req_dao
-        .web_dao
+    let op_data = web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -115,8 +127,7 @@ pub async fn app_res_type_op_add(
         .filter(|e| e.1.app_id == app.id)
         .map(|e| e.1)
         .collect::<Vec<RbacOpModel>>();
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -149,20 +160,26 @@ pub struct AppResDelOpParam {
 
 pub async fn app_res_type_op_del(
     param: &AppResDelOpParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -196,15 +213,22 @@ pub struct AppResTypeOpListParam {
 
 pub async fn app_res_type_op_data(
     param: &AppResTypeOpListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_id = inner_user_data_to_user_id(
         &app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
@@ -214,8 +238,7 @@ pub async fn app_res_type_op_data(
         app_id: app.id,
     };
 
-    let rows = req_dao
-        .web_dao
+    let rows = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -223,8 +246,7 @@ pub async fn app_res_type_op_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res

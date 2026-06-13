@@ -1,7 +1,8 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::api::system::user::CheckUserAppSenderMailConfig,
 };
 use lsys_access::dao::AccessSession;
@@ -20,19 +21,24 @@ pub struct MailerSmtpConfigListParam {
 
 pub async fn mailer_smtp_config_list(
     param: &MailerSmtpConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender
         .list_config(param.ids.as_deref())
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -74,13 +80,26 @@ pub struct MailerSmtpConfigAddParam {
 
 pub async fn mailer_smtp_config_add(
     param: &MailerSmtpConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    mailer_inner_access_check(param.app_id, auth_data.user_id(), &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    mailer_inner_access_check(
+        param.app_id,
+        auth_data.user_id(),
+        &auth_data,
+        req_dao,
+        web_dao,
+    )
+    .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .mailer
         .smtp_sender

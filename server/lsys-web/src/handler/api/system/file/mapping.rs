@@ -1,14 +1,19 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use lsys_file::model::{
-    FileChunkStatus, FileModel, FileSourceType, FileStatus, FileTagStatus, FileUserStatus,
+    FileChunkStatus, FileLineageRelType, FileModel, FileSourceType, FileStatus, FileTagStatus,
+    FileUserStatus,
 };
 use serde_json::json;
 
-/// POST /api/system/file/mapping — 文件管理字典映射
 ///
 /// 返回文件相关的所有枚举类型映射，含多语言文本，以及存储类型（本地+已注册 OSS）。
-pub async fn admin_file_mapping(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let registry = req_dao.web_dao.web_files.file_dao.oss_config().registry();
+pub async fn admin_file_mapping(
+    req_dao: &RequestDao,
+    _auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let registry = web_dao.web_file.file_dao.oss_config().registry();
     let oss_types = registry.available_types();
 
     // storage_type: 本地(type="local") + 所有已注册 OSS 厂商(type="oss")
@@ -40,13 +45,18 @@ pub async fn admin_file_mapping(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRe
             status_json_format!(req_dao, FileChunkStatus::Merged),
             status_json_format!(req_dao, FileChunkStatus::Cleaned),
         ],
-        "file_user_status": vec![
+        "file_ref_status": vec![
             status_json_format!(req_dao, FileUserStatus::Normal),
             status_json_format!(req_dao, FileUserStatus::Deleted),
         ],
         "file_tag_status": vec![
             status_json_format!(req_dao, FileTagStatus::Normal),
             status_json_format!(req_dao, FileTagStatus::Deleted),
+        ],
+        "lineage_rel_type": vec![
+            status_json_format!(req_dao, FileLineageRelType::Copy),
+            status_json_format!(req_dao, FileLineageRelType::Convert),
+            status_json_format!(req_dao, FileLineageRelType::OssSync),
         ],
     }))))
 }

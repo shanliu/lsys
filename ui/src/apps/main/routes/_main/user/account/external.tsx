@@ -1,4 +1,4 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary';
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary';
 import { ProfileExternalPage } from '@apps/main/features/user/pages/account/external-page';
 import { createFileRoute } from '@tanstack/react-router';
 

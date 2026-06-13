@@ -1,8 +1,9 @@
 import { authApi } from "@shared/lib/apis/api_auth";
 import { cleanEmptyStringParams, parseResData } from "@shared/lib/apis/utils";
-import { DictListSchema } from "@shared/types/apis-dict";
+import { DictItemSchema, DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
 import {
+  BoolSchema,
   LimitParam,
   LimitResSchema,
   PageResSchema,
@@ -18,10 +19,10 @@ import z from "zod";
 
 // ==================== 字典映射 ====================
 
-export const StorageTypeDictItemSchema = z.object({
-  key: z.string(),
-  val: z.string(),
+export const StorageTypeDictItemSchema = DictItemSchema.extend({
   type: z.enum(["local", "oss"]),
+  provider_type: z.string().optional(),
+  is_private: BoolSchema.optional(),
 });
 export type StorageTypeDictItemType = z.infer<typeof StorageTypeDictItemSchema>;
 
@@ -30,7 +31,7 @@ export const AdminFileMappingResSchema = z.object({
   file_source_type: DictListSchema,
   file_status: DictListSchema,
   file_chunk_status: DictListSchema,
-  file_user_status: DictListSchema,
+  file_ref_status: DictListSchema,
   file_tag_status: DictListSchema,
 });
 export type AdminFileMappingResType = z.infer<typeof AdminFileMappingResSchema>;
@@ -67,6 +68,7 @@ export type AdminFileTagType = z.infer<typeof AdminFileTagSchema>;
 export const AdminFileItemSchema = z.object({
   id: z.coerce.number(),
   file_id: z.coerce.number(),
+  file_key: z.string().nullable(),
   file_name: z.string(),
   file_md5: z.string().nullable(),
   file_size: z.coerce.number(),
@@ -74,8 +76,8 @@ export const AdminFileItemSchema = z.object({
   status: z.coerce.number(),
   content_type: z.string().nullable(),
   source_url: z.string().nullable(),
-  file_url: z.string().nullable(),
   add_time: UnixTimestampSchema,
+  expire_time: UnixTimestampSchema.nullable().optional(),
   user_id: z.coerce.number(),
   from_user_id: z.coerce.number().nullable().optional(),
   copy_file_id: z.coerce.number().nullable().optional(),
@@ -96,6 +98,7 @@ export const AdminFileItemSchema = z.object({
   oss_size: z.coerce.number().nullable().optional(),
   // 标签
   tags: z.array(AdminFileTagSchema).nullable().optional(),
+  is_downloading: z.coerce.boolean().nullable().optional(),
 });
 export type AdminFileItemType = z.infer<typeof AdminFileItemSchema>;
 
@@ -150,7 +153,7 @@ export const adminFileDelete = async (
 export const AdminOssConfigListParamSchema = z.object({
   page: z.coerce.number().optional(),
   limit: z.coerce.number().optional(),
-  count_num: z.boolean().optional(),
+  count_num: z.coerce.boolean().optional(),
 });
 export type AdminOssConfigListParamType = z.infer<
   typeof AdminOssConfigListParamSchema
@@ -162,6 +165,7 @@ export const AdminOssConfigItemSchema = z.object({
   config_key: z.string(),
   provider_type: z.string(),
   provider_config: z.record(z.unknown()),
+  is_private: BoolSchema,
   change_user_id: z.coerce.number(),
   change_time: UnixTimestampSchema,
 });
@@ -220,6 +224,7 @@ export const AdminOssConfigAddParamSchema = z.object({
     ),
   provider_type: z.string().min(1, "厂商类型不能为空"),
   provider_config: z.record(z.unknown()),
+  is_private: BoolSchema.default(false),
 });
 export type AdminOssConfigAddParamType = z.infer<
   typeof AdminOssConfigAddParamSchema
@@ -249,6 +254,7 @@ export const AdminOssConfigEditParamSchema = z.object({
   id: z.coerce.number(),
   name: z.string().min(1, "名称不能为空"),
   provider_config: z.record(z.unknown()),
+  is_private: BoolSchema.default(false),
 });
 export type AdminOssConfigEditParamType = z.infer<
   typeof AdminOssConfigEditParamSchema
@@ -284,4 +290,131 @@ export const adminOssConfigDelete = async (
     config,
   );
   return data;
+};
+
+// ==================== 运行时配置管理 ====================
+
+// --- 获取配置 ---
+export const AdminRuntimeSettingSchema = z.object({
+  local_public_url_prefix: z.string(),
+  max_download_concurrency: z.coerce.number(),
+  download_timeout_secs: z.coerce.number(),
+});
+export type AdminRuntimeSettingType = z.infer<
+  typeof AdminRuntimeSettingSchema
+>;
+
+export const adminRuntimeSettingGet = async (
+  config?: AxiosRequestConfig<any>,
+): Promise<ApiResult<AdminRuntimeSettingType>> => {
+  const { data } = await authApi().post(
+    "/api/system/file/runtime_setting_get",
+    {},
+    config,
+  );
+  return parseResData(data, AdminRuntimeSettingSchema);
+};
+
+// --- 更新配置 ---
+export const AdminRuntimeSettingUpdateParamSchema = z.object({
+  local_public_url_prefix: z.string().min(1, "URL 前缀不能为空"),
+  max_download_concurrency: z.coerce.number().int().min(1).max(100),
+  download_timeout_secs: z.coerce.number().int().min(10).max(3600),
+});
+export type AdminRuntimeSettingUpdateParamType = z.infer<
+  typeof AdminRuntimeSettingUpdateParamSchema
+>;
+
+export const adminRuntimeSettingUpdate = async (
+  param: AdminRuntimeSettingUpdateParamType,
+  config?: AxiosRequestConfig<any>,
+): Promise<ApiResult<any>> => {
+  const { data } = await authApi().post(
+    "/api/system/file/runtime_setting_update",
+    param,
+    config,
+  );
+  return data;
+};
+
+// ==================== 文件关联列表 ====================
+
+export const AdminFileLineageRelatedListParamSchema = z.object({
+  id: z.coerce.number(), // file_ref_id
+  rel_type: z.coerce.number().nullable().optional(), // 1=拷贝, 2=转换, 3=OSS同步
+  storage_type: z.string().nullable().optional(),
+  ...LimitParam,
+});
+export type AdminFileLineageRelatedListParamType = z.infer<
+  typeof AdminFileLineageRelatedListParamSchema
+>;
+
+// 关联文件列表项（复用 AdminFileItemSchema，添加关联特有字段）
+export const AdminFileLineageRelatedItemSchema = AdminFileItemSchema.extend({
+  tag_count: z.coerce.number().nullable().optional(),
+});
+export type AdminFileLineageRelatedItemType = z.infer<
+  typeof AdminFileLineageRelatedItemSchema
+>;
+
+export const AdminFileLineageRelatedListResSchema = z.object({
+  data: z.array(AdminFileLineageRelatedItemSchema),
+  ...LimitResSchema,
+});
+export type AdminFileLineageRelatedListResType = z.infer<
+  typeof AdminFileLineageRelatedListResSchema
+>;
+
+export const adminFileLineageRelatedList = async (
+  param: AdminFileLineageRelatedListParamType,
+  config?: AxiosRequestConfig<any>,
+): Promise<ApiResult<AdminFileLineageRelatedListResType>> => {
+  const cleanedParam = cleanEmptyStringParams(param, ["storage_type"]);
+  const { data } = await authApi().post(
+    "/api/system/file/lineage_related_list",
+    cleanedParam,
+    config,
+  );
+  return parseResData(data, AdminFileLineageRelatedListResSchema);
+};
+
+// ==================== 下载中文件列表 ====================
+
+export const AdminFileDownloadingListParamSchema = z.object({
+  user_id: z.coerce.number().nullable().optional(),
+  app_id: z.coerce.number().nullable().optional(),
+  is_downloading: z.coerce.boolean().nullable().optional(), // true=下载中, false=排队中
+  ...LimitParam,
+});
+export type AdminFileDownloadingListParamType = z.infer<
+  typeof AdminFileDownloadingListParamSchema
+>;
+
+// 下载中文件列表项（复用 AdminFileItemSchema，添加下载特有字段）
+export const AdminFileDownloadingItemSchema = AdminFileItemSchema.extend({
+  is_downloading: BoolSchema, // 是否正在下载中
+  tag_count: z.coerce.number().nullable().optional(),
+});
+export type AdminFileDownloadingItemType = z.infer<
+  typeof AdminFileDownloadingItemSchema
+>;
+
+export const AdminFileDownloadingListResSchema = z.object({
+  data: z.array(AdminFileDownloadingItemSchema),
+  ...LimitResSchema,
+});
+export type AdminFileDownloadingListResType = z.infer<
+  typeof AdminFileDownloadingListResSchema
+>;
+
+export const adminFileDownloadingList = async (
+  param: AdminFileDownloadingListParamType,
+  config?: AxiosRequestConfig<any>,
+): Promise<ApiResult<AdminFileDownloadingListResType>> => {
+  const { data } = await authApi().post(
+    "/api/system/file/downloading_list",
+    param,
+    config,
+  );
+  return parseResData(data, AdminFileDownloadingListResSchema);
 };

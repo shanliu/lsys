@@ -12,55 +12,33 @@ pub struct ChunkInfo {
 }
 
 impl super::FileHelper {
-    /// 创建用于并发chunk的函数
+    /// 按总大小拆分下载分片
     ///
-    /// 参数: 文件总大小, 并发数量
-    /// 使用配置中的 min_chunk_size
+    /// 参数: 文件总大小
+    /// 使用配置中的 download_chunk_max：分片数 = ceil(总大小 / download_chunk_max)，再对总大小平均拆分
     ///
     /// 返回: 适用于创建file_local_chunk记录的数组
-    pub fn create_concurrent_chunks(
-        &self,
-        file_size: u64,
-        concurrency: usize,
-    ) -> FileResult<Vec<ChunkInfo>> {
-        let min_chunk_size = self.config.min_chunk_size;
-
+    pub fn create_download_chunks(&self, file_size: u64) -> FileResult<Vec<ChunkInfo>> {
         if file_size == 0 {
             return Err(FileError::InvalidChunkData(
                 "file_size must be greater than 0".to_string(),
             ));
         }
 
-        if concurrency == 0 {
-            return Err(FileError::InvalidChunkData(
-                "concurrency must be greater than 0".to_string(),
-            ));
-        }
+        let chunk_max = self.config.download_chunk_max.max(1);
+        let num_chunks = file_size.div_ceil(chunk_max).max(1);
+        let chunk_size = file_size.div_ceil(num_chunks);
 
         let mut chunks = Vec::new();
-        let actual_concurrency = (concurrency as u64).min(file_size / min_chunk_size + 1) as usize;
-
-        if actual_concurrency == 0 {
-            // 如果文件大小小于最小分片大小，只创建一个chunk
+        let mut offset = 0u64;
+        while offset < file_size {
+            let len = chunk_size.min(file_size - offset);
             chunks.push(ChunkInfo {
-                offset: 0,
-                len: file_size,
+                offset,
+                len,
                 md5: None,
             });
-        } else {
-            let chunk_size = file_size.div_ceil(actual_concurrency as u64);
-
-            for i in 0..actual_concurrency {
-                let offset = (i as u64) * chunk_size;
-                let remaining = file_size - offset;
-                let len = chunk_size.min(remaining);
-
-                chunks.push(ChunkInfo {
-                    offset,
-                    len,
-                    md5: None,
-                });
-            }
+            offset += len;
         }
 
         Ok(chunks)

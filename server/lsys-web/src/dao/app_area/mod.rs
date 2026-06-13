@@ -94,7 +94,7 @@ macro_rules! get_area {
         }
     };
 }
-#[allow(clippy::result_large_err)]
+
 impl AppArea {
     fn code_param(&self, code: &str) -> WebResult<()> {
         ValidParam::default()

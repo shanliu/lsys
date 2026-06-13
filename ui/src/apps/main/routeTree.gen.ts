@@ -45,6 +45,7 @@ import { Route as MainUserAccountSetInfoRouteImport } from './routes/_main/user/
 import { Route as MainUserAccountMobileRouteImport } from './routes/_main/user/account/mobile'
 import { Route as MainUserAccountMfaRouteImport } from './routes/_main/user/account/mfa'
 import { Route as MainUserAccountLoginLogRouteImport } from './routes/_main/user/account/login-log'
+import { Route as MainUserAccountFileRouteImport } from './routes/_main/user/account/file'
 import { Route as MainUserAccountExternalRouteImport } from './routes/_main/user/account/external'
 import { Route as MainUserAccountEmailRouteImport } from './routes/_main/user/account/email'
 import { Route as MainUserAccountChangePasswordRouteImport } from './routes/_main/user/account/change-password'
@@ -56,8 +57,8 @@ import { Route as MainAdminSmsSendLogRouteImport } from './routes/_main/admin/sm
 import { Route as MainAdminSmsAdapterConfigRouteImport } from './routes/_main/admin/sms/adapter-config'
 import { Route as MainAdminRbacRoleRouteImport } from './routes/_main/admin/rbac/role'
 import { Route as MainAdminRbacResourceRouteImport } from './routes/_main/admin/rbac/resource'
-import { Route as MainAdminRbacResRouteImport } from './routes/_main/admin/rbac/res'
 import { Route as MainAdminRbacAuditLogRouteImport } from './routes/_main/admin/rbac/audit-log'
+import { Route as MainAdminFileRuntimeSettingRouteImport } from './routes/_main/admin/file/runtime-setting'
 import { Route as MainAdminFileOssConfigRouteImport } from './routes/_main/admin/file/oss-config'
 import { Route as MainAdminFileListRouteImport } from './routes/_main/admin/file/list'
 import { Route as MainAdminEmailSendLogRouteImport } from './routes/_main/admin/email/send-log'
@@ -281,6 +282,11 @@ const MainUserAccountLoginLogRoute = MainUserAccountLoginLogRouteImport.update({
   path: '/login-log',
   getParentRoute: () => MainUserAccountRouteRoute,
 } as any)
+const MainUserAccountFileRoute = MainUserAccountFileRouteImport.update({
+  id: '/file',
+  path: '/file',
+  getParentRoute: () => MainUserAccountRouteRoute,
+} as any)
 const MainUserAccountExternalRoute = MainUserAccountExternalRouteImport.update({
   id: '/external',
   path: '/external',
@@ -338,16 +344,17 @@ const MainAdminRbacResourceRoute = MainAdminRbacResourceRouteImport.update({
   path: '/resource',
   getParentRoute: () => MainAdminRbacRouteRoute,
 } as any)
-const MainAdminRbacResRoute = MainAdminRbacResRouteImport.update({
-  id: '/res',
-  path: '/res',
-  getParentRoute: () => MainAdminRbacRouteRoute,
-} as any)
 const MainAdminRbacAuditLogRoute = MainAdminRbacAuditLogRouteImport.update({
   id: '/audit-log',
   path: '/audit-log',
   getParentRoute: () => MainAdminRbacRouteRoute,
 } as any)
+const MainAdminFileRuntimeSettingRoute =
+  MainAdminFileRuntimeSettingRouteImport.update({
+    id: '/runtime-setting',
+    path: '/runtime-setting',
+    getParentRoute: () => MainAdminFileRouteRoute,
+  } as any)
 const MainAdminFileOssConfigRoute = MainAdminFileOssConfigRouteImport.update({
   id: '/oss-config',
   path: '/oss-config',
@@ -637,8 +644,8 @@ export interface FileRoutesByFullPath {
   '/admin/email/send-log': typeof MainAdminEmailSendLogRoute
   '/admin/file/list': typeof MainAdminFileListRoute
   '/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
+  '/admin/file/runtime-setting': typeof MainAdminFileRuntimeSettingRoute
   '/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
-  '/admin/rbac/res': typeof MainAdminRbacResRoute
   '/admin/rbac/resource': typeof MainAdminRbacResourceRoute
   '/admin/rbac/role': typeof MainAdminRbacRoleRoute
   '/admin/sms/adapter-config': typeof MainAdminSmsAdapterConfigRoute
@@ -650,6 +657,7 @@ export interface FileRoutesByFullPath {
   '/user/account/change-password': typeof MainUserAccountChangePasswordRoute
   '/user/account/email': typeof MainUserAccountEmailRoute
   '/user/account/external': typeof MainUserAccountExternalRoute
+  '/user/account/file': typeof MainUserAccountFileRoute
   '/user/account/login-log': typeof MainUserAccountLoginLogRoute
   '/user/account/mfa': typeof MainUserAccountMfaRoute
   '/user/account/mobile': typeof MainUserAccountMobileRoute
@@ -725,8 +733,8 @@ export interface FileRoutesByTo {
   '/admin/email/send-log': typeof MainAdminEmailSendLogRoute
   '/admin/file/list': typeof MainAdminFileListRoute
   '/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
+  '/admin/file/runtime-setting': typeof MainAdminFileRuntimeSettingRoute
   '/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
-  '/admin/rbac/res': typeof MainAdminRbacResRoute
   '/admin/rbac/resource': typeof MainAdminRbacResourceRoute
   '/admin/rbac/role': typeof MainAdminRbacRoleRoute
   '/admin/sms/adapter-config': typeof MainAdminSmsAdapterConfigRoute
@@ -738,6 +746,7 @@ export interface FileRoutesByTo {
   '/user/account/change-password': typeof MainUserAccountChangePasswordRoute
   '/user/account/email': typeof MainUserAccountEmailRoute
   '/user/account/external': typeof MainUserAccountExternalRoute
+  '/user/account/file': typeof MainUserAccountFileRoute
   '/user/account/login-log': typeof MainUserAccountLoginLogRoute
   '/user/account/mfa': typeof MainUserAccountMfaRoute
   '/user/account/mobile': typeof MainUserAccountMobileRoute
@@ -821,8 +830,8 @@ export interface FileRoutesById {
   '/_main/admin/email/send-log': typeof MainAdminEmailSendLogRoute
   '/_main/admin/file/list': typeof MainAdminFileListRoute
   '/_main/admin/file/oss-config': typeof MainAdminFileOssConfigRoute
+  '/_main/admin/file/runtime-setting': typeof MainAdminFileRuntimeSettingRoute
   '/_main/admin/rbac/audit-log': typeof MainAdminRbacAuditLogRoute
-  '/_main/admin/rbac/res': typeof MainAdminRbacResRoute
   '/_main/admin/rbac/resource': typeof MainAdminRbacResourceRoute
   '/_main/admin/rbac/role': typeof MainAdminRbacRoleRoute
   '/_main/admin/sms/adapter-config': typeof MainAdminSmsAdapterConfigRoute
@@ -834,6 +843,7 @@ export interface FileRoutesById {
   '/_main/user/account/change-password': typeof MainUserAccountChangePasswordRoute
   '/_main/user/account/email': typeof MainUserAccountEmailRoute
   '/_main/user/account/external': typeof MainUserAccountExternalRoute
+  '/_main/user/account/file': typeof MainUserAccountFileRoute
   '/_main/user/account/login-log': typeof MainUserAccountLoginLogRoute
   '/_main/user/account/mfa': typeof MainUserAccountMfaRoute
   '/_main/user/account/mobile': typeof MainUserAccountMobileRoute
@@ -916,8 +926,8 @@ export interface FileRouteTypes {
     | '/admin/email/send-log'
     | '/admin/file/list'
     | '/admin/file/oss-config'
+    | '/admin/file/runtime-setting'
     | '/admin/rbac/audit-log'
-    | '/admin/rbac/res'
     | '/admin/rbac/resource'
     | '/admin/rbac/role'
     | '/admin/sms/adapter-config'
@@ -929,6 +939,7 @@ export interface FileRouteTypes {
     | '/user/account/change-password'
     | '/user/account/email'
     | '/user/account/external'
+    | '/user/account/file'
     | '/user/account/login-log'
     | '/user/account/mfa'
     | '/user/account/mobile'
@@ -1004,8 +1015,8 @@ export interface FileRouteTypes {
     | '/admin/email/send-log'
     | '/admin/file/list'
     | '/admin/file/oss-config'
+    | '/admin/file/runtime-setting'
     | '/admin/rbac/audit-log'
-    | '/admin/rbac/res'
     | '/admin/rbac/resource'
     | '/admin/rbac/role'
     | '/admin/sms/adapter-config'
@@ -1017,6 +1028,7 @@ export interface FileRouteTypes {
     | '/user/account/change-password'
     | '/user/account/email'
     | '/user/account/external'
+    | '/user/account/file'
     | '/user/account/login-log'
     | '/user/account/mfa'
     | '/user/account/mobile'
@@ -1099,8 +1111,8 @@ export interface FileRouteTypes {
     | '/_main/admin/email/send-log'
     | '/_main/admin/file/list'
     | '/_main/admin/file/oss-config'
+    | '/_main/admin/file/runtime-setting'
     | '/_main/admin/rbac/audit-log'
-    | '/_main/admin/rbac/res'
     | '/_main/admin/rbac/resource'
     | '/_main/admin/rbac/role'
     | '/_main/admin/sms/adapter-config'
@@ -1112,6 +1124,7 @@ export interface FileRouteTypes {
     | '/_main/user/account/change-password'
     | '/_main/user/account/email'
     | '/_main/user/account/external'
+    | '/_main/user/account/file'
     | '/_main/user/account/login-log'
     | '/_main/user/account/mfa'
     | '/_main/user/account/mobile'
@@ -1416,6 +1429,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MainUserAccountLoginLogRouteImport
       parentRoute: typeof MainUserAccountRouteRoute
     }
+    '/_main/user/account/file': {
+      id: '/_main/user/account/file'
+      path: '/file'
+      fullPath: '/user/account/file'
+      preLoaderRoute: typeof MainUserAccountFileRouteImport
+      parentRoute: typeof MainUserAccountRouteRoute
+    }
     '/_main/user/account/external': {
       id: '/_main/user/account/external'
       path: '/external'
@@ -1493,19 +1513,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MainAdminRbacResourceRouteImport
       parentRoute: typeof MainAdminRbacRouteRoute
     }
-    '/_main/admin/rbac/res': {
-      id: '/_main/admin/rbac/res'
-      path: '/res'
-      fullPath: '/admin/rbac/res'
-      preLoaderRoute: typeof MainAdminRbacResRouteImport
-      parentRoute: typeof MainAdminRbacRouteRoute
-    }
     '/_main/admin/rbac/audit-log': {
       id: '/_main/admin/rbac/audit-log'
       path: '/audit-log'
       fullPath: '/admin/rbac/audit-log'
       preLoaderRoute: typeof MainAdminRbacAuditLogRouteImport
       parentRoute: typeof MainAdminRbacRouteRoute
+    }
+    '/_main/admin/file/runtime-setting': {
+      id: '/_main/admin/file/runtime-setting'
+      path: '/runtime-setting'
+      fullPath: '/admin/file/runtime-setting'
+      preLoaderRoute: typeof MainAdminFileRuntimeSettingRouteImport
+      parentRoute: typeof MainAdminFileRouteRoute
     }
     '/_main/admin/file/oss-config': {
       id: '/_main/admin/file/oss-config'
@@ -1933,11 +1953,13 @@ const MainAdminEmailRouteRouteWithChildren =
 interface MainAdminFileRouteRouteChildren {
   MainAdminFileListRoute: typeof MainAdminFileListRoute
   MainAdminFileOssConfigRoute: typeof MainAdminFileOssConfigRoute
+  MainAdminFileRuntimeSettingRoute: typeof MainAdminFileRuntimeSettingRoute
 }
 
 const MainAdminFileRouteRouteChildren: MainAdminFileRouteRouteChildren = {
   MainAdminFileListRoute: MainAdminFileListRoute,
   MainAdminFileOssConfigRoute: MainAdminFileOssConfigRoute,
+  MainAdminFileRuntimeSettingRoute: MainAdminFileRuntimeSettingRoute,
 }
 
 const MainAdminFileRouteRouteWithChildren =
@@ -1945,14 +1967,12 @@ const MainAdminFileRouteRouteWithChildren =
 
 interface MainAdminRbacRouteRouteChildren {
   MainAdminRbacAuditLogRoute: typeof MainAdminRbacAuditLogRoute
-  MainAdminRbacResRoute: typeof MainAdminRbacResRoute
   MainAdminRbacResourceRoute: typeof MainAdminRbacResourceRoute
   MainAdminRbacRoleRoute: typeof MainAdminRbacRoleRoute
 }
 
 const MainAdminRbacRouteRouteChildren: MainAdminRbacRouteRouteChildren = {
   MainAdminRbacAuditLogRoute: MainAdminRbacAuditLogRoute,
-  MainAdminRbacResRoute: MainAdminRbacResRoute,
   MainAdminRbacResourceRoute: MainAdminRbacResourceRoute,
   MainAdminRbacRoleRoute: MainAdminRbacRoleRoute,
 }
@@ -2023,6 +2043,7 @@ interface MainUserAccountRouteRouteChildren {
   MainUserAccountChangePasswordRoute: typeof MainUserAccountChangePasswordRoute
   MainUserAccountEmailRoute: typeof MainUserAccountEmailRoute
   MainUserAccountExternalRoute: typeof MainUserAccountExternalRoute
+  MainUserAccountFileRoute: typeof MainUserAccountFileRoute
   MainUserAccountLoginLogRoute: typeof MainUserAccountLoginLogRoute
   MainUserAccountMfaRoute: typeof MainUserAccountMfaRoute
   MainUserAccountMobileRoute: typeof MainUserAccountMobileRoute
@@ -2035,6 +2056,7 @@ const MainUserAccountRouteRouteChildren: MainUserAccountRouteRouteChildren = {
   MainUserAccountChangePasswordRoute: MainUserAccountChangePasswordRoute,
   MainUserAccountEmailRoute: MainUserAccountEmailRoute,
   MainUserAccountExternalRoute: MainUserAccountExternalRoute,
+  MainUserAccountFileRoute: MainUserAccountFileRoute,
   MainUserAccountLoginLogRoute: MainUserAccountLoginLogRoute,
   MainUserAccountMfaRoute: MainUserAccountMfaRoute,
   MainUserAccountMobileRoute: MainUserAccountMobileRoute,

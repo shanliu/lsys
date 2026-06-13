@@ -160,7 +160,7 @@ impl UserAuthDao {
         }
     }
     //得到当前登陆用户
-    //@todo 多加个一个参数，用于是否决定是否实时从数据库拿记录,目标是实现jwt验证通过时，可以不加载数据库记录
+    //@todo 多加个一个参数，用于是否决定是否实时从数据库拿记录,目标是实现login验证通过时，可以不加载数据库记录
     pub async fn get_session_data(
         &self,
         user_token: &UserAuthToken,
@@ -181,8 +181,13 @@ impl UserAuthDao {
     }
     //重新加载当前用户
     //user_token 当前登陆的 UserAuthToken
+    //rotate: 是否轮换 token（true = 生成全新 token 并使旧 token 失效，false = 仅延长有效期）
     //返回UserAuthToken
-    pub async fn reload(&self, user_token: &UserAuthToken) -> UserAuthResult<UserAuthToken> {
+    pub async fn reload(
+        &self,
+        user_token: &UserAuthToken,
+        rotate: bool,
+    ) -> UserAuthResult<UserAuthToken> {
         let user_data = self.get_session_data(user_token).await?;
         let mut new_user_data = None;
         for tmp in self.reload_type.iter() {
@@ -196,11 +201,15 @@ impl UserAuthDao {
         }
         match new_user_data {
             Some((data, timeout)) => {
-                let session = self.access.auth.extend_login(&user_data, timeout).await?;
+                let session = if rotate {
+                    self.access.auth.rotate_token(&user_data, timeout).await?
+                } else {
+                    self.access.auth.extend_login(&user_data, timeout).await?
+                };
                 if !data.is_empty() {
                     self.access
                         .auth
-                        .session_set_data(&user_data, ACCESS_LOGIN_DATA, data.as_str())
+                        .session_set_data(&session, ACCESS_LOGIN_DATA, data.as_str())
                         .await?;
                 }
                 Ok(UserAuthToken::new(

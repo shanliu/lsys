@@ -4,7 +4,8 @@ import { z } from 'zod';
 export const SetInfoSchema = z.object({
     nikename: z.string().trim().max(50, '昵称最多50个字符').optional(),
     gender: z.coerce.number().min(0).max(2).optional(), // 0: 未知, 1: 男, 2: 女
-    headimg: z.string().trim().url('请输入有效的头像URL').optional().or(z.literal('')),
+    // headimg 可以是 http(s) URL 或文件 key（非空非 http 开头字符串）
+    headimg: z.string().trim().optional().or(z.literal('')),
     birthday: z.string().optional(), // YYYY-MM-DD 格式
 });
 

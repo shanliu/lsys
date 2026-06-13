@@ -1,8 +1,10 @@
 use lsys_access::dao::AccessError;
 use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
 use lsys_core::fluent_message;
+use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::utils::{RandType, now_time, rand_str};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::dao::oauth_client::access::AccessOAuthCodeData;
 use crate::dao::session::RestAuthData;
@@ -206,11 +208,16 @@ impl AppOAuthClient {
                             .auth
                             .session_get_data(&session, APP_OAUTH_CODE)
                             .await
-                        {
-                            let _ = self
+                            && let Err(e) = self
                                 .oauth_access
                                 .destroy_code(app.parent_app_id, app.id, &code)
-                                .await;
+                                .await
+                        {
+                            warn!(
+                                "clear_refresh_token: destroy_code failed for app_id={}: {}",
+                                app.id,
+                                e.to_fluent_message().default_format()
+                            );
                         }
                         self.access.auth.do_logout(&session).await?
                     }
@@ -240,11 +247,16 @@ impl AppOAuthClient {
                     .auth
                     .session_get_data(&session, APP_OAUTH_CODE)
                     .await
-                {
-                    let _ = self
+                    && let Err(e) = self
                         .oauth_access
                         .destroy_code(app.parent_app_id, app.id, &code)
-                        .await;
+                        .await
+                {
+                    warn!(
+                        "clear_access_token: destroy_code failed for app_id={}: {}",
+                        app.id,
+                        e.to_fluent_message().default_format()
+                    );
                 }
                 self.access.auth.do_logout(&session).await?
             }

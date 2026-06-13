@@ -1,9 +1,12 @@
 use crate::{
     common::{
-        JsonData, JsonError, JsonResponse, JsonResult, PageParam, ToOffsetPageParam,
+        JsonData, JsonError, JsonResponse, JsonResult, PageParam, RequestDao, ToOffsetPageParam,
         UserAuthQueryDao,
     },
-    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    dao::{
+        WebDao,
+        access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    },
 };
 use lsys_access::dao::AccessSession;
 use lsys_app::model::AppRequestStatus;
@@ -22,34 +25,37 @@ pub struct ConfirmExterFeatureParam {
 // APP功能审核,如邮件,短信等
 pub async fn confirm_exter_feature(
     param: &ConfirmExterFeatureParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let req_app = req_dao
-        .web_dao
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
         .request_find_by_id(param.app_req_id)
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(req_app.app_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -73,11 +79,17 @@ pub struct ExterFeatureAddParam {
 
 pub async fn exter_feature_add(
     param: &ExterFeatureAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -85,8 +97,7 @@ pub async fn exter_feature_add(
         )
         .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_app
         .exter_feature_add(
             &param.feature_key,
@@ -112,11 +123,17 @@ pub struct ExterFeatureEditParam {
 
 pub async fn exter_feature_edit(
     param: &ExterFeatureEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -124,8 +141,7 @@ pub async fn exter_feature_edit(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .exter_feature_edit(
             param.id,
@@ -150,11 +166,17 @@ pub struct ExterFeatureDelParam {
 
 pub async fn exter_feature_del(
     param: &ExterFeatureDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -162,8 +184,7 @@ pub async fn exter_feature_del(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .exter_feature_del(param.id, auth_data.user_id(), Some(&req_dao.req_env))
         .await
@@ -179,11 +200,17 @@ pub struct ExterFeatureListParam {
 
 pub async fn exter_feature_list(
     param: &ExterFeatureListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -191,8 +218,7 @@ pub async fn exter_feature_list(
         )
         .await?;
 
-    let list = req_dao
-        .web_dao
+    let list = web_dao
         .web_app
         .exter_feature_list(&param.page.to_offset_page_param())
         .await?;

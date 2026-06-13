@@ -16,7 +16,7 @@
 mysql -u your_username -p your_database < ./tables.sql #导入SQL到mysql
 ```
 
-2. 修改你的REDIS,MYSQL,jwt token等配置
+2. 修改你的REDIS,MYSQL,login token等配置
 > ./examples/lsys-actix-web/.env 的配置会覆盖./examples/lsys-actix-web/config/下配置
 
 ```

@@ -14,8 +14,9 @@ pub struct FileModel {
     #[sqlx(default)]
     pub status: i8,
 
+    /// 首次入库时的原始文件名，用于生成存储路径/OSS key，不随用户重命名变化
     #[sqlx(default)]
-    pub file_name: String,
+    pub origin_name: String,
 
     #[sqlx(default)]
     pub file_md5: String,
@@ -29,8 +30,10 @@ pub struct FileModel {
     #[sqlx(default)]
     pub content_type: String,
 
+    /// 本地物理路径持有者：0=当前记录独立拥有磁盘文件，>0=与该file_id共享相同本地路径
+    /// （上传去重时产生，仅local_*类型有效）
     #[sqlx(default)]
-    pub copy_file_id: u64,
+    pub local_path_owner_id: u64,
 
     #[sqlx(default)]
     pub from_user_id: u64,
@@ -105,18 +108,6 @@ pub struct FileLocalModel {
     pub file_chunk_size: u64,
 
     #[sqlx(default)]
-    pub public_file_id: u64,
-
-    #[sqlx(default)]
-    pub private_file_id: u64,
-
-    #[sqlx(default)]
-    pub crypto_file_id: u64,
-
-    #[sqlx(default)]
-    pub from_oss_file_id: u64,
-
-    #[sqlx(default)]
     pub last_error: String,
 }
 
@@ -173,9 +164,6 @@ pub struct FileOssModel {
     pub object_key: String,
 
     #[sqlx(default)]
-    pub local_file_id: u64,
-
-    #[sqlx(default)]
     pub object_url: String,
 
     #[sqlx(default)]
@@ -217,8 +205,8 @@ pub struct FileLogModel {
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
-#[lsys_model(table_name = "lst_file_user")]
-pub struct FileUserModel {
+#[lsys_model(table_name = "lst_file_ref")]
+pub struct FileRefModel {
     #[sqlx(default)]
     pub id: u64,
 
@@ -246,6 +234,10 @@ pub struct FileUserModel {
     #[sqlx(default)]
     pub source_md5: String,
 
+    /// 触发下载的主机标识(用于多节点下载完成通知)
+    #[sqlx(default)]
+    pub trigger_host: String,
+
     #[sqlx(default)]
     pub add_time: u64,
 
@@ -256,9 +248,43 @@ pub struct FileUserModel {
     #[sqlx(default)]
     pub expire_time: u64,
 
-    /// 上传策略标识
+    /// 用户自定义文件名，可独立修改，不影响其他用户对同一文件的命名
     #[sqlx(default)]
-    pub policy: String,
+    pub file_name: String,
+}
+
+#[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]
+#[lsys_model(table_name = "lst_file_lineage")]
+pub struct FileLineageModel {
+    #[sqlx(default)]
+    pub id: u64,
+
+    /// 触发操作的用户 ID
+    #[sqlx(default)]
+    pub user_id: u64,
+
+    /// 应用 ID
+    #[sqlx(default)]
+    pub app_id: u64,
+
+    /// 来源文件 ID (lst_file.id)
+    #[sqlx(default)]
+    pub src_file_id: u64,
+
+    /// 派生文件 ID (lst_file.id)
+    #[sqlx(default)]
+    pub dst_file_id: u64,
+
+    /// 关系类型
+    #[sqlx(default)]
+    pub rel_type: i8,
+
+    /// 状态：1=正常, 2=已删除
+    #[sqlx(default)]
+    pub status: i8,
+
+    #[sqlx(default)]
+    pub add_time: u64,
 }
 
 #[derive(FromRow, Clone, Debug, Serialize, Deserialize, Default)]

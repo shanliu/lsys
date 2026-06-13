@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, RequestDao},
@@ -25,17 +26,16 @@ pub async fn send(
     param: &SendParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -43,8 +43,7 @@ pub async fn send(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -63,8 +62,7 @@ pub async fn send(
     };
     // 字符串转时间对象
     let to = param.to.iter().map(|e| e.as_str()).collect::<Vec<_>>();
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .mailer
         .app_send(
@@ -105,9 +103,9 @@ pub async fn cancel(
     param: &CancelParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .mailer
         .app_send_cancel(app, &param.snid_data, Some(&req_dao.req_env))

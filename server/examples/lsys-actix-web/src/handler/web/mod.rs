@@ -4,6 +4,7 @@ pub mod system;
 use actix_service::ServiceFactory;
 use actix_web::web::to;
 use actix_web::{App, Error, dev::ServiceRequest, web};
+use lsys_web::handler::api::public::file::local_public_dir;
 use lsys_web::dao::WebDao;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use std::path::PathBuf;
@@ -65,11 +66,20 @@ where
         .service(index::dome)
 }
 
+fn router_files<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
+    let public_dir = local_public_dir(app_dao);
+    app.service(actix_files::Files::new("/files", public_dir).show_files_listing())
+}
+
 pub(crate) fn router<T>(app: App<T>, app_dao: &Arc<WebDao>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
     let app = router_page(app, app_dao);
+    let app = router_files(app, app_dao);
     let app = router_ui(app, app_dao);
     app.default_service(to(system::render_404))
 }

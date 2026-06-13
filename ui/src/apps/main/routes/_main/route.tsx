@@ -1,5 +1,5 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary'
-import { MainLayout } from '@apps/main/features/common/components/layout/main-layout'
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary'
+import { MainLayout } from '@apps/main/components/layout/main-layout'
 import { validateAuthAndRedirect } from '@apps/main/lib/route-guards'
 import { createFileRoute } from '@tanstack/react-router'
 

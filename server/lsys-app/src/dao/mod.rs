@@ -32,6 +32,8 @@ pub use session::*;
 use sqlx::{MySql, Pool};
 use std::sync::Arc;
 pub const SUB_APP_SECRET_NOTIFY_METHOD: &str = "sub_app_notify";
+/// 文件上传完成回调方法名（应用在 lst_app_notify_config 中以此 method 配置回调地址）
+pub const FILE_UPLOAD_NOTIFY_METHOD: &str = "file_upload_completed";
 pub struct AppDao {
     //内部依赖
     app_core: Arc<AppCore>,

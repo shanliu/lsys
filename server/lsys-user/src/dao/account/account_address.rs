@@ -6,10 +6,11 @@ use lsys_core::valid_param::{
 use lsys_core::{
     cache::{LocalCache, LocalCacheConfig},
     db::utils::FetchField,
+    secret::FieldEncryptor,
     valid_key,
 };
 
-use lsys_core::db::{FieldValue, Insert, QueryBuilderExt, TableMeta, Update};
+use lsys_core::db::{FieldValue, Insert, QueryBuilderExt,  Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 use std::{collections::HashMap, sync::Arc};
@@ -24,6 +25,7 @@ pub struct AccountAddress {
     index: Arc<AccountIndex>,
     pub(crate) cache: Arc<LocalCache<u64, Vec<AccountAddressModel>>>,
     logger: Arc<ChangeLoggerDao>,
+    encryptor: Arc<FieldEncryptor>,
 }
 
 impl AccountAddress {
@@ -34,6 +36,7 @@ impl AccountAddress {
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
+        encryptor: Arc<FieldEncryptor>,
     ) -> Self {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify, config)),
@@ -41,7 +44,18 @@ impl AccountAddress {
             //  fluent,
             index,
             logger,
+            encryptor,
         }
+    }
+
+    fn decrypt_model(&self, model: &mut AccountAddressModel) -> AccountResult<()> {
+        if !model.name.is_empty() {
+            model.name = self.encryptor.decrypt_str(&model.name)?;
+        }
+        if !model.mobile.is_empty() {
+            model.mobile = self.encryptor.decrypt_str(&model.mobile)?;
+        }
+        Ok(())
     }
 }
 pub struct AccountAddressParam<'t> {
@@ -64,10 +78,6 @@ impl AccountAddress {
         address_data: &AccountAddressParam<'_>,
     ) -> AccountResult<()> {
         let fetch_field = FetchField::new(&self.db);
-        let name_max = fetch_field
-            .string_max::<AccountAddressModel>(&AccountAddressModel::NAME)
-            .await
-            .len_or(16);
         let country_code_max = fetch_field
             .string_max::<AccountAddressModel>(&AccountAddressModel::COUNTRY_CODE)
             .await
@@ -100,7 +110,7 @@ impl AccountAddress {
             &address_data.name,
             &ValidParamCheck::default()
                 .add_rule(ValidPattern::NotFormat)
-                .add_rule(ValidStrlen::range(4, name_max)),
+                .add_rule(ValidStrlen::range(4, 32)),
         );
         valid_param.add(
             valid_key!("address_country_code"),
@@ -156,8 +166,8 @@ impl AccountAddress {
         let address_code = address_param.address_code.to_owned();
         let address_info = address_param.address_info.to_owned();
         let address_detail = address_param.address_detail.to_owned();
-        let name = address_param.name.to_owned();
-        let mobile = address_param.mobile.to_owned();
+        let name = self.encryptor.encrypt_str(address_param.name)?;
+        let mobile = self.encryptor.encrypt_str(address_param.mobile)?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -250,25 +260,8 @@ impl AccountAddress {
         let address_code = address_param.address_code.to_owned();
         let address_info = address_param.address_info.to_owned();
         let address_detail = address_param.address_detail.to_owned();
-        let name = address_param.name.to_owned();
-        let mobile = address_param.mobile.to_owned();
-        let address_res = sqlx::query_as::<_, AccountAddressModel>(&format!(
-            "select * from {} where  account_id=? and address_code=? and address_info=? and address_detail=? and name=? and mobile=? and status=?",
-            AccountAddressModel::table_name(),
-        ))
-        .bind(account.id)
-        .bind(&address_code)
-        .bind(&address_info)
-        .bind(&address_detail)
-        .bind(&name)
-        .bind(&mobile)
-        .bind(AccountAddressStatus::Enable as i8)
-        .fetch_one(&self.db)
-        .await;
-
-        if let Ok(address) = address_res {
-            return Ok(address.id);
-        }
+        let name = self.encryptor.encrypt_str(address_param.name)?;
+        let mobile = self.encryptor.encrypt_str(address_param.mobile)?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -444,29 +437,35 @@ impl AccountAddress {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountAddressModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountAddressModel>::one(&self.db, |qb| {
+        let mut model = Fetch::<MySql, AccountAddressModel>::one(&self.db, |qb| {
             qb.field_eq("id", *id);
         })
-        .await?)
+        .await?;
+        self.decrypt_model(&mut model)?;
+        Ok(model)
     }
     pub async fn find_by_account_id_vec(
         &self,
         id: &u64,
     ) -> AccountResult<Vec<AccountAddressModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountAddressModel>::vec(&self.db, |qb| {
+        let mut models = Fetch::<MySql, AccountAddressModel>::vec(&self.db, |qb| {
             qb.field_eq("account_id", *id);
             qb.push_and()
                 .field_eq("status", AccountAddressStatus::Enable as i8);
         })
-        .await?)
+        .await?;
+        for m in &mut models {
+            self.decrypt_model(m)?;
+        }
+        Ok(models)
     }
     pub async fn find_by_account_ids_vec(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, Vec<AccountAddressModel>>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountAddressModel>::group(
+        let mut map = Fetch::<MySql, AccountAddressModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
@@ -475,7 +474,13 @@ impl AccountAddress {
             },
             |v| v.account_id,
         )
-        .await?)
+        .await?;
+        for models in map.values_mut() {
+            for m in models.iter_mut() {
+                self.decrypt_model(m)?;
+            }
+        }
+        Ok(map)
     }
     pub fn cache(&'_ self) -> AccountAddressCache<'_> {
         AccountAddressCache { dao: self }

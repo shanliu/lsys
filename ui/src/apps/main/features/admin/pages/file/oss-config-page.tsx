@@ -112,6 +112,21 @@ export function AdminOssConfigPage() {
       },
     },
     {
+      accessorKey: "is_private",
+      header: "访问类型",
+      cell: ({ getValue }) => {
+        const isPrivate = getValue<boolean>();
+        return (
+          <Badge 
+            variant={isPrivate ? "default" : "outline"} 
+            className={cn("text-xs")}
+          >
+            {isPrivate ? "私有" : "公开"}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: "change_time",
       header: "更新时间",
       size: 150,

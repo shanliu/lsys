@@ -7,8 +7,8 @@ use crate::common::{FileError, FileResult};
 pub struct UrlFileInfo {
     /// 文件总大小（字节），None 表示服务器未返回
     pub file_size: Option<u64>,
-    /// 最大并发下载数（已根据 206 支持自动调整）
-    pub max_concurrency: usize,
+    /// 是否支持 206 Range 范围请求（可分片下载）
+    pub supports_range: bool,
     /// 文件 MIME 类型（可选）
     pub content_type: Option<String>,
 }
@@ -32,19 +32,18 @@ impl super::FileHelper {
         String::new()
     }
 
-    /// 获取URL文件跟并发信息函数
+    /// 获取URL文件信息函数
     ///
-    /// 参数: URL, 期望的最大并发数
-    /// 使用配置中的 min_chunk_size 和 download_timeout_secs
+    /// 参数: URL
+    /// 使用配置中的 download_timeout_secs
     ///
-    /// 返回: 文件信息（max_concurrency 已根据206支持自动调整）
-    pub async fn get_url_file_info(
-        &self,
-        url: &str,
-        max_concurrency: usize,
-    ) -> FileResult<UrlFileInfo> {
-        let min_chunk_size = self.config.min_chunk_size;
-        let timeout_secs = self.config.download_timeout_secs;
+    /// 返回: 文件信息（supports_range 已根据 206 探测结果确定）
+    pub async fn get_url_file_info(&self, url: &str) -> FileResult<UrlFileInfo> {
+        let timeout_secs = self
+            .runtime_setting
+            .get_download_timeout_secs()
+            .await
+            .unwrap_or(60);
 
         let client = reqwest::Client::new();
         let mut current_url = url.to_string();
@@ -105,13 +104,6 @@ impl super::FileHelper {
 
             debug!("get_url_file_info: content-length={:?}", file_size);
 
-            // 如果文件大小未知或小于最小分片大小，使用单线程下载
-            let actual_concurrency = match file_size {
-                None => 1,
-                Some(size) if size < min_chunk_size => 1,
-                Some(_) => max_concurrency,
-            };
-
             // 判断是否支持下载偏移值（检查 Accept-Ranges 头）
             let accepts_ranges_header = response
                 .headers()
@@ -143,13 +135,6 @@ impl super::FileHelper {
                 supports_range
             );
 
-            // 如果不支持范围请求，重置最大并发数为1
-            let final_concurrency = if !supports_range {
-                1
-            } else {
-                actual_concurrency
-            };
-
             // 获取内容类型（可选）
             let content_type = response
                 .headers()
@@ -158,13 +143,13 @@ impl super::FileHelper {
                 .map(|s| s.to_string());
 
             info!(
-                "get_url_file_info: completed file_size={:?}, max_concurrency={}, content_type={:?}",
-                file_size, final_concurrency, content_type
+                "get_url_file_info: completed file_size={:?}, supports_range={}, content_type={:?}",
+                file_size, supports_range, content_type
             );
 
             return Ok(UrlFileInfo {
                 file_size,
-                max_concurrency: final_concurrency,
+                supports_range,
                 content_type,
             });
         }

@@ -1,6 +1,7 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
-use crate::dao::access::api::system::admin::CheckAdminFileManage;
+use crate::dao::access::api::system::admin::CheckAdminExportTaskManage;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 use serde_json::json;
@@ -18,15 +19,21 @@ pub struct AdminExportSubmitParam {
 /// 提交系统导出任务（app_id=0）
 pub async fn admin_export_submit(
     param: &AdminExportSubmitParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
-            &CheckAdminFileManage {},
+            &CheckAdminExportTaskManage {},
         )
         .await?;
 
@@ -36,10 +43,8 @@ pub async fn admin_export_submit(
         .clone()
         .unwrap_or_else(|| serde_json::Value::Object(Default::default()));
 
-    let task_id = req_dao
-        .web_dao
-        .web_files
-        .export_task
+    let task_id = web_dao
+        .web_export.export_task
         .submit(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             0,           // app_id=0 → 系统级任务

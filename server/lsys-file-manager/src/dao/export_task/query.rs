@@ -7,11 +7,8 @@ use lsys_core::fluent_message;
 use lsys_core::utils::{RequestEnv, StringClear, now_time, string_clear};
 use lsys_core::valid_key;
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
-use lsys_file::dao::FileListAttrParam;
-use lsys_file::model::FileModel;
 use serde::Serialize;
 use sqlx::{MySql, QueryBuilder};
-use std::collections::HashMap;
 use tracing::info;
 
 use crate::dao::result::{FileManagerError, FileManagerResult};
@@ -30,6 +27,7 @@ pub struct SubmitExportTaskParam<'a> {
     pub export_type: &'a str,
     pub params: &'a serde_json::Value,
     pub request_id: &'a str,
+    pub lang: &'a str,
 }
 
 /// 导出任务关联的文件摘要（仅 Success 任务有关联文件）
@@ -44,26 +42,11 @@ pub struct ExportTaskFileItem {
     pub file_url: Option<String>,
 }
 
-/// 任务列表项 = 任务本身 + 可选文件信息（ATTR 方式附加，仅 Success 任务有文件）
+/// 任务列表项 = 任务本身 + 可选文件信息
 #[derive(Debug, Clone, Serialize)]
 pub struct ExportTaskItem {
-    #[serde(flatten)]
     pub task: ExportTaskModel,
     pub file: Option<ExportTaskFileItem>,
-}
-
-/// 控制 list_tasks 是否附加额外数据（参考 FileListAttrParam 模式）
-///
-/// ```ignore
-/// // 附加文件信息
-/// ExportTaskListAttr { attr_file: Some(true) }
-/// // 不附加文件信息（仅任务基本字段）
-/// ExportTaskListAttr::default()
-/// ```
-#[derive(Debug, Default)]
-pub struct ExportTaskListAttr {
-    /// 为 `Some(true)` 时：对 Success 任务批量加载关联文件摘要（通过 TAG `export_{id}`）
-    pub attr_file: Option<bool>,
 }
 
 impl ExportTask {
@@ -126,6 +109,7 @@ impl ExportTask {
             .set(ExportTaskModel::ADD_USER_ID, param.add_user_id)
             .set(ExportTaskModel::EXPORT_TYPE, param.export_type)
             .set(ExportTaskModel::EXPORT_PARAMS, &export_params)
+            .set(ExportTaskModel::LANG, param.lang)
             .set(ExportTaskModel::STATUS, ExportTaskStatus::Pending as i8)
             .set(ExportTaskModel::ERROR_MESSAGE, "")
             .set(ExportTaskModel::ADD_TIME, now)
@@ -187,13 +171,12 @@ impl ExportTask {
     #[allow(clippy::too_many_arguments)]
     pub async fn list_tasks(
         &self,
-        user_id: u64,
+        user_id: Option<u64>,
         app_id: Option<u64>,
         export_type: Option<&str>,
         request_id: Option<&str>,
         status: Option<i8>,
         page: &OffsetPageParam,
-        attr: &ExportTaskListAttr,
     ) -> FileManagerResult<Vec<ExportTaskItem>> {
         let mut qb =
             QueryBuilder::<MySql>::new(format!("SELECT * FROM {}", ExportTaskModel::table_name()));
@@ -209,96 +192,10 @@ impl ExportTask {
             .fetch_all(&self.db)
             .await?;
 
-        let mut file_map: HashMap<u64, ExportTaskFileItem> = HashMap::new();
-
-        // ── ATTR：按需批量加载 Success 任务的关联文件 ────────────────────────────
-        if attr.attr_file == Some(true) {
-            let success_ids: Vec<u64> = tasks
-                .iter()
-                .filter(|t| t.status == ExportTaskStatus::Success as i8)
-                .map(|t| t.id)
-                .collect();
-
-            if !success_ids.is_empty() {
-                // 构建 tag_name 和 task_id 的映射
-                let tag_names: Vec<String> = success_ids
-                    .iter()
-                    .map(|id| format!("export_id_{}", id))
-                    .collect();
-                let tag_refs: Vec<&str> = tag_names.iter().map(String::as_str).collect();
-
-                // 建立 tag_name -> task_id 的映射，避免后续字符串解析
-                let tag_to_id: std::collections::HashMap<String, u64> = success_ids
-                    .iter()
-                    .zip(tag_names.iter())
-                    .map(|(id, tag)| (tag.clone(), *id))
-                    .collect();
-
-                let file_attr = FileListAttrParam {
-                    attr_local: Some(true),
-                    attr_oss: Some(false),
-                    attr_tag: Some(false), // 不需要查询 tag 信息
-                };
-
-                // 使用批量查询，每个标签获取最多 1 个文件
-                let batch_result = self
-                    .file_dao
-                    .data_dao()
-                    .batch_list_files_by_tags(&tag_refs, Some(user_id), app_id, 1, &file_attr)
-                    .await?;
-
-                // 收集所有文件模型用于批量获取 URL
-                let file_models: Vec<FileModel> = batch_result
-                    .values()
-                    .filter_map(|(files, _)| files.first())
-                    .map(|item| FileModel {
-                        id: item.item.file_id,
-                        storage_type: item.item.storage_type.clone(),
-                        status: item.item.status,
-                        file_name: item.item.file_name.clone(),
-                        file_md5: item.item.file_md5.clone(),
-                        file_size: item.item.file_size,
-                        content_type: item.item.content_type.clone(),
-                        ..Default::default()
-                    })
-                    .collect();
-
-                // 批量获取 URL
-                let url_map = self
-                    .file_dao
-                    .get_file_urls(&file_models)
-                    .await
-                    .unwrap_or_else(|_| std::collections::HashMap::new());
-
-                // 构建 tag_name → ExportTaskFileItem 的映射
-                for (tag_name, (files, _has_more)) in batch_result {
-                    if let Some(item) = files.first() {
-                        let file_url = url_map.get(&item.item.file_id).cloned();
-
-                        let file_item = ExportTaskFileItem {
-                            file_id: item.item.file_id,
-                            file_name: item.item.file_name.clone(),
-                            file_size: item.item.file_size,
-                            content_type: item.item.content_type.clone(),
-                            file_url,
-                        };
-
-                        // 使用预先建立的映射，避免字符串解析
-                        if let Some(&task_id) = tag_to_id.get(&tag_name) {
-                            file_map.insert(task_id, file_item);
-                        }
-                    }
-                }
-            } // end if !success_ids.is_empty()
-        } // end if attr.attr_file == Some(true)
-
-        // ── 组装结果 ──────────────────────────────────────────────────────────
+        // 不再加载文件信息，使用 read_export_file 专门读取私有文件
         let result = tasks
             .into_iter()
-            .map(|task| {
-                let file = file_map.remove(&task.id);
-                ExportTaskItem { task, file }
-            })
+            .map(|task| ExportTaskItem { task, file: None })
             .collect();
 
         Ok(result)
@@ -307,7 +204,7 @@ impl ExportTask {
     /// 用户维度任务总数
     pub async fn count_tasks(
         &self,
-        user_id: u64,
+        user_id: Option<u64>,
         app_id: Option<u64>,
         export_type: Option<&str>,
         request_id: Option<&str>,
@@ -334,13 +231,15 @@ impl ExportTask {
     /// 构建列表查询 WHERE 子句（以 user_id 为维度，app_id 可选）
     fn build_list_where<'a, 'args>(
         wb: &mut WhereClause<'a, 'args, MySql>,
-        user_id: u64,
+        user_id: Option<u64>,
         app_id: Option<u64>,
         export_type: Option<&str>,
         request_id: Option<&str>,
         status: Option<i8>,
     ) {
-        wb.and().field_eq("user_id", user_id);
+        if let Some(uid) = user_id {
+            wb.and().field_eq("user_id", uid);
+        }
         if let Some(aid) = app_id {
             wb.and().field_eq("app_id", aid);
         }
@@ -369,12 +268,12 @@ impl ExportTask {
     /// 用于前端轮询：初始化时调用一次，结果 > 0 时开始定时轮询，
     /// 返回 0 时停止轮询。
     ///
-    /// - `user_id`: 用户 ID（系统时为 0）
+    /// - `user_id`: 用户 ID（可选，None 表示不按用户过滤）
     /// - `app_id`: 应用 ID（可选，系统时为 Some(0)）
     /// - `export_type`: 可选，仅统计指定类型的活跃任务
     pub async fn count_active_tasks(
         &self,
-        user_id: u64,
+        user_id: Option<u64>,
         app_id: Option<u64>,
         export_type: Option<&str>,
     ) -> FileManagerResult<i64> {
@@ -382,14 +281,18 @@ impl ExportTask {
             "SELECT COUNT(*) FROM {}",
             ExportTaskModel::table_name()
         ));
-        qb.push_where().field_eq("user_id", user_id);
-        qb.push_and().field_in_copied(
+        
+        qb.push_where().field_in_copied(
             "status",
             &[
                 ExportTaskStatus::Pending as i8,
                 ExportTaskStatus::Running as i8,
             ],
         );
+
+        if let Some(uid) = user_id {
+            qb.push_and().field_eq("user_id", uid);
+        }
 
         if let Some(aid) = app_id {
             qb.push_and().field_eq("app_id", aid);
@@ -409,41 +312,6 @@ impl ExportTask {
             .unwrap_or(0i64);
 
         Ok(count)
-    }
-
-    /// 超时检测：将长时间处于 Running 的任务标记为 Failed
-    ///
-    /// - `timeout_secs`: 超过此秒数仍为 Running 的记录将被标记失败
-    ///
-    /// 返回受影响的行数。
-    /// 建议由定时任务（如每分钟一次）调用。
-    pub async fn mark_timeout_tasks(&self, timeout_secs: u64) -> FileManagerResult<u64> {
-        let now = now_time().unwrap_or_default();
-        let threshold = now.saturating_sub(timeout_secs);
-
-        let affected = Update::<_, ExportTaskModel>::new()
-            .set(ExportTaskModel::STATUS, ExportTaskStatus::Failed as i8)
-            .set(
-                ExportTaskModel::ERROR_MESSAGE,
-                format!("timeout: exceeded {}s", timeout_secs),
-            )
-            .set(ExportTaskModel::CHANGE_TIME, now)
-            .execute(&self.db, |qb| {
-                qb.push_where()
-                    .field_eq("status", ExportTaskStatus::Running as i8);
-                qb.push_and().field_lt("add_time", threshold);
-            })
-            .await?
-            .rows_affected();
-
-        if affected > 0 {
-            info!(
-                "export_task: marked {} timed-out tasks as Failed (threshold={}s)",
-                affected, timeout_secs
-            );
-        }
-
-        Ok(affected)
     }
 
     /// 软删除任务（状态 → Deleted），以 user_id 为维度
@@ -489,5 +357,99 @@ impl ExportTask {
         }
 
         Ok(affected > 0)
+    }
+
+    /// 读取导出任务的文件（支持偏移）
+    ///
+    /// 用于下载导出任务生成的文件，支持断点续传。
+    /// 注意：此函数不做权限校验，权限校验应在调用层完成。
+    ///
+    /// # 参数
+    /// - `task`: 任务模型（调用方已查询并校验权限）
+    /// - `offset`: 读取起始偏移（字节）
+    ///
+    /// # 返回
+    /// - `Ok((FileReadIterator, FileModel))`: 文件读取迭代器及文件模型
+    /// - `Err`: 任务未完成、或文件不存在
+    ///
+    /// # 示例
+    /// ```rust,ignore
+    /// let task = export_task.find_by_id(task_id).await?;
+    /// // 进行权限校验...
+    /// let (mut iter, file_model) =
+    ///     export_task.read_export_file(&task, 0).await?;
+    /// while let Some(result) = iter.next_chunk().await {
+    ///     let chunk = result?;
+    ///     // 处理 chunk.data
+    /// }
+    /// ```
+    pub async fn read_export_file(
+        &self,
+        task: &ExportTaskModel,
+        offset: u64,
+    ) -> FileManagerResult<(
+        lsys_file::dao::FileReadIterator,
+        lsys_file::model::FileModel,
+    )> {
+        // 任务必须是 Success 状态
+        if task.status != ExportTaskStatus::Success as i8 {
+            return Err(FileManagerError::Message(fluent_message!(
+                "export-task-not-completed"
+            )));
+        }
+
+        // 查询关联的文件（通过 TAG `export_id_{task_id}`）
+        let tag_name = format!("export_id_{}", task.id);
+        let file_attr = lsys_file::dao::FileListAttrParam {
+            attr_local: Some(true),
+            ..Default::default()
+        };
+
+        // 使用 CursorPageParam 获取第一个文件
+        let page = lsys_core::db::CursorPageParam::new(
+            lsys_core::db::CursorPageDir::Next,
+            lsys_core::db::CursorConfig::primary(lsys_core::db::CursorPageSort::Desc),
+            None,
+            lsys_core::db::CursorLimit::Limit {
+                limit: 1,
+                more: false,
+            },
+        );
+        let (files, _) = self
+            .file_dao
+            .data_dao()
+            .list_files_by_tag(
+                &tag_name,
+                Some(task.user_id),
+                Some(task.app_id),
+                &page,
+                &file_attr,
+            )
+            .await?;
+
+        let file_item = files
+            .first()
+            .ok_or_else(|| FileManagerError::Message(fluent_message!("export-file-not-found")))?;
+
+        // 构建 FileModel
+        let file_model = lsys_file::model::FileModel {
+            id: file_item.item.file_id,
+            storage_type: file_item.item.storage_type.clone(),
+            status: file_item.item.status,
+            origin_name: file_item.item.file_name.clone(),
+            file_md5: file_item.item.file_md5.clone(),
+            file_size: file_item.item.file_size,
+            content_type: file_item.item.content_type.clone(),
+            ..Default::default()
+        };
+
+        // 使用 read_local_file 读取文件
+        let iter = self
+            .file_dao
+            .data_dao()
+            .read_local_file(&file_model, offset, None)
+            .await?;
+
+        Ok((iter, file_model))
     }
 }

@@ -1,7 +1,9 @@
 import { cn } from "@shared/lib/utils";
-import { PageSkeletonBaseProps } from "./base";
 
-export interface CenteredLoadingProps extends PageSkeletonBaseProps {
+
+export interface CenteredLoadingProps {
+    /** 外层容器 class */
+    className?: string;
     /** 
      * 加载提示变体
      * - 'content': 无边框模式（仅居中加载动画）

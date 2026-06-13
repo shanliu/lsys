@@ -17,10 +17,16 @@ const FileListFilterBaseSchema = z.object({
     content_value: z.string().optional(),
 });
 
-// URL 参数 schema，包含分页参数
-export const FileListFilterParamSchema = FileListFilterBaseSchema.extend(LimitDataParam);
+// URL 参数 schema，包含分页参数 + 视图模式参数
+export const FileListFilterParamSchema = FileListFilterBaseSchema.extend(LimitDataParam).extend({
+    // 视图模式
+    mode: z.enum(["normal", "downloading", "lineage"]).optional(),
+    // 关联文件视图参数
+    source_id: z.number().optional(),
+    rel_type: z.number().nullable().optional(),
+});
 
-// 表单过滤器 schema（不包含分页参数）
+// 表单过滤器 schema（不包含分页/视图参数）
 export const FileListFilterFormSchema = FileListFilterBaseSchema.extend({
     status: z.string().optional().transform(val => val === '' || val === undefined ? undefined : Number(val)),
     tag_name: z.string().optional().transform(val => val === '' ? undefined : val),
@@ -29,3 +35,4 @@ export const FileListFilterFormSchema = FileListFilterBaseSchema.extend({
 });
 
 export type FileListFilterParamType = z.infer<typeof FileListFilterParamSchema>;
+export type FileListViewMode = "normal" | "downloading" | "lineage";

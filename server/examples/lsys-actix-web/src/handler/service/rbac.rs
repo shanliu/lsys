@@ -1,7 +1,9 @@
+
 use actix_web::post;
 use lsys_web::handler::service::rbac::{self as service_rbac, RbacMenuListParam};
+use lsys_web::dao::WebDao;
 
-use crate::common::handler::{JsonQuery, ResponseJson, ResponseJsonResult, ServiceQuery};
+use crate::common::handler::{JsonQuery, ReqQuery, ResponseJson, ResponseJsonResult, ServiceQuery};
 
 /// Check RBAC permissions for multiple items
 ///
@@ -19,13 +21,15 @@ use crate::common::handler::{JsonQuery, ResponseJson, ResponseJsonResult, Servic
 /// Returns status for each check item
 #[post("/rbac/check")]
 pub async fn check(
-    service: ServiceQuery,
+    _: ServiceQuery,
     json_param: JsonQuery,
+    req_query: ReqQuery,
+    web_dao: actix_web::web::Data<WebDao>,
 ) -> ResponseJsonResult<ResponseJson> {
     let param = json_param.param::<RbacMenuListParam>()?;
 
-    service_rbac::check_list(&param, &service.inner)
+    service_rbac::check_list(&param, &req_query, web_dao.as_ref())
         .await
         .map(|r| r.into())
-        .map_err(|e| service.fluent_error_json_response(&e).into())
+        .map_err(|e| req_query.fluent_error_json_response(&e).into())
 }

@@ -1,6 +1,9 @@
 use crate::{
-    common::{JsonResponse, JsonResult, UserAuthQueryDao},
-    dao::access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    common::{JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
+    dao::{
+        WebDao,
+        access::{RbacAccessCheckEnv, api::system::admin::CheckAdminApp},
+    },
 };
 
 use lsys_access::dao::AccessSession;
@@ -18,12 +21,18 @@ pub struct ConfirmExterLoginFeatureParam {
 // 通过能APP登录系统审核
 pub async fn confirm_inner_feature_exter_login_confirm(
     param: &ConfirmExterLoginFeatureParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -31,15 +40,8 @@ pub async fn confirm_inner_feature_exter_login_confirm(
         )
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_app
         .app_dao
         .exter_login
@@ -65,12 +67,18 @@ pub struct ConfirmInnerFeatureSubAppParam {
 
 pub async fn confirm_inner_feature_sub_app_confirm(
     param: &ConfirmInnerFeatureSubAppParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -78,16 +86,9 @@ pub async fn confirm_inner_feature_sub_app_confirm(
         )
         .await?;
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

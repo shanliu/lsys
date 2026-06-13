@@ -111,6 +111,10 @@ pub struct AccountEmailModel {
     #[sqlx(default)]
     pub email: String,
 
+    /// 邮箱哈希值
+    #[sqlx(default)]
+    pub email_hash: String,
+
     /// 绑定状态1正常 2待验证 3关闭  default:  0
     #[sqlx(default)]
     pub status: i8,
@@ -274,6 +278,10 @@ pub struct AccountMobileModel {
     /// 手机号
     #[sqlx(default)]
     pub mobile: String,
+
+    /// 手机号哈希值
+    #[sqlx(default)]
+    pub mobile_hash: String,
 
     /// 绑定状态1正常 2待验证 3关闭  default:  0
     #[sqlx(default)]

@@ -2,8 +2,9 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::ToOffsetPageParam;
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonData, JsonPageData};
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminApp;
 use lsys_access::dao::AccessSession;
@@ -55,11 +56,20 @@ pub struct ShowAppRecord {
     pub req_count: i64,                                          //该应用请求数量
 }
 //系统所有的APP列表
-pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn app_list(
+    param: &ListParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -104,8 +114,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
             sub_req_pending_count: false,
         }
     };
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -174,8 +183,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -186,7 +194,7 @@ pub async fn app_list(param: &ListParam, req_dao: &UserAuthQueryDao) -> JsonResu
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+        bind_vec_user_info_from_req!(web_dao, out, user_id, false),
         count,
     ))))
 }
@@ -218,12 +226,18 @@ pub struct ShowSubAppRecord {
 //系统所有的APP列表
 pub async fn sub_app_list(
     param: &SubListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -253,8 +267,7 @@ pub async fn sub_app_list(
         req_pending_count: false,
         sub_req_pending_count: false,
     };
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -287,8 +300,7 @@ pub async fn sub_app_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -299,7 +311,7 @@ pub async fn sub_app_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, user_id, false),
+        bind_vec_user_info_from_req!(web_dao, out, user_id, false),
         count,
     ))))
 }
@@ -342,12 +354,18 @@ pub struct ShowRequestRecord {
 //请求系统审核的列表
 pub async fn request_list(
     param: &RequestListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -370,8 +388,7 @@ pub async fn request_list(
     } else {
         None
     };
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -436,8 +453,7 @@ pub async fn request_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -456,7 +472,7 @@ pub async fn request_list(
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
         bind_vec_user_info_from_req!(
-            req_dao,
+            web_dao,
             out,
             [request_user_id:"request_user_data",confirm_user_id:"confirm_user_data"],
             false

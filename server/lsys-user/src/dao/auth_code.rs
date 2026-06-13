@@ -1,6 +1,6 @@
 //使用rest接口登陆后，根据生成的登陆code，完成在系统后台登陆的实现
 use lsys_access::dao::{AccessAuthLoginData, AccessDao, AccessLoginData, SessionBody};
-use lsys_core::app_core::AppCore;
+use lsys_core::secret::SecretManager;
 use lsys_core::valid_key;
 use lsys_core::valid_param::{ValidNumber, ValidParam, ValidParamCheck, ValidPattern, ValidStrlen};
 
@@ -10,13 +10,13 @@ use super::{AccountResult, UserAuthToken};
 
 pub struct AuthCode {
     access: Arc<AccessDao>,
-    app_core: Arc<AppCore>,
+    secret_manager: Arc<SecretManager>,
 }
 pub const CODE_LOGIN_TYPE: &str = "code";
 
 impl AuthCode {
-    pub fn new(access: Arc<AccessDao>, app_core: Arc<AppCore>) -> Self {
-        Self { access, app_core }
+    pub fn new(access: Arc<AccessDao>, secret_manager: Arc<SecretManager>) -> Self {
+        Self { access, secret_manager }
     }
     pub async fn code_login(
         &self,
@@ -40,15 +40,15 @@ impl AuthCode {
                     .add_rule(ValidPattern::Ident),
             )
             .check()?;
-        let app_jwt_key = self
-            .app_core
-            .config
-            .find(None)
-            .get_string("app_jwt_key")
-            .unwrap_or_default();
+        let login_key = self
+            .secret_manager
+            .get("login_key")
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .unwrap_or_default()
+            .to_string();
         let token_data = format!(
             "{:x}",
-            md5::compute(format!("{}-{}-{}", app_id, token_code, app_jwt_key))
+            md5::compute(format!("{}-{}-{}", app_id, token_code, login_key))
         );
         let res = self
             .access

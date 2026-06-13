@@ -1,15 +1,16 @@
 mod request_auth;
 mod request_json;
-mod request_jwt;
 mod request_query;
 mod request_query_get;
 mod request_rest;
 mod request_service;
 mod response_json;
+mod request_cookie;
+mod request_token;
+pub use request_token::*;
 use actix_web::error::ResponseError;
 pub use request_auth::*;
 pub use request_json::*;
-pub use request_jwt::*;
 pub use request_query::*;
 pub use request_rest::*;
 pub use request_service::*;

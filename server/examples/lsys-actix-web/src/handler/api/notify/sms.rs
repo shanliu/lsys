@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use actix_http::StatusCode;
 use actix_web::web::Bytes;
+use actix_web::web::Data;
 use actix_web::{HttpRequest, HttpResponse, post};
+use lsys_web::dao::WebDao;
 
 use lsys_web::lsys_app_sender::dao::{
     AliYunNotify, CloOpenNotify, EmayNotify, HwYunNotify, NetEaseNotify, TenYunNotify,
@@ -22,9 +24,9 @@ pub(crate) async fn notify(
     app_dao: ReqQuery,
     body: Bytes,
     req: HttpRequest,
+    web_dao: Data<WebDao>,
 ) -> HttpResponse {
-    let config = match app_dao
-        .web_dao
+    let config = match web_dao
         .web_setting
         .setting_dao
         .multiple
@@ -34,7 +36,7 @@ pub(crate) async fn notify(
         Ok(e) => e,
         Err(e) => return HttpResponse::Forbidden().body(app_dao.fluent_error_string(&e.into())),
     };
-    let notify = &app_dao.web_dao.app_sender.smser.smser_dao.sms_notify;
+    let notify = &web_dao.app_sender.smser.smser_dao.sms_notify;
     let (status, msg) = if notify.check::<AliYunNotify>(&config) {
         let notify_body = String::from_utf8_lossy(&body).to_string();
         let notify_data = AliYunNotify::new(

@@ -1,10 +1,10 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
-import { EXPORT_TYPE_SYSTEM_RBAC_AUDIT } from "@shared/apis/admin/export";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterSystemAppSelector } from "@apps/main/components/filter-container/filter-system-app-selector";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterSystemAppSelector, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { AuditDetailTooltip } from "@apps/main/components/local/audit-detail-tooltip";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import {
@@ -118,6 +118,7 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     request_id: filterParam.request_id || null,
   };
 
+
   const currentLimit = filterParam.limit || DEFAULT_PAGE_SIZE;
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
@@ -188,6 +189,28 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["rbacAuditData"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof RbacAuditLogFilterFormSchema>>({
+    defaultValues: {
+      user_id: filterParam.user_id,
+      app_id: filterParam.app_id,
+      user_ip: filterParam.user_ip,
+      request_id: filterParam.request_id,
+    },
+    resolver: zodResolver(RbacAuditLogFilterFormSchema) as any,
+    initValues: {
+      user_id: undefined,
+      app_id: undefined,
+      user_ip: undefined,
+      request_id: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, pos: null, forward: true } as any });
+    },
+    onReset: () => {
+      navigate({ search: { pos: null, forward: true, limit: currentLimit } as any });
+    },
+  });
 
   // 获取API响应数据
   const audits = getQueryResponseData<AuditDataType[]>(auditData, []);
@@ -349,113 +372,34 @@ function AuditLogContent({ dictData }: AuditLogContentProps) {
       <div className="container mx-auto p-4 max-w-[1600px] flex flex-col min-h-0 space-y-5">
         {/* 搜索和过滤 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          <FilterContainer
-            defaultValues={{
-              user_id: filterParam.user_id?.toString(),
-              app_id: filterParam.app_id?.toString(),
-              user_ip: filterParam.user_ip,
-              request_id: filterParam.request_id?.toString(),
-            }}
-            resolver={zodResolver(RbacAuditLogFilterFormSchema) as any}
-            onSubmit={(data) => {
-              // zod schema 已经处理了类型转换和空值清理，直接使用数据
-              navigate({
-                search: { ...data, pos: null, forward: true } as any,
-              });
-            }}
-            onReset={() => {
-              navigate({
-                search: {
-                  pos: null,
-                  forward: true,
-                  limit: currentLimit,
-                } as any,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotalInfo())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3 lg:gap-4">
-                {/* 用户ID过滤 */}
-                <div className="flex-1 min-w-[120px] max-w-[180px]">
-                  <FilterInput
-                    name="user_id"
-                    placeholder="输入用户ID"
-                    type="number"
-                    label="用户ID"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 应用ID过滤 */}
-                <div className="flex-1 min-w-[140px] max-w-[200px]">
-                  <FilterSystemAppSelector
-                    name="app_id"
-                    placeholder="选择应用"
-                    label="应用"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 用户IP过滤 */}
-                <div className="flex-1 min-w-[140px] max-w-[200px]">
-                  <FilterInput
-                    name="user_ip"
-                    placeholder="输入IP地址"
-                    label="用户IP"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 请求ID过滤 */}
-                <div className="flex-1 min-w-[120px] max-w-[180px]">
-                  <FilterInput
-                    name="request_id"
-                    placeholder="输入请求ID"
-                    type="number"
-                    label="请求ID"
-                    disabled={isLoading}
-                    layoutParams={layoutParams}
-                  />
-                </div>
-
-                {/* 动作按钮区域 */}
-                <div
-                  className={cn(
-                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                  )}
-                >
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <AdminExportAction
-                        exportType={EXPORT_TYPE_SYSTEM_RBAC_AUDIT}
-                        params={{
-                          user_id: filters.user_id,
-                          app_id: filters.app_id,
-                          user_ip: filters.user_ip,
-                          request_id: filters.request_id,
-                        }}
-                        layoutParams={layoutParams}
-                      />
-                    }
-                  />
-                </div>
-              </div>
-            )}
-          </FilterContainer>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+            </FilterBar.Summary>
+            {/* 用户ID过滤 */}
+            <div className="flex-1 min-w-[120px] max-w-[180px]">
+              <FilterInput name="user_id" placeholder="输入用户ID" type="number" label="用户ID" disabled={isLoading} />
+            </div>
+            {/* 应用ID过滤 */}
+            <div className="flex-1 min-w-[140px] max-w-[200px]">
+              <FilterSystemAppSelector name="app_id" placeholder="选择应用" label="应用" disabled={isLoading} />
+            </div>
+            {/* 用户IP过滤 */}
+            <div className="flex-1 min-w-[140px] max-w-[200px]">
+              <FilterInput name="user_ip" placeholder="输入IP地址" label="用户IP" disabled={isLoading} />
+            </div>
+            {/* 请求ID过滤 */}
+            <div className="flex-1 min-w-[120px] max-w-[180px]">
+              <FilterInput name="request_id" placeholder="输入请求ID" type="number" label="请求ID" disabled={isLoading} />
+            </div>
+            {/* 动作按钮区域 */}
+            <div className={cn("flex-shrink-0")}>
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+              </FilterActions>
+            </div>
+          </FilterBar>
         </div>
 
         {/* 表格和分页容器 */}

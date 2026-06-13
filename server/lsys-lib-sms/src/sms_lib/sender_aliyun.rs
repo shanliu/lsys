@@ -9,7 +9,7 @@ use crate::{
     BranchSendNotifyResult, SendNotifyItem, SendNotifyStatus, now_time, rand_str,
     sms_lib::{SendStatus, phone_numbers_check, response_check},
 };
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 
 use chrono::{DateTime, Utc};
 use reqwest::{
@@ -253,7 +253,7 @@ impl AliSms {
 
         let mut hasher = Sha256::new();
         hasher.update(&req_json);
-        let json_hash = format!("{:x}", hasher.finalize()).to_lowercase();
+        let json_hash = hex::encode(hasher.finalize());
 
         let datetime = DateTime::from_timestamp(now_time as i64, 0).unwrap_or_default();
 
@@ -314,7 +314,7 @@ impl AliSms {
         hasher1.update(&sign);
         let result = hasher1.finalize();
 
-        let string_to_sign = format!("ACS3-HMAC-SHA256\n{:x}", result);
+        let string_to_sign = format!("ACS3-HMAC-SHA256\n{}", hex::encode(result));
 
         // println!("SIGN:\n{}", string_to_sign);
 

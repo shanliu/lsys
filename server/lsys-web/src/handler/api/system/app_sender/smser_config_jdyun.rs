@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
@@ -28,20 +29,25 @@ pub struct ShowJDYunConfigRecord {
 
 pub async fn smser_jd_config_list(
     param: &SmserJDConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .jd_sender
@@ -78,12 +84,18 @@ pub struct SmserJDConfigAddParam {
 
 pub async fn smser_jd_config_add(
     param: &SmserJDConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -91,8 +103,7 @@ pub async fn smser_jd_config_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .jd_sender
@@ -123,12 +134,18 @@ pub struct SmserJDConfigEditParam {
 
 pub async fn smser_jd_config_edit(
     param: &SmserJDConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -136,8 +153,7 @@ pub async fn smser_jd_config_edit(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .jd_sender
@@ -163,12 +179,18 @@ pub struct SmserJDConfigDelParam {
 
 pub async fn smser_jd_config_del(
     param: &SmserJDConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -176,8 +198,7 @@ pub async fn smser_jd_config_del(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .jd_sender
@@ -199,12 +220,18 @@ pub struct SmserAppJDConfigAddParam {
 
 pub async fn smser_tpl_config_jd_add(
     param: &SmserAppJDConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -212,8 +239,7 @@ pub async fn smser_tpl_config_jd_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .jd_sender

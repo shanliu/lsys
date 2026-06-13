@@ -1,7 +1,8 @@
 use crate::common::{JsonData, ToOffsetPageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminRbacView,
 };
 use lsys_access::dao::AccessSession;
@@ -24,20 +25,25 @@ pub struct UserFromResParam {
 //1 得到指定资源的授权详细
 pub async fn check_res_user_from_res(
     param: &UserFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let user_set_data = req_dao
-        .web_dao
+    let user_set_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -49,8 +55,7 @@ pub async fn check_res_user_from_res(
             &param.op_key,
         )
         .await?;
-    let pub_set_data = req_dao
-        .web_dao
+    let pub_set_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -87,12 +92,18 @@ pub struct ResRoleFromResParam {
 //获取非特定用户授权的角色列表
 pub async fn check_res_role_data_from_res(
     param: &ResRoleFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -100,8 +111,7 @@ pub async fn check_res_role_data_from_res(
         )
         .await?;
 
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -121,8 +131,7 @@ pub async fn check_res_role_data_from_res(
             &param.page.to_offset_page_param(),
         )
         .await?;
-    let res_count = req_dao
-        .web_dao
+    let res_count = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -170,20 +179,25 @@ pub struct ResUserDataFromResParam {
 //获取特定用户授权列表
 pub async fn check_res_user_data_from_res(
     param: &ResUserDataFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -203,8 +217,7 @@ pub async fn check_res_user_data_from_res(
             &param.page.to_offset_page_param(),
         )
         .await?;
-    let res_count = req_dao
-        .web_dao
+    let res_count = web_dao
         .web_rbac
         .rbac_dao
         .access

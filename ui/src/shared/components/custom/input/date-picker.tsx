@@ -31,6 +31,8 @@ interface DatePickerProps {
   toDate?: Date
   fromYear?: number
   toYear?: number
+  startMonth?: Date
+  endMonth?: Date
 }
 
 export function DatePicker({
@@ -43,6 +45,8 @@ export function DatePicker({
   toDate,
   fromYear,
   toYear,
+  startMonth,
+  endMonth,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
@@ -101,10 +105,8 @@ export function DatePicker({
                 return false
               }}
               captionLayout="dropdown"
-              fromYear={fromYear}
-              toYear={toYear}
-              fromDate={fromDate}
-              toDate={toDate}
+              startMonth={startMonth ?? (fromYear ? new Date(fromYear, 0) : fromDate ? new Date(fromDate.getFullYear(), fromDate.getMonth()) : undefined)}
+              endMonth={endMonth ?? (toYear ? new Date(toYear, 11) : toDate ? new Date(toDate.getFullYear(), toDate.getMonth()) : undefined)}
               classNames={{
                 nav: cn("absolute inset-x-0 top-2 flex w-full items-center justify-between gap-1 rdp-nav "),
               }}
@@ -135,10 +137,8 @@ export function DatePicker({
             return false
           }}
           captionLayout="dropdown"
-          fromYear={fromYear}
-          toYear={toYear}
-          fromDate={fromDate}
-          toDate={toDate}
+          startMonth={startMonth ?? (fromYear ? new Date(fromYear, 0) : fromDate ? new Date(fromDate.getFullYear(), fromDate.getMonth()) : undefined)}
+          endMonth={endMonth ?? (toYear ? new Date(toYear, 11) : toDate ? new Date(toDate.getFullYear(), toDate.getMonth()) : undefined)}
           classNames={{
             nav: cn("absolute inset-x-0 top-2 flex w-full items-center justify-between gap-1 rdp-nav "),
           }}

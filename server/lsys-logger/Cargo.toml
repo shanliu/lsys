@@ -9,7 +9,7 @@ lsys-core = { path = "../lsys-core", features = ["db-mysql"] }
 serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 
-tokio = { version = "~1.51.0" }
+tokio = { version = "~1.52.0" }
 
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 

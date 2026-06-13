@@ -3,7 +3,8 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::ToCursorPageParam;
-use crate::common::UserAuthQueryDao;
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminRbacView;
 use lsys_access::dao::AccessSession;
@@ -40,20 +41,25 @@ pub struct AuditParam {
 
 pub async fn audit_data(
     param: &AuditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -71,8 +77,7 @@ pub async fn audit_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .access
@@ -93,8 +98,7 @@ pub async fn audit_data(
     } else {
         None
     };
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user

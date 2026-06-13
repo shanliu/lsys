@@ -4,15 +4,14 @@ use std::time::Duration;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use chrono::Utc;
 use futures_util::StreamExt;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{Client, Method, header};
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 
 use crate::common::{
-    FileError, FileResult, OssProvider, OssProviderConfig, OssResult, UploadFileInfo,
+    FileError, FileResult, OssObjectMeta, OssProvider, OssProviderConfig, OssResult,
+    UploadFileInfo,
 };
 use crate::model::FileOssModel;
 
@@ -95,12 +94,18 @@ impl OssProvider for AliyunOssProvider {
         PROVIDER_TYPE
     }
 
-    fn download_to_local(
+    fn download_stream(
         &self,
         file_oss: &FileOssModel,
-        local_path: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<()>> + Send + '_>> {
-        let local_path = local_path.to_string();
+        offset: Option<u64>,
+        length: Option<u64>,
+    ) -> Pin<
+        Box<
+            dyn std::future::Future<Output = FileResult<crate::common::OssDownloadResult>>
+                + Send
+                + '_,
+        >,
+    > {
         let object_key = file_oss.object_key.clone();
         Box::pin(async move {
             let date = Self::gmt_date();
@@ -111,51 +116,63 @@ impl OssProvider for AliyunOssProvider {
                 self.config.bucket, self.config.endpoint, object_key
             );
 
-            let response = self
+            let mut request = self
                 .client
                 .get(&url)
                 .header(header::DATE, date)
-                .header(header::AUTHORIZATION, auth_header)
-                .send()
-                .await
-                .map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!(
-                        "aliyun-oss-error",
-                        e
-                    ))
-                })?;
+                .header(header::AUTHORIZATION, auth_header);
 
-            if !response.status().is_success() {
+            // 添加 Range 头支持偏移读取
+            if let Some(start) = offset {
+                let range_value = if let Some(len) = length {
+                    format!("bytes={}-{}", start, start + len - 1)
+                } else {
+                    format!("bytes={}-", start)
+                };
+                request = request.header(header::RANGE, range_value);
+            }
+
+            let response = request.send().await.map_err(|e| {
+                crate::common::FileError::System(lsys_core::fluent_message!("aliyun-oss-error", e))
+            })?;
+
+            // 支持 200 (完整响应) 和 206 (部分内容)
+            let status = response.status();
+            if !status.is_success() && status.as_u16() != 206 {
                 return Err(crate::common::FileError::System(
                     lsys_core::fluent_message!(
                         "aliyun-oss-error",
-                        format!("download failed with status: {}", response.status())
+                        format!("download failed with status: {}", status)
                     ),
                 ));
             }
 
-            let mut file = File::create(&local_path).await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-            })?;
+            // 将 reqwest 的字节流转换为 OssDownloadStream
+            let byte_stream = response.bytes_stream();
 
-            let mut stream = response.bytes_stream();
-            while let Some(chunk) = stream.next().await {
-                let bytes = chunk.map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!(
-                        "aliyun-oss-error",
-                        e
-                    ))
-                })?;
-                file.write_all(&bytes).await.map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-                })?;
-            }
+            let stream = async_stream::try_stream! {
+                tokio::pin!(byte_stream);
+                let mut downloaded: u64 = 0;
+                while let Some(bytes) = byte_stream.next().await {
+                    let bytes = bytes.map_err(|e| {
+                        crate::common::FileError::System(
+                            lsys_core::fluent_message!("aliyun-oss-error", e)
+                        )
+                    })?;
+                    let chunk_size = bytes.len() as u64;
+                    downloaded += chunk_size;
+                    yield crate::common::OssDownloadChunk {
+                        data: bytes,
+                        offset: offset.map(|o| o + downloaded - chunk_size),
+                        downloaded,
+                    };
+                }
+            };
 
-            file.flush().await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-            })?;
-
-            Ok(())
+            // 阿里云 OSS 支持 Range 请求
+            Ok(crate::common::OssDownloadResult::RangeSupported(
+                Box::pin(stream) as crate::common::OssDownloadStream,
+            ))
         })
     }
 
@@ -170,7 +187,7 @@ impl OssProvider for AliyunOssProvider {
         let file_size = file_info.file_size;
         let content_type = file_info.content_type.to_string();
         Box::pin(async move {
-            let file = File::open(&local_path).await.map_err(|e| {
+            let file = tokio::fs::File::open(&local_path).await.map_err(|e| {
                 crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
             })?;
             let stream = reqwest::Body::wrap_stream(tokio_util::io::ReaderStream::new(file));
@@ -179,7 +196,7 @@ impl OssProvider for AliyunOssProvider {
             let ext = crate::common::extract_extension(Some(&file_name));
             let object_key = format!(
                 "{}/{}{}",
-                chrono::Local::now().format("%Y/%m/%d"),
+                chrono::Local::now().format("%Y%m%d"),
                 file_md5,
                 if ext.is_empty() {
                     String::new()
@@ -230,8 +247,6 @@ impl OssProvider for AliyunOssProvider {
                 modify_time: Some(chrono::Utc::now().timestamp() as u64),
                 file_name: Some(file_name),
                 region: Some(self.config.endpoint.clone()),
-                local_file_id: None,
-                source_url: None,
             })
         })
     }
@@ -274,6 +289,84 @@ impl OssProvider for AliyunOssProvider {
             }
 
             Ok(())
+        })
+    }
+
+    fn object_meta(
+        &self,
+        file_oss: &FileOssModel,
+    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<OssObjectMeta>> + Send + '_>> {
+        let object_key = file_oss.object_key.clone();
+        Box::pin(async move {
+            let date = Self::gmt_date();
+            let signature = self.sign(&Method::HEAD, &date, "", &object_key)?;
+            let auth_header = format!("OSS {}:{}", self.config.access_key, signature);
+            let url = format!(
+                "https://{}.{}/{}",
+                self.config.bucket, self.config.endpoint, object_key
+            );
+
+            let response = self
+                .client
+                .head(&url)
+                .header(header::DATE, date)
+                .header(header::AUTHORIZATION, auth_header)
+                .send()
+                .await
+                .map_err(|e| {
+                    crate::common::FileError::System(lsys_core::fluent_message!(
+                        "aliyun-oss-error",
+                        e
+                    ))
+                })?;
+
+            let status = response.status();
+            if status.as_u16() == 404 {
+                return Ok(OssObjectMeta {
+                    exists: false,
+                    file_size: None,
+                    content_md5: None,
+                    content_type: None,
+                    last_modified: None,
+                });
+            }
+            if !status.is_success() {
+                return Err(crate::common::FileError::System(
+                    lsys_core::fluent_message!(
+                        "aliyun-oss-error",
+                        format!("head object failed with status: {}", status)
+                    ),
+                ));
+            }
+
+            let headers = response.headers();
+            let file_size = headers
+                .get(header::CONTENT_LENGTH)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok());
+            // ETag = "hexmd5"；分片上传时含 '-'，不代表文件 MD5
+            let content_md5 = headers
+                .get(header::ETAG)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim_matches('"').to_string())
+                .filter(|s| !s.contains('-'));
+            let content_type = headers
+                .get(header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            let last_modified = headers
+                .get(header::LAST_MODIFIED)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| chrono::DateTime::parse_from_rfc2822(s).ok())
+                .map(|dt| dt.timestamp() as u64);
+
+            Ok(OssObjectMeta {
+                exists: true,
+                file_size,
+                content_md5,
+                content_type,
+                last_modified,
+            })
         })
     }
 }

@@ -1,5 +1,6 @@
 use crate::common::{JsonData, ToCursorPageParam};
 use crate::common::{LimitParam, UserAuthQueryDao};
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -20,11 +21,16 @@ pub struct LoginHistoryParam {
 
 pub async fn login_history(
     param: &LoginHistoryParam,
-    req_dao: &UserAuthQueryDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let (data, next_data) = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let (data, next_data) = web_dao
         .web_user
         .user_dao
         .account_dao
@@ -40,8 +46,7 @@ pub async fn login_history(
         .await?;
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_user
                 .user_dao
                 .account_dao

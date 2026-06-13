@@ -1,6 +1,7 @@
 use super::{inner_app_rbac_check, inner_user_data_to_user_id};
 use crate::common::JsonData;
 use crate::common::{JsonResponse, JsonResult, RequestDao};
+use crate::dao::WebDao;
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, AccessSessionRole};
 use serde::{Deserialize, Serialize};
@@ -49,9 +50,10 @@ pub async fn access_check(
     param: &CheckParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
-    inner_access_check(param, app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
+    inner_access_check(param, app, req_dao, web_dao).await?;
     Ok(JsonResponse::default())
 }
 
@@ -74,12 +76,13 @@ pub async fn access_list_check(
     param: &RbacMenuListParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let mut out = Vec::with_capacity(param.menu_res.len());
     for e in param.menu_res.iter() {
         out.push(RbacMenuStatus {
-            status: inner_access_check(&e.check_res, app, req_dao)
+            status: inner_access_check(&e.check_res, app, req_dao, web_dao)
                 .await
                 .map(|_| true)
                 .unwrap_or(false),
@@ -93,11 +96,11 @@ async fn inner_access_check(
     param: &CheckParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<()> {
     let user_data = match param.user_param.as_ref() {
         Some(user_data) => Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user
@@ -112,7 +115,7 @@ async fn inner_access_check(
     for e in param.access.role_key.iter() {
         if !user_list.contains_key(&e.user_param) {
             let user_id =
-                inner_user_data_to_user_id(app, e.use_app_user, e.user_param.as_deref(), req_dao)
+                inner_user_data_to_user_id(app, e.use_app_user, e.user_param.as_deref(), web_dao)
                     .await?;
             user_list.insert(e.user_param.clone(), user_id);
         }
@@ -124,7 +127,7 @@ async fn inner_access_check(
                     app,
                     e.use_app_user,
                     e.user_param.as_deref(),
-                    req_dao,
+                    web_dao,
                 )
                 .await?;
                 user_list.insert(e.user_param.clone(), user_id);
@@ -177,8 +180,7 @@ async fn inner_access_check(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .access

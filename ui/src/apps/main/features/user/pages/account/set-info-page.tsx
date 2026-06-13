@@ -10,7 +10,6 @@ import { CenteredLoading } from '@shared/components/custom/page-placeholder/cent
 import { Card, CardContent, CardHeader, CardTitle } from '@shared/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@shared/components/ui/form';
 import { Input } from '@shared/components/ui/input';
-import { Label } from '@shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/components/ui/select';
 import { useToast } from '@shared/contexts/toast-context';
 import { userStore } from '@shared/lib/auth';
@@ -22,6 +21,7 @@ import { format } from 'date-fns';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { SetInfoSchema, type SetInfoType } from './set-info-schema';
+import { AvatarUpload } from '../../components/ui/avatar-upload';
 
 export const AccountSetInfoPage: React.FC = () => {
   const { success, error } = useToast();
@@ -32,6 +32,7 @@ export const AccountSetInfoPage: React.FC = () => {
     defaultValues: {
       nikename: '',
       gender: undefined,
+      headimg: '',
       birthday: ''
     }
   });
@@ -71,10 +72,11 @@ export const AccountSetInfoPage: React.FC = () => {
       form.reset({
         nikename: currentNikename,
         gender: currentGender,
+        headimg: currentHeadimg,
         birthday: currentBirthday
       });
     }
-  }, [loginData, currentNikename, currentGender, currentBirthday, form]);
+  }, [loginData, currentNikename, currentGender, currentHeadimg, currentBirthday, form]);
 
   // 保存用户信息 - 使用 useMutation
   const setInfoMutation = useMutation({
@@ -136,30 +138,26 @@ export const AccountSetInfoPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className={cn("space-y-6")}>
-          {/* 头像 - moved to top */}
-          <div className="space-y-2 pb-2 flex flex-col items-center">
-            <Label className={cn("text-sm font-medium text-muted-foreground")}>
-              头像
-            </Label>
-            <div className="flex items-center gap-4">
-              {currentHeadimg ? (
-                <img
-                  src={currentHeadimg}
-                  alt="用户头像"
-                  className="w-20 h-20 rounded-full object-cover border"
-                  onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22%23999%22%3E头像%3C/text%3E%3C/svg%3E';
-                  }}
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border">
-                  <span className="text-muted-foreground text-sm">无头像</span>
-                </div>
-              )}
-            </div>
-          </div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* 头像 */}
+          <FormField
+            control={form.control}
+            name="headimg"
+            render={({ field }) => (
+              <FormItem className="flex flex-col items-center pb-2">
+                <span className={cn('text-sm font-medium text-muted-foreground')}>
+                  头像
+                </span>
+                <AvatarUpload
+                  value={field.value}
+                  onKeyChange={(key) => field.onChange(key)}
+                  disabled={setInfoMutation.isPending}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
               {/* 昵称 */}
               <FormField
                 control={form.control}

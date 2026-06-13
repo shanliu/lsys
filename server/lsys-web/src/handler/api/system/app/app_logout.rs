@@ -1,5 +1,6 @@
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonResponse, JsonResult};
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminApp;
 use lsys_access::dao::AccessSession;
@@ -12,26 +13,25 @@ pub struct AppLogoutParam {
 }
 pub async fn app_logout(
     param: &AppLogoutParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminApp {},
         )
         .await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
-        .await?;
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+    web_dao
         .web_access
         .access_dao
         .auth

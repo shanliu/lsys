@@ -17,6 +17,7 @@ use lsys_core::db::{Insert, TableMeta, Update};
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{Acquire, MySql, Pool, Transaction};
 
+use lsys_core::secret::FieldEncryptor;
 use tracing::warn;
 
 use super::AccountError;
@@ -31,6 +32,7 @@ pub struct AccountEmail {
     pub(crate) cache: Arc<LocalCache<u64, AccountEmailModel>>,
     pub(crate) account_cache: Arc<LocalCache<u64, Vec<u64>>>,
     logger: Arc<ChangeLoggerDao>,
+    encryptor: Arc<FieldEncryptor>,
 }
 impl AccountEmail {
     pub fn new(
@@ -40,6 +42,7 @@ impl AccountEmail {
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
+        encryptor: Arc<FieldEncryptor>,
     ) -> Self {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
@@ -49,6 +52,7 @@ impl AccountEmail {
             // fluent,
             index,
             logger,
+            encryptor,
         }
     }
     /// 根据用户邮箱找到对应的记录
@@ -57,15 +61,17 @@ impl AccountEmail {
         if email.is_empty() {
             return Err(sqlx::Error::RowNotFound.into());
         }
-        let useremal = sqlx::query_as::<_, AccountEmailModel>(&format!(
-            "select * from {} where email=? and status in (?,?) order by id desc",
+        let email_hash = self.encryptor.hash_str(&email)?;
+        let mut useremal = sqlx::query_as::<_, AccountEmailModel>(&format!(
+            "select * from {} where email_hash=? and status in (?,?) order by id desc",
             AccountEmailModel::table_name(),
         ))
-        .bind(&email)
+        .bind(&email_hash)
         .bind(AccountEmailStatus::Init as i8)
         .bind(AccountEmailStatus::Valid as i8)
         .fetch_one(&self.db)
         .await?;
+        useremal.email = self.encryptor.decrypt_str(&useremal.email)?;
         Ok(useremal)
     }
     async fn email_param_valid(&self, email: &str) -> AccountResult<()> {
@@ -98,24 +104,27 @@ impl AccountEmail {
     ) -> AccountResult<u64> {
         self.email_param_valid(email).await?;
 
+        let email_hash = self.encryptor.hash_str(email)?;
+
         let email_res = sqlx::query_as::<_, AccountEmailModel>(&format!(
-            "select * from {} where email=? and status in (?,?)",
+            "select * from {} where email_hash=? and status in (?,?)",
             AccountEmailModel::table_name(),
         ))
-        .bind(email)
+        .bind(&email_hash)
         .bind(AccountEmailStatus::Valid as i8)
         .bind(AccountEmailStatus::Init as i8)
         .fetch_one(&self.db)
         .await;
 
         match email_res {
-            Ok(email) => {
-                if email.account_id == account.id {
-                    return Ok(email.id);
+            Ok(mut email_model) => {
+                email_model.email = self.encryptor.decrypt_str(&email_model.email)?;
+                if email_model.account_id == account.id {
+                    return Ok(email_model.id);
                 } else {
                     return Err(AccountError::System(
                         fluent_message!("account-email-exits-other-account",
-                            {"email":email.email,"id":email.account_id }
+                            {"email": email_model.email, "id": email_model.account_id}
                         ),
                     )); //"email {$name} bind in other account[{$id}]",
                 }
@@ -128,7 +137,7 @@ impl AccountEmail {
 
         let time = now_time()?;
         let _status = status as i8;
-        let email_ow = email.to_string();
+        let email_ow = self.encryptor.encrypt_str(email)?;
 
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
@@ -137,6 +146,7 @@ impl AccountEmail {
 
         let res = Insert::<_, AccountEmailModel>::new()
             .set(AccountEmailModel::EMAIL, email_ow)
+            .set(AccountEmailModel::EMAIL_HASH, email_hash)
             .set(AccountEmailModel::ACCOUNT_ID, account.id)
             .set(AccountEmailModel::CHANGE_TIME, time)
             .set(AccountEmailModel::STATUS, _status)
@@ -293,10 +303,10 @@ impl AccountEmail {
         }
 
         let email_res = sqlx::query_as::<_, AccountEmailModel>(&format!(
-            "select * from {} where  email=? and status=? and account_id!=? and id!=?",
+            "select * from {} where  email_hash=? and status=? and account_id!=? and id!=?",
             AccountEmailModel::table_name(),
         ))
-        .bind(&email.email)
+        .bind(&email.email_hash)
         .bind(AccountEmailStatus::Valid as i8)
         .bind(email.account_id)
         .bind(email.id)
@@ -304,7 +314,8 @@ impl AccountEmail {
         .await;
 
         match email_res {
-            Ok(tmp) => {
+            Ok(mut tmp) => {
+                tmp.email = self.encryptor.decrypt_str(&tmp.email)?;
                 return Err(AccountError::System(
                     fluent_message!("account-email-exits-other-account",
                         {"email":tmp.email,"id":tmp.account_id }
@@ -459,7 +470,7 @@ impl AccountEmail {
 
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountEmailModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountEmailModel>::one(&self.db, |qb| {
+        let mut res = Fetch::<MySql, AccountEmailModel>::one(&self.db, |qb| {
             qb.field_eq("id", *id);
             qb.push_and().field_in_copied(
                 "status",
@@ -469,11 +480,13 @@ impl AccountEmail {
                 ],
             );
         })
-        .await?)
+        .await?;
+        res.email = self.encryptor.decrypt_str(&res.email)?;
+        Ok(res)
     }
     pub async fn find_by_ids(&self, ids: &[u64]) -> AccountResult<HashMap<u64, AccountEmailModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountEmailModel>::map(
+        let mut res = Fetch::<MySql, AccountEmailModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
@@ -487,11 +500,15 @@ impl AccountEmail {
             },
             |v| v.id,
         )
-        .await?)
+        .await?;
+        for v in res.values_mut() {
+            v.email = self.encryptor.decrypt_str(&v.email)?;
+        }
+        Ok(res)
     }
     pub async fn find_by_account_id_vec(&self, id: &u64) -> AccountResult<Vec<AccountEmailModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountEmailModel>::vec(&self.db, |qb| {
+        let mut res = Fetch::<MySql, AccountEmailModel>::vec(&self.db, |qb| {
             qb.field_eq("account_id", *id);
             qb.push_and().field_in_copied(
                 "status",
@@ -502,14 +519,18 @@ impl AccountEmail {
             );
             qb.push(" ORDER BY id DESC");
         })
-        .await?)
+        .await?;
+        for v in res.iter_mut() {
+            v.email = self.encryptor.decrypt_str(&v.email)?;
+        }
+        Ok(res)
     }
     pub async fn find_by_account_ids_vec(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, Vec<AccountEmailModel>>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountEmailModel>::group(
+        let mut res = Fetch::<MySql, AccountEmailModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
@@ -524,7 +545,13 @@ impl AccountEmail {
             },
             |v| v.account_id,
         )
-        .await?)
+        .await?;
+        for vec in res.values_mut() {
+            for v in vec.iter_mut() {
+                v.email = self.encryptor.decrypt_str(&v.email)?;
+            }
+        }
+        Ok(res)
     }
     pub fn cache(&'_ self) -> AccountEmailCache<'_> {
         AccountEmailCache { dao: self }

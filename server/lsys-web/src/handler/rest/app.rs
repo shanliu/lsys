@@ -1,6 +1,7 @@
 use crate::common::JsonData;
 use crate::common::RequestDao;
 use crate::common::{JsonResponse, JsonResult};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::rest::CheckRestApp;
 use lsys_app::model::AppModel;
@@ -15,33 +16,30 @@ pub async fn subapp_info(
     param: &SubAppInfoParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
             &CheckRestApp {},
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
         .inner_feature_sub_app_check(app)
         .await?;
 
-    let out_app = req_dao
-        .web_dao
+    let out_app = web_dao
         .web_app
         .app_dao
         .app
@@ -49,8 +47,7 @@ pub async fn subapp_info(
         .find_sub_app_by_client_id(app, &param.client_id)
         .await?;
 
-    let client_data = req_dao
-        .web_dao
+    let client_data = web_dao
         .web_app
         .app_dao
         .app
@@ -74,33 +71,30 @@ pub async fn subapp_user(
     param: &SubAppUserParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
             &CheckRestApp {},
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
         .inner_feature_sub_app_check(app)
         .await?;
 
-    let out_app = req_dao
-        .web_dao
+    let out_app = web_dao
         .web_app
         .app_dao
         .app
@@ -108,8 +102,7 @@ pub async fn subapp_user(
         .find_sub_app_by_client_id(app, &param.client_id)
         .await?;
 
-    let user_info = req_dao
-        .web_dao
+    let user_info = web_dao
         .web_access
         .access_dao
         .user
@@ -133,17 +126,16 @@ pub async fn subapp_oauth_secret(
     param: &SubAppOAuthSecretParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -152,16 +144,14 @@ pub async fn subapp_oauth_secret(
         .await?;
 
     //父应用开通了 OAuthServer
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server
         .oauth_check(app)
         .await?;
     //查询的 client_id 为该app的子应用
-    let out_app = req_dao
-        .web_dao
+    let out_app = web_dao
         .web_app
         .app_dao
         .app
@@ -169,16 +159,14 @@ pub async fn subapp_oauth_secret(
         .find_sub_app_by_client_id(app, &param.client_id)
         .await?;
     //子应用开通了 OAuthClient
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
         .oauth_check(&out_app)
         .await?;
 
-    let secret = req_dao
-        .web_dao
+    let secret = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -201,17 +189,16 @@ pub async fn subapp_oauth_scope(
     param: &SubAppOAuthScopeParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -220,16 +207,14 @@ pub async fn subapp_oauth_scope(
         .await?;
 
     //父应用开通了 OAuthServer
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_server
         .oauth_check(app)
         .await?;
     //查询的 client_id 为该app的子应用
-    let out_app = req_dao
-        .web_dao
+    let out_app = web_dao
         .web_app
         .app_dao
         .app
@@ -237,16 +222,14 @@ pub async fn subapp_oauth_scope(
         .find_sub_app_by_client_id(app, &param.client_id)
         .await?;
     //子应用开通了 OAuthClient
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
         .oauth_check(&out_app)
         .await?;
 
-    let oauth_data = req_dao
-        .web_dao
+    let oauth_data = web_dao
         .web_app
         .app_oauth_client_get_scope_data(&out_app)
         .await?;

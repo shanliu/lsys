@@ -12,17 +12,20 @@ import {
     formatTime,
     TIME_STYLE,
 } from "@shared/lib/utils";
+import { type DictList } from "@shared/types/apis-dict";
 
 interface LoginLogDetailDrawerProps {
     login: SystemUserLoginHistoryItemType;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    loginStatusDict?: DictList;
 }
 
 export function LoginLogDetailDrawer({
     login,
     open,
     onOpenChange,
+    loginStatusDict,
 }: LoginLogDetailDrawerProps) {
     let tokenData: any = {};
     try {
@@ -55,7 +58,7 @@ export function LoginLogDetailDrawer({
                                 <Badge
                                     variant={login.status === 1 ? "default" : "secondary"}
                                 >
-                                    {login.status}
+                                    {loginStatusDict?.getLabel(String(login.status), `状态${login.status}`) ?? `状态${login.status}`}
                                 </Badge>
                             </div>
                         </div>

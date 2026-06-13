@@ -2,7 +2,7 @@ import { authApi } from "@shared/lib/apis/api_auth";
 import { parseResData } from "@shared/lib/apis/utils";
 import { DictListSchema } from "@shared/types/apis-dict";
 import { ApiResult } from "@shared/types/apis-rest";
-import { LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
+import { BoolSchema, LimitParam, LimitResSchema, PageParam, PageResSchema, UnixTimestampSchema } from "@shared/types/base-schema";
 import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
@@ -33,7 +33,6 @@ export type CollectorScriptListParamType = z.infer<typeof CollectorScriptListPar
 
 export const CollectorScriptItemSchema = z.object({
     id: z.coerce.number(),
-    user_id: z.coerce.number(),
     app_id: z.coerce.number(),
     name: z.string(),
     script_md5: z.string(),
@@ -146,7 +145,7 @@ export type CollectorScriptDetailParamType = z.infer<typeof CollectorScriptDetai
 
 export const CollectorScriptDetailResSchema = z.object({
     id: z.coerce.number(),
-    user_id: z.coerce.number(),
+    user_id: z.coerce.number().optional().nullable(),
     app_id: z.coerce.number(),
     name: z.string(),
     script_code: z.string(),
@@ -165,47 +164,6 @@ export const userCollectorScriptDetail = async (
 ): Promise<ApiResult<CollectorScriptDetailResType>> => {
     const { data } = await authApi().post('/api/user/app_collector/script_detail', param, config);
     return parseResData(data, CollectorScriptDetailResSchema);
-};
-
-// ==================== 采集记录列表 ====================
-
-export const CollectorRecordListParamSchema = z.object({
-    app_id: z.coerce.number(),
-    script_id: z.coerce.number(),
-    status: z.coerce.number().nullable().optional(),
-    ...LimitParam,
-});
-export type CollectorRecordListParamType = z.infer<typeof CollectorRecordListParamSchema>;
-
-export const CollectorRecordItemSchema = z.object({
-    id: z.coerce.number(),
-    request_id: z.string(),
-    script_id: z.coerce.number(),
-    user_id: z.coerce.number(),
-    app_id: z.coerce.number(),
-    task_id: z.coerce.number(),
-    exec_params: z.string(),
-    status: z.coerce.number(),
-    elapsed_ms: z.coerce.number(),
-    error_message: z.string(),
-    add_time: UnixTimestampSchema,
-    start_time: UnixTimestampSchema,
-    finish_time: UnixTimestampSchema,
-});
-export type CollectorRecordItemType = z.infer<typeof CollectorRecordItemSchema>;
-
-export const CollectorRecordListResSchema = z.object({
-    data: z.array(CollectorRecordItemSchema),
-    ...LimitResSchema,
-});
-export type CollectorRecordListResType = z.infer<typeof CollectorRecordListResSchema>;
-
-export const userCollectorRecordList = async (
-    param: CollectorRecordListParamType,
-    config?: AxiosRequestConfig<any>
-): Promise<ApiResult<CollectorRecordListResType>> => {
-    const { data } = await authApi().post('/api/user/app_collector/script_records', param, config);
-    return parseResData(data, CollectorRecordListResSchema);
 };
 
 // ==================== 脚本文件列表 ====================
@@ -229,9 +187,9 @@ export const CollectorFileItemSchema = z.object({
     file_size: z.coerce.number(),
     storage_type: z.string(),
     content_type: z.string(),
-    file_url: z.string(),
+    file_key: z.string(),
+    tags: z.array(z.any()).optional(),
     add_time: UnixTimestampSchema,
-    tags: z.array(CollectorFileTagSchema),
 });
 export type CollectorFileItemType = z.infer<typeof CollectorFileItemSchema>;
 
@@ -249,10 +207,56 @@ export const userCollectorFileList = async (
     return parseResData(data, CollectorFileListResSchema);
 };
 
+// ==================== 采集记录列表 ====================
+
+export const CollectorRecordListParamSchema = z.object({
+    app_id: z.coerce.number(),
+    script_id: z.coerce.number(),
+    status: z.coerce.number().nullable().optional(),
+    attr_file: BoolSchema.optional(),
+    attr_file_local: BoolSchema.optional(),
+    attr_file_oss: BoolSchema.optional(),
+    attr_file_tag: BoolSchema.optional(),
+    ...LimitParam,
+});
+export type CollectorRecordListParamType = z.infer<typeof CollectorRecordListParamSchema>;
+
+export const CollectorRecordItemSchema = z.object({
+    id: z.coerce.number(),
+    request_id: z.string(),
+    script_id: z.coerce.number(),
+    user_id: z.coerce.number(),
+    app_id: z.coerce.number(),
+    task_id: z.coerce.number(),
+    exec_params: z.string(),
+    status: z.coerce.number(),
+    elapsed_ms: z.coerce.number(),
+    error_message: z.string(),
+    add_time: UnixTimestampSchema,
+    start_time: UnixTimestampSchema,
+    finish_time: UnixTimestampSchema,
+    file: CollectorFileItemSchema.nullable(),
+    has_more_files: z.coerce.number(),
+});
+export type CollectorRecordItemType = z.infer<typeof CollectorRecordItemSchema>;
+
+export const CollectorRecordListResSchema = z.object({
+    data: z.array(CollectorRecordItemSchema),
+    ...LimitResSchema,
+});
+export type CollectorRecordListResType = z.infer<typeof CollectorRecordListResSchema>;
+
+export const userCollectorRecordList = async (
+    param: CollectorRecordListParamType,
+    config?: AxiosRequestConfig<any>
+): Promise<ApiResult<CollectorRecordListResType>> => {
+    const { data } = await authApi().post('/api/user/app_collector/script_records', param, config);
+    return parseResData(data, CollectorRecordListResSchema);
+};
+
 // ==================== 采集日志列表 ====================
 
 export const CollectorLogListParamSchema = z.object({
-    app_id: z.coerce.number(),
     script_id: z.coerce.number(),
     request_id: z.string().nullable().optional(),
     level: z.coerce.number().nullable().optional(),
@@ -312,16 +316,15 @@ export const userCollectorRecordFileList = async (
 // ==================== 记录关联日志列表 ====================
 
 export const CollectorRecordLogListParamSchema = z.object({
-    app_id: z.coerce.number(),
     request_id: z.string().min(1, "request_id不能为空"),
     level: z.coerce.number().nullable().optional(),
-    ...PageParam,
+    ...LimitParam,
 });
 export type CollectorRecordLogListParamType = z.infer<typeof CollectorRecordLogListParamSchema>;
 
 export const CollectorRecordLogListResSchema = z.object({
     data: z.array(CollectorLogItemSchema),
-    ...PageResSchema,
+    ...LimitResSchema,
 });
 export type CollectorRecordLogListResType = z.infer<typeof CollectorRecordLogListResSchema>;
 
@@ -358,3 +361,4 @@ export const userCollectorSubmitTask = async (
     const { data } = await authApi().post('/api/user/app_collector/submit_task', param, config);
     return parseResData(data, CollectorSubmitTaskResSchema);
 };
+

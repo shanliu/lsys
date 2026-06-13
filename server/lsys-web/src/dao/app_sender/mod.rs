@@ -7,6 +7,7 @@ use lsys_app::dao::AppNotify;
 use lsys_app_sender::dao::{MailSenderConfig, MessageTpls, SmsSenderConfig};
 use lsys_core::app_core::AppCore;
 use lsys_core::fluents::IntoFluentMessage;
+use lsys_core::secret::FieldEncryptor;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 pub use mailer::*;
@@ -30,6 +31,7 @@ impl AppSender {
         notify: Arc<AppNotify>,
         setting: Arc<SettingDao>,
         change_logger: Arc<ChangeLoggerDao>,
+        smtp_encryptor: Arc<FieldEncryptor>,
     ) -> WebResult<AppSender> {
         let tpl = Arc::new(MessageTpls::new(
             db.clone(),
@@ -44,6 +46,7 @@ impl AppSender {
             change_logger.clone(),
             tpl.clone(),
             MailSenderConfig::default(),
+            smtp_encryptor,
         ));
         // 邮件发送任务
 

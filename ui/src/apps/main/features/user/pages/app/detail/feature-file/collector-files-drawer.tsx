@@ -5,6 +5,7 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@apps/main/components/local/drawer";
+import { PostDownload } from "@apps/main/components/local/post-download";
 import { CursorPagination, useLimitCountNum } from "@apps/main/lib/pagination-utils";
 import {
     userCollectorFileList,
@@ -14,6 +15,7 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
+import { Button } from "@shared/components/ui/button";
 import { cn, formatFileSize, formatTime, getQueryResponseCursor, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
@@ -114,16 +116,24 @@ export function CollectorFilesDrawer({
                                                 {file.file_name || "-"}
                                             </span>
                                         </div>
-                                        {file.file_url && (
-                                            <a
-                                                href={file.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-primary hover:text-primary/80 flex-shrink-0"
-                                                title="下载文件"
+                                        {file.file_key && (
+                                            <PostDownload
+                                                url="/api/user/app_file/read"
+                                                body={{ key: file.file_key }}
                                             >
-                                                <Download className="h-4 w-4" />
-                                            </a>
+                                                {({ onClick, isLoading }) => (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-auto p-1 flex-shrink-0"
+                                                        title="下载文件"
+                                                        onClick={onClick}
+                                                        disabled={isLoading}
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </PostDownload>
                                         )}
                                     </div>
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_SMSER_TPL_CONFIG } from "@shared/apis/user/file";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import {
   DEFAULT_PAGE_SIZE,
@@ -45,6 +45,7 @@ import React from "react";
 import { featureSmsModuleConfig } from "../nav-info";
 import { TplConfigDrawer } from "./tpl-config-drawer";
 import { TplConfigFilterFormSchema } from "./tpl-config-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureSmsTplConfigPage() {
   const { appId } = Route.useParams();
@@ -270,6 +271,18 @@ export default function AppDetailFeatureSmsTplConfigPage() {
     },
   ];
 
+  const filterForm = useFilterBarForm<z.infer<typeof TplConfigFilterFormSchema>>({
+    defaultValues: { tpl: filterParam.tpl },
+    resolver: zodResolver(TplConfigFilterFormSchema) as any,
+    initValues: { tpl: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
+
   return (
     <>
       <AppDetailNavContainer
@@ -288,57 +301,16 @@ export default function AppDetailFeatureSmsTplConfigPage() {
         <div className="flex flex-col min-h-0 space-y-3">
           <div className="flex-shrink-0 mb-1 sm:mb-4">
             {/* 过滤器 */}
-            <FilterContainer
-              defaultValues={{
-                tpl: filterParam.tpl,
-              }}
-              resolver={zodResolver(TplConfigFilterFormSchema) as any}
-              onSubmit={(data) => {
-                navigate({
-                  search: { ...data, page: 1, limit: currentLimit } as any,
-                });
-              }}
-              onReset={() => {
-                navigate({
-                  search: { page: 1, limit: currentLimit } as any,
-                });
-              }}
-              countComponent={
-                <FilterTotalCount
-                  value={formatTotalCount(countNumManager.getTotal())}
-                  loading={isLoading}
-                />
-              }
-              className="bg-card rounded-lg border shadow-sm relative"
-            >
-              {(layoutParams, form) => (
-                <div className="flex-1 flex flex-wrap items-end gap-3">
-                  {/* 模板过滤 */}
-                  <FilterInput
-                    name="tpl"
-                    label="模板Key"
-                    placeholder="如: verify_code"
-                    type="text"
-                    layoutParams={layoutParams}
-                  />
-
-                  {/* 动作按钮区域 */}
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <UserExportAction
-                        appId={Number(appId)}
-                        exportType={EXPORT_TYPE_USER_SMSER_TPL_CONFIG}
-                        params={{ app_id: Number(appId), tpl: filters.tpl }}
-                      />
-                    }
-                  />
-                </div>
-              )}
-            </FilterContainer>
+            <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+              <FilterBar.Summary>
+                <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+              </FilterBar.Summary>
+              <FilterInput name="tpl" label="模板Key" placeholder="如: verify_code" type="text" />
+              <FilterActions>
+                <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                <FilterResetButton loading={isLoading} />
+              </FilterActions>
+            </FilterBar>
           </div>
 
           {/* 表格和分页容器 - 确保不超出页面高度 */}

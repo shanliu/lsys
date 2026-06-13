@@ -1,9 +1,10 @@
 use crate::common::{
-    JsonData, JsonPageData, JsonResponse, JsonResult, ToOffsetPageParam, UserAuthQueryDao,
+    JsonData, JsonPageData, JsonResponse, JsonResult, RequestDao, ToOffsetPageParam,
+    UserAuthQueryDao,
 };
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserFileView;
-use crate::dao::export_task::ExportTaskListAttr;
 use lsys_access::dao::AccessSession;
 use serde::Deserialize;
 /// 导出任务列表参数
@@ -25,13 +26,19 @@ pub struct ExportListParam {
 /// 导出任务列表（游标分页）
 pub async fn user_export_list(
     param: &ExportListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let user_id = auth_data.user_id();
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -43,36 +50,30 @@ pub async fn user_export_list(
 
     let page = param.page.to_offset_page_param();
     let export_type_ref = param.export_type.as_deref();
-    let request_id_ref = req_dao.req_env.request_id.as_deref();
 
-    let tasks = req_dao
-        .web_dao
-        .web_files
+    let tasks = web_dao
+        .web_export
         .export_task
         .list_tasks(
-            user_id,
+            Some(user_id),
             Some(0),
             export_type_ref,
-            request_id_ref,
+            None,
             param.status,
             &page,
-            &ExportTaskListAttr {
-                attr_file: Some(true),
-            },
         )
         .await?;
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
+            web_dao
+                .web_export
                 .export_task
                 .count_tasks(
-                    user_id,
+                    Some(user_id),
                     Some(0),
                     export_type_ref,
-                    request_id_ref,
+                    None,
                     param.status,
                 )
                 .await?,

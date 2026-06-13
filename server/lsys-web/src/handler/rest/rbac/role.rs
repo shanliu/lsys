@@ -7,6 +7,7 @@ use crate::common::JsonResult;
 use crate::common::PageParam;
 use crate::common::RequestDao;
 use crate::common::ToOffsetPageParam;
+use crate::dao::WebDao;
 use lsys_access::dao::UserInfo;
 use lsys_app::model::AppModel;
 use lsys_core::db::{OffsetPageParam, OffsetPageValue};
@@ -38,13 +39,14 @@ pub async fn role_add(
     param: &RoleAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
@@ -61,8 +63,7 @@ pub async fn role_add(
         },
     };
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -93,11 +94,11 @@ pub async fn role_edit(
     param: &RoleEditParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -116,8 +117,7 @@ pub async fn role_edit(
                 .and_then(|e| if !e.is_empty() { Some(e) } else { None }),
         },
     };
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -135,19 +135,18 @@ pub async fn role_del(
     param: &RoleDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
     inner_app_self_check(app, role.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -210,14 +209,15 @@ pub async fn role_data(
     param: &RoleDataParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
@@ -232,8 +232,7 @@ pub async fn role_data(
         None
     };
 
-    let role_data = req_dao
-        .web_dao
+    let role_data = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -259,8 +258,7 @@ pub async fn role_data(
     let user_data_limit = param.user_data.unwrap_or(0);
     let user_info_set = if !role_data.is_empty() && user_data_limit > 0 {
         let role_ids = role_data.iter().map(|e| e.0.id).collect::<Vec<_>>();
-        let user_data = req_dao
-            .web_dao
+        let user_data = web_dao
             .web_rbac
             .rbac_dao
             .role
@@ -277,8 +275,7 @@ pub async fn role_data(
             .flat_map(|e| e.1.iter().map(|f| f.user_id).collect::<Vec<u64>>())
             .collect::<Vec<_>>();
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user
@@ -321,8 +318,7 @@ pub async fn role_data(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role
@@ -342,7 +338,7 @@ pub async fn role_data(
     };
 
     Ok(JsonResponse::data(JsonData::body(json!({
-        "data": bind_vec_user_info_from_req!(req_dao, role_data, user_id),
+        "data": bind_vec_user_info_from_req!(web_dao, role_data, user_id),
         "count": count
     }))))
 }

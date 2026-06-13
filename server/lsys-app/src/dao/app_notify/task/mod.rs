@@ -118,7 +118,12 @@ async fn change_notify_check_num_error_status(
                 .execute(&mut *tdb)
                 .await
             {
-                let _ = tdb.rollback().await;
+                if let Err(rb_err) = tdb.rollback().await {
+                    warn!(
+                        "change_notify_data_other_record: rollback failed: {}",
+                        rb_err
+                    );
+                }
                 warn!("change notify data other record fail[{}]{}", nid, err);
                 return;
             }

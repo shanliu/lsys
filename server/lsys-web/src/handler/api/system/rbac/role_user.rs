@@ -1,6 +1,7 @@
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao},
+    common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::{CheckAdminRbacEdit, CheckAdminRbacView},
 };
 use lsys_access::dao::{AccessSession, UserDataParam, UserInfo};
@@ -30,12 +31,18 @@ pub struct RoleUserAddParam {
 
 pub async fn role_user_add(
     param: &RoleUserAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -43,16 +50,14 @@ pub async fn role_user_add(
         )
         .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
 
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user
@@ -94,8 +99,7 @@ pub async fn role_user_add(
             }
         }
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -120,27 +124,31 @@ pub struct RoleUserDelParam {
 
 pub async fn role_user_del(
     param: &RoleUserDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacEdit {},
         )
         .await?;
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -168,12 +176,18 @@ pub struct RoleUserDataParam {
 
 pub async fn role_user_data(
     param: &RoleUserDataParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -181,15 +195,13 @@ pub async fn role_user_data(
         )
         .await?;
 
-    let role = req_dao
-        .web_dao
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -197,8 +209,7 @@ pub async fn role_user_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role
@@ -209,7 +220,7 @@ pub async fn role_user_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        json!(bind_vec_user_info_from_req!(req_dao, res, user_id, false)),
+        json!(bind_vec_user_info_from_req!(web_dao, res, user_id, false)),
         count,
     ))))
 }
@@ -224,11 +235,17 @@ pub struct RoleUserAvailableParam {
 
 pub async fn role_user_available(
     param: &RoleUserAvailableParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -241,8 +258,7 @@ pub async fn role_user_available(
         user_account: None,
         user_any: param.user_data.as_deref(),
     };
-    let (res, next) = req_dao
-        .web_dao
+    let (res, next) = web_dao
         .web_access
         .access_dao
         .user
@@ -253,8 +269,7 @@ pub async fn role_user_available(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user

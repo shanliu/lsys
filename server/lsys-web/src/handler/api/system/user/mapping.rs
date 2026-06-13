@@ -1,7 +1,7 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::RequestDao;
 use lsys_access::model::SessionStatus;
 use lsys_app::dao::AppDao;
 use lsys_app_sender::dao;
@@ -14,7 +14,7 @@ use lsys_user::model::AccountMobileStatus;
 use lsys_user::model::AccountStatus;
 use serde_json::json;
 
-pub async fn mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn mapping_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     // 汇总所有 log_types
 
     let mut change_types: Vec<serde_json::Value> = Vec::new();

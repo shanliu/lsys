@@ -5,10 +5,10 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2024"
 
 [dependencies]
-tokio = { version = "~1.51.0" }
+tokio = { version = "~1.52.0" }
 deadpool-redis = { version = "~0.23.0" }
 redis = { version = "~1.0.3" }
-lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "secret", "field-encrypt"] }
 #lsys-app = { path = "../lsys-app" }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
@@ -26,6 +26,7 @@ futures-util = "0.3.*"
 
 
 md5 = "~0.8.*"
+argon2 = { version = "~0.5" }
 base64 = "0.22.1"
 
 
@@ -44,4 +45,4 @@ config = "~0.15"
 
 
 [dev-dependencies]
-tokio = { version = "~1.51.0", features = ["test-util"] }
+tokio = { version = "~1.52.0", features = ["test-util"] }

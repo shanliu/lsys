@@ -1,5 +1,6 @@
 use crate::common::{JsonData, JsonPageData, ToCursorPageParam, ToOffsetPageParam};
-use crate::common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonError, JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::api::system::user::{
     CheckUserAppSenderMailSend, CheckUserAppSenderMailView,
 };
@@ -26,28 +27,32 @@ pub struct MailerMessageLogParam {
 
 pub async fn mailer_message_log(
     param: &MailerMessageLogParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -56,8 +61,7 @@ pub async fn mailer_message_log(
             },
         )
         .await?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -66,8 +70,7 @@ pub async fn mailer_message_log(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .mailer
                 .mailer_dao
@@ -91,28 +94,32 @@ pub struct MailerMessageBodyParam {
 
 pub async fn mailer_message_body(
     param: &MailerMessageBodyParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -122,8 +129,7 @@ pub async fn mailer_message_body(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .mailer
         .mailer_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
@@ -151,11 +157,17 @@ pub struct MailerMessageListParam {
 
 pub async fn mailer_message_list(
     param: &MailerMessageListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -169,8 +181,7 @@ pub async fn mailer_message_list(
     } else {
         None
     };
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -188,8 +199,7 @@ pub async fn mailer_message_list(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .mailer
                 .mailer_dao
@@ -212,8 +222,7 @@ pub async fn mailer_message_list(
     };
     let ntime = now_time().unwrap_or_default();
     let cursor = PageCursorValue::from(&res.1);
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -258,27 +267,31 @@ pub struct MailerMessageCancelParam {
 
 pub async fn mailer_message_cancel(
     param: &MailerMessageCancelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -287,8 +300,7 @@ pub async fn mailer_message_cancel(
             },
         )
         .await?;
-    let mut res = req_dao
-        .web_dao
+    let mut res = web_dao
         .app_sender
         .mailer
         .send_cancel(&body, &[&msg], auth_data.user_id(), Some(&req_dao.req_env))
@@ -322,19 +334,19 @@ pub struct MailerMessageSendParam {
 //后台界面发送邮件接口
 pub async fn mailer_message_send(
     param: &MailerMessageSendParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -356,8 +368,7 @@ pub async fn mailer_message_send(
     };
     let to = param.to.iter().map(|e| e.as_str()).collect::<Vec<_>>();
     // 字符串转时间对象
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .mailer
         .app_send(

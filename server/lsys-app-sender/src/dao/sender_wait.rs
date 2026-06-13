@@ -1,8 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
 use lsys_core::app_core::AppCore;
+use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::listen_notify::{WaitItem, WaitNotify, WaitNotifyResult};
 use tokio::sync::oneshot::Receiver;
+use tracing::warn;
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SenderWaitItem {
     body_id: u64,
@@ -56,7 +58,7 @@ impl SenderWaitNotify {
             return;
         }
         //整个消息发送完成通知
-        let _ = self
+        if let Err(e) = self
             .0
             .notify(
                 host,
@@ -66,14 +68,21 @@ impl SenderWaitNotify {
                 },
                 res,
             )
-            .await;
+            .await
+        {
+            warn!(
+                "body_notify: notify failed for body_id={}: {}",
+                body_id,
+                e.to_fluent_message().default_format()
+            );
+        }
     }
     pub async fn msg_notify(&self, host: &str, msg_snid: u64, res: WaitNotifyResult) {
         if host.is_empty() {
             return;
         }
         //单个消息发送完成通知
-        let _ = self
+        if let Err(e) = self
             .0
             .notify(
                 host,
@@ -83,6 +92,13 @@ impl SenderWaitNotify {
                 },
                 res,
             )
-            .await;
+            .await
+        {
+            warn!(
+                "msg_notify: notify failed for msg_snid={}: {}",
+                msg_snid,
+                e.to_fluent_message().default_format()
+            );
+        }
     }
 }

@@ -12,9 +12,11 @@ import {
 } from "@apps/main/components/local/drawer";
 import { PasswordInput } from "@shared/components/custom/input/password-input";
 import { Button } from "@shared/components/ui/button";
+import { Checkbox } from "@shared/components/ui/checkbox";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -65,6 +67,7 @@ export function OssConfigDrawer({
       name: "",
       config_key: "",
       provider_type: "",
+      is_private: false,
       endpoint: "",
       bucket: "",
       access_key: "",
@@ -86,6 +89,7 @@ export function OssConfigDrawer({
           name: config.name,
           config_key: config.config_key,
           provider_type: config.provider_type,
+          is_private: config.is_private ?? false,
           endpoint: providerConfig.endpoint || "",
           bucket: providerConfig.bucket || "",
           access_key: providerConfig.access_key || "",
@@ -101,6 +105,7 @@ export function OssConfigDrawer({
           name: "",
           config_key: "",
           provider_type: providerTypes[0]?.key || "",
+          is_private: false,
           endpoint: "",
           bucket: "",
           access_key: "",
@@ -152,6 +157,7 @@ export function OssConfigDrawer({
         id: config.id,
         name: data.name,
         provider_config: providerConfig,
+        is_private: data.is_private,
       });
     } else {
       addMutation.mutate({
@@ -159,6 +165,7 @@ export function OssConfigDrawer({
         config_key: data.config_key,
         provider_type: data.provider_type,
         provider_config: providerConfig,
+        is_private: data.is_private,
       });
     }
   };
@@ -259,6 +266,29 @@ export function OssConfigDrawer({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="is_private"
+              render={({ field }) => (
+                <FormItem className={cn("flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4")}>
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className={cn("space-y-1 leading-none")}>
+                    <FormLabel>
+                      私有存储
+                    </FormLabel>
+                    <FormDescription>
+                      私有存储不能生成公开访问 URL，需要通过授权访问
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />

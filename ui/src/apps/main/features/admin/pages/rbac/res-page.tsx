@@ -1,9 +1,10 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
-import { EXPORT_TYPE_SYSTEM_RBAC_RES } from "@shared/apis/admin/export";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import { RbacNavContainer } from "@apps/main/features/admin/components/ui/rbac-nav";
 import {
   DEFAULT_PAGE_SIZE,
@@ -132,6 +133,7 @@ function ResListContent({ staticResources }: ResListContentProps) {
     res_data: filterParam.res_data ?? null,
   };
 
+
   // count_num 优化管理器
   const countNumManager = usePageCountNum(filters);
 
@@ -201,6 +203,26 @@ function ResListContent({ staticResources }: ResListContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["admin-rbac-res-list"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof ResListFilterFormSchema>>({
+    defaultValues: {
+      res_name: filterParam.res_name,
+      res_type: filterParam.res_type,
+      res_data: filterParam.res_data,
+    },
+    resolver: zodResolver(ResListFilterFormSchema) as any,
+    initValues: {
+      res_name: undefined,
+      res_type: undefined,
+      res_data: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 打开编辑抽屉
   const handleEdit = (res: ResourceItemType) => {
@@ -375,77 +397,18 @@ function ResListContent({ staticResources }: ResListContentProps) {
       <div className="flex flex-col min-h-0 space-y-3">
         {/* 过滤器 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          <FilterContainer
-            defaultValues={{
-              res_name: filterParam.res_name,
-              res_type: filterParam.res_type,
-              res_data: filterParam.res_data,
-            }}
-            resolver={zodResolver(ResListFilterFormSchema) as any}
-            onSubmit={(data) => {
-              navigate({
-                search: { ...data, page: 1, limit: currentLimit } as any,
-              });
-            }}
-            onReset={() => {
-              navigate({
-                search: { page: 1, limit: currentLimit } as any,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotal())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                <FilterInput
-                  name="res_name"
-                  placeholder="输入资源名称"
-                  label="资源名称"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                <FilterInput
-                  name="res_type"
-                  placeholder="输入资源类型"
-                  label="资源类型"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                <FilterInput
-                  name="res_data"
-                  placeholder="输入资源数据"
-                  label="资源数据"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <AdminExportAction
-                      exportType={EXPORT_TYPE_SYSTEM_RBAC_RES}
-                      params={{
-                        res_name: filters.res_name,
-                        res_type: filters.res_type,
-                        res_data: filters.res_data,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            )}
-          </FilterContainer>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterInput name="res_name" placeholder="输入资源名称" label="资源名称" disabled={isLoading} />
+            <FilterInput name="res_type" placeholder="输入资源类型" label="资源类型" disabled={isLoading} />
+            <FilterInput name="res_data" placeholder="输入资源数据" label="资源数据" disabled={isLoading} />
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+            </FilterActions>
+          </FilterBar>
         </div>
 
         {/* 表格和分页 */}

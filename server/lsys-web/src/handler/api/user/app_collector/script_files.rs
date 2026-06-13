@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{JsonPageData, PageCursorValue, PageTotalRowValue};
@@ -25,21 +26,25 @@ pub struct ScriptFilesParam {
     pub attr_file_tag: Option<bool>,
 }
 
-/// GET /api/user/collector/script_files — 按脚本查全部文件
 pub async fn script_files(
     param: &ScriptFilesParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
     use crate::common::ToCursorPageParam;
     let page = param.limit.to_u64_cursor_page_param(CursorPageSort::Desc);
 
-    let script = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let script = web_dao
+        .web_collector.collector
         .find_script_by_id(param.script_id)
         .await?
         .ok_or_else(|| {
@@ -48,32 +53,14 @@ pub async fn script_files(
             ))
         })?;
 
-    let file_attr = lsys_file::dao::FileListAttrParam {
-        attr_local: param.attr_file_local,
-        attr_oss: param.attr_file_oss,
-        attr_tag: param.attr_file_tag,
-    };
-
-    let (files, page_data) = req_dao
-        .web_dao
-        .web_files
-        .collector
-        .list_script_files(&script, &page, Some(param.app_id), &file_attr)
+    let (files, page_data) = web_dao
+        .web_collector.collector
+        .list_script_files(&script, &page, Some(param.app_id))
         .await?;
 
     let items: Vec<serde_json::Value> = files
         .iter()
         .map(|item| {
-            let tags: Vec<serde_json::Value> = item
-                .tags
-                .iter()
-                .map(|tag| {
-                    json!({
-                        "tag_name": tag.tag_name,
-                        "add_time": tag.add_time,
-                    })
-                })
-                .collect();
             json!({
                 "file_id": item.file_id,
                 "file_name": item.file_name,
@@ -81,19 +68,16 @@ pub async fn script_files(
                 "file_size": item.file_size,
                 "storage_type": item.storage_type,
                 "content_type": item.content_type,
-                "file_url": item.file_url,
+                "file_key": item.file_key,
                 "add_time": item.add_time,
-                "tags": tags,
             })
         })
         .collect();
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_script_files(&script, Some(param.app_id), &TotalParam::default())
                 .await
                 .map(PageTotalRowValue::from)?,

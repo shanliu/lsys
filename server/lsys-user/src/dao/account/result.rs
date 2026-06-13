@@ -116,3 +116,8 @@ impl From<MfaError> for AccountError {
         AccountError::MfaError(err)
     }
 }
+impl From<lsys_core::secret::SecretError> for AccountError {
+    fn from(err: lsys_core::secret::SecretError) -> Self {
+        AccountError::System(err.to_fluent_message())
+    }
+}

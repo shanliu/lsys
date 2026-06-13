@@ -2,8 +2,9 @@ use crate::common::JsonData;
 use crate::common::JsonError;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::{RequestDao, UserAuthQueryDao};
 use crate::dao::RbacCheckAccessDepend;
+use crate::dao::WebDao;
 use crate::dao::WebRbac;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::{
@@ -58,10 +59,7 @@ struct RbackCheckApp {
     app_id: u64,
 }
 
-async fn perm_parse_app_id(
-    check_res: &RbacAccessParam,
-    req_dao: &UserAuthQueryDao,
-) -> JsonResult<AppModel> {
+async fn perm_parse_app_id(check_res: &RbacAccessParam, web_dao: &WebDao) -> JsonResult<AppModel> {
     let data: RbackCheckApp = serde_json::from_value(
         check_res
             .data
@@ -77,8 +75,7 @@ async fn perm_parse_app_id(
             "err":&e.to_string()
         }))
     })?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -90,9 +87,11 @@ async fn perm_parse_app_id(
 
 async fn perm_map_check(
     check_res: &RbacAccessParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> Result<i8, (i8, JsonError)> {
-    let auth_data = req_dao
+    let auth_data = auth_dao
         .user_session
         .read()
         .await
@@ -114,14 +113,13 @@ async fn perm_map_check(
             })),
         )),
         "app:subapp" => {
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
             if app.parent_app_id != 0 {
                 return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
             }
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .check(
                     &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -131,8 +129,7 @@ async fn perm_map_check(
                 )
                 .await
                 .map_err(|e| (2, e.into()))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -142,14 +139,13 @@ async fn perm_map_check(
             Ok(1)
         }
         "app:oauth:server" => {
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
             if app.parent_app_id != 0 {
                 return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
             }
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .check(
                     &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -159,8 +155,7 @@ async fn perm_map_check(
                 )
                 .await
                 .map_err(|e| (2, e.into()))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -174,11 +169,10 @@ async fn perm_map_check(
             Ok(1)
         }
         "app:mail" => {
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .check(
                     &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -188,8 +182,7 @@ async fn perm_map_check(
                 )
                 .await
                 .map_err(|e| (2, e.into()))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -200,11 +193,10 @@ async fn perm_map_check(
             Ok(1)
         }
         "app:sms" => {
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .check(
                     &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -214,8 +206,7 @@ async fn perm_map_check(
                 )
                 .await
                 .map_err(|e| (2, e.into()))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -229,11 +220,10 @@ async fn perm_map_check(
             if auth_data.user().app_id != 0 {
                 return Err((0, JsonError::Message(fluent_message!("app-is-subapp"))));
             }
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .check(
                     &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -243,8 +233,7 @@ async fn perm_map_check(
                 )
                 .await
                 .map_err(|e| (2, e.into()))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -256,11 +245,10 @@ async fn perm_map_check(
         }
         name if name.starts_with("app:feature:") => {
             let key = &name["app:feature:".len()..];
-            let app = perm_parse_app_id(check_res, req_dao)
+            let app = perm_parse_app_id(check_res, web_dao)
                 .await
                 .map_err(|e| (0, e))?;
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -274,7 +262,7 @@ async fn perm_map_check(
         "admin-sms-config" => {
             perm_check(
                 &CheckAdminBase {},
-                &req_dao.web_dao.web_rbac,
+                &web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
@@ -282,7 +270,7 @@ async fn perm_map_check(
             .map_err(|e| (2, e))?;
             perm_check(
                 &CheckAdminSmsConfig {},
-                &req_dao.web_dao.web_rbac,
+                &web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
@@ -293,7 +281,7 @@ async fn perm_map_check(
         "admin-mail-config" => {
             perm_check(
                 &CheckAdminBase {},
-                &req_dao.web_dao.web_rbac,
+                &web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
@@ -301,7 +289,7 @@ async fn perm_map_check(
             .map_err(|e| (2, e))?;
             perm_check(
                 &CheckAdminMailConfig {},
-                &req_dao.web_dao.web_rbac,
+                &web_dao.web_rbac,
                 &auth_data,
                 &req_dao.req_env,
             )
@@ -310,7 +298,7 @@ async fn perm_map_check(
             Ok(1)
         }
         _ => {
-            if req_dao.web_dao.web_rbac.is_root(auth_data.user_id()) {
+            if web_dao.web_rbac.is_root(auth_data.user_id()) {
                 Ok(1)
             } else {
                 Err((
@@ -326,11 +314,13 @@ async fn perm_map_check(
 
 pub async fn perm_check_list(
     param: &RbacAccessMenuParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     let mut out = Vec::with_capacity(param.check_data.len());
     for e in param.check_data.iter() {
-        let res = perm_map_check(e, req_dao).await;
+        let res = perm_map_check(e, req_dao, auth_dao, web_dao).await;
         let (status, msg) = match res {
             Ok(status) => (status, None),
             Err((status, err)) => (status, Some(req_dao.fluent_error_string(&err))),

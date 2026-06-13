@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::user::CheckUserAppSenderMailConfig,
 };
 use lsys_access::dao::{AccessSession, SessionBody};
@@ -18,10 +19,10 @@ pub(super) async fn mailer_inner_access_check(
     app_id: u64,
     res_user_id: u64,
     session_body: &SessionBody,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<()> {
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -29,8 +30,7 @@ pub(super) async fn mailer_inner_access_check(
         .find_by_id(app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(session_body, &req_dao.req_env),
@@ -38,8 +38,7 @@ pub(super) async fn mailer_inner_access_check(
         )
         .await?;
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -63,14 +62,27 @@ pub struct MailerConfigAddParam {
 
 pub async fn mailer_config_add(
     param: &MailerConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    mailer_inner_access_check(param.app_id, auth_data.user_id(), &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    mailer_inner_access_check(
+        param.app_id,
+        auth_data.user_id(),
+        &auth_data,
+        req_dao,
+        web_dao,
+    )
+    .await?;
 
     let config_type = SenderMailConfigType::try_from(param.config_type)?;
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -95,20 +107,25 @@ pub struct MailerConfigDeleteParam {
 }
 pub async fn mailer_config_del(
     param: &MailerConfigDeleteParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let config = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let config = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .mail_record
         .find_config_by_id(param.config_id)
         .await?;
-    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao).await?;
-    req_dao
-        .web_dao
+    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao, web_dao).await?;
+    web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -129,11 +146,17 @@ pub struct MailerConfigListParam {
 
 pub async fn mailer_config_list(
     param: &MailerConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -142,8 +165,7 @@ pub async fn mailer_config_list(
             },
         )
         .await?;
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -193,11 +215,17 @@ pub struct MailerTplConfigListParam {
 
 pub async fn mailer_tpl_config_list(
     param: &MailerTplConfigListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -206,8 +234,7 @@ pub async fn mailer_tpl_config_list(
             },
         )
         .await?;
-    let tpl_data = req_dao
-        .web_dao
+    let tpl_data = web_dao
         .app_sender
         .mailer
         .mailer_dao
@@ -222,8 +249,7 @@ pub async fn mailer_tpl_config_list(
         )
         .await?;
     let app_data = if param.app_info.unwrap_or(false) && !tpl_data.is_empty() {
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .app
@@ -266,8 +292,7 @@ pub async fn mailer_tpl_config_list(
         .collect::<Vec<_>>();
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .mailer
                 .mailer_dao
@@ -296,20 +321,25 @@ pub struct MailerTplConfigDelParam {
 
 pub async fn mailer_tpl_config_del(
     param: &MailerTplConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let config = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let config = web_dao
         .app_sender
         .mailer
         .mailer_dao
         .tpl_config
         .find_by_id(param.tpl_config_id)
         .await?;
-    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao).await?;
-    let row = req_dao
-        .web_dao
+    mailer_inner_access_check(config.app_id, config.user_id, &auth_data, req_dao, web_dao).await?;
+    let row = web_dao
         .app_sender
         .mailer
         .mailer_dao

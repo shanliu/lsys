@@ -1,4 +1,4 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary';
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary';
 import { ProfileAddressPage } from '@apps/main/features/user/pages/account/address-page';
 import { addressSearchSchema } from '@apps/main/features/user/pages/account/address-schema';
 import { createFileRoute } from '@tanstack/react-router';

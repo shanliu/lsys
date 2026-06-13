@@ -30,14 +30,14 @@ tencent-cos = [
 tempfile = "*"
 
 [dependencies]
-lsys-core = { path = "../lsys-core", features = ["db-mysql"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "secret"] }
 lsys-logger = { path = "../lsys-logger" }
 lsys-setting = { path = "../lsys-setting" }
 
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0.*"
 
-tokio = { version = "~1.51.0", features = [
+tokio = { version = "~1.52.0", features = [
     "sync",
     "fs",
     "io-util",
@@ -45,28 +45,35 @@ tokio = { version = "~1.51.0", features = [
     "rt",
 ] }
 sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
+bytes = "1.0"
 
-sha1 = { version = "0.10", optional = true }
+sha1 = { version = "0.11", optional = true }
 md5 = "0.8.*"
 fs2 = "0.4"
 infer = "0.19.0"
 mime_guess = "2.0.5"
-reqwest = { version = "0.13", features = ["stream"] }
+reqwest = { version = "~0.13.1", features = ["stream"] }
 tracing = "0.1"
 chrono = "0.4"
 futures-util = "0.3"
+async-stream = "0.3"
 async-trait = "~0.1"
 rand = "0.10"
+hostname = "~0.4.0"
 
 # Crypto dependencies
-aes = "0.8"
-ctr = "0.9"
+aes = "~0.9.0"
+ctr = "~0.10"
+
+redis = { version = "~1.0.3", features = ["aio", "tokio-comp", "connection-manager"] }
+deadpool-redis = { version = "~0.23.0" }
 
 # OSS dependencies
 aws-config = { version = "1.5", optional = true }
 aws-sdk-s3 = { version = "1.74", optional = true }
-hmac = { version = "0.12", optional = true }
+hmac = { version = "0.13", optional = true }
 base64 = { version = "0.22", optional = true }
 url = { version = "2.5", optional = true }
 hex = { version = "0.4", optional = true }
 tokio-util = { version = "0.7", features = ["io"], optional = true }
+sqids = "0.4.2"

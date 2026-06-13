@@ -16,10 +16,11 @@ use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
 
 pub use data::*;
 use lsys_core::db::{Insert, QueryBuilderExt, TableMeta, Update};
+use lsys_core::fluents::IntoFluentMessage;
 pub use request::*;
-pub use sub_app::*;
-
 use std::sync::Arc;
+pub use sub_app::*;
+use tracing::warn;
 
 use crate::model::{
     AppModel, AppRequestModel, AppRequestSetInfoModel, AppRequestStatus, AppRequestType,
@@ -766,7 +767,13 @@ impl App {
         Ok(())
     }
     async fn app_close_clear(&self, app_id: u64) {
-        let _ = self.access.auth.clear_app_login(app_id).await;
+        if let Err(e) = self.access.auth.clear_app_login(app_id).await {
+            warn!(
+                "app_close_clear: clear_app_login failed for app_id={}: {}",
+                app_id,
+                e.to_fluent_message().default_format()
+            );
+        }
     }
     //禁用APP
     pub async fn app_delete(

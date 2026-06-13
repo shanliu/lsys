@@ -92,7 +92,7 @@ export default function SignInAccountPage() {
   // 字典加载失败状态
   if (dictError) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-8">
+      <div className="flex flex-col items-center justify-center gap-4 py-8 w-full">
         <AlertCircle className="h-12 w-12 text-destructive" />
         <p className="text-sm text-muted-foreground">加载配置失败</p>
         <Button variant="outline" size="sm" onClick={refetchDict}>

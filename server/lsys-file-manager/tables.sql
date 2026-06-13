@@ -68,6 +68,8 @@ CREATE TABLE `lst_export_task` (
                          COMMENT '导出类型标识，对应多语言 key（如 collector_record / user_list 等）',
     `export_params`  TEXT            NOT NULL
                          COMMENT '导出参数 JSON（过滤条件/权限由各 Exporter 实现层校验）',
+    `lang`           VARCHAR(32)     NOT NULL DEFAULT ''
+                         COMMENT '请求语言标识（如 zh_CN、en_US），用于导出文件头国际化',
     `status`         TINYINT         NOT NULL DEFAULT 1
                          COMMENT '状态: 1=Pending 2=Running 3=Success 4=Failed 5=Deleted',
     `error_message`  TEXT            NOT NULL

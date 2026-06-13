@@ -1,4 +1,5 @@
 use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao, ToOffsetPageParam};
+use crate::dao::WebDao;
 
 use crate::common::JsonData;
 use lsys_app::model::AppModel;
@@ -20,18 +21,18 @@ pub async fn op_add(
     param: &OpAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -67,18 +68,17 @@ pub async fn op_edit(
     param: &OpEditParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
-    let op = req_dao
-        .web_dao
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
+    let op = web_dao
         .web_rbac
         .rbac_dao
         .op
         .find_by_id(&param.op_id)
         .await?;
     inner_app_self_check(app, op.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -109,18 +109,17 @@ pub async fn op_del(
     param: &OpDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
-    let op = req_dao
-        .web_dao
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
+    let op = web_dao
         .web_rbac
         .rbac_dao
         .op
         .find_by_id(&param.op_id)
         .await?;
     inner_app_self_check(app, op.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -167,18 +166,18 @@ pub async fn op_data(
     param: &OpDataParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .op
@@ -212,8 +211,7 @@ pub async fn op_data(
         .collect::<Vec<RbacOpRecord>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .op
@@ -230,7 +228,7 @@ pub async fn op_data(
         None
     };
     Ok(JsonResponse::data(JsonData::body(json!({
-       "data": bind_vec_user_info_from_req!(req_dao, res, user_id),
+       "data": bind_vec_user_info_from_req!(web_dao, res, user_id),
         "count": count,
     }))))
 }

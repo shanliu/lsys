@@ -1,9 +1,10 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::{RequestDao, UserAuthQueryDao};
 use crate::dao::SiteConfig;
 use crate::dao::SiteConfigData;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::CheckAdminSiteSetting;
 use lsys_access::dao::AccessSession;
@@ -23,20 +24,25 @@ pub struct SiteConfigParam {
 
 pub async fn site_config_set(
     param: &SiteConfigParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_setting
         .save_site_setting_data(
             &auth_data,
@@ -51,27 +57,33 @@ pub async fn site_config_set(
     Ok(JsonResponse::default())
 }
 
-pub async fn site_config_get(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn site_config_get(
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSiteSetting {},
         )
         .await?;
-    let site_config = req_dao
-        .web_dao
+    let site_config = web_dao
         .web_setting
         .setting_dao
         .single
         .load::<SiteConfig>(None)
         .await
         .notfound_default()?;
-    let password = req_dao
-        .web_dao
+    let password = web_dao
         .web_setting
         .setting_dao
         .single

@@ -18,7 +18,7 @@ use sqlx::{MySql, Pool, QueryBuilder};
 
 use crate::model::{SessionDataModel, SessionModel, SessionStatus, UserModel};
 
-use super::{AccessError, AccessResult, SessionBody};
+use super::{AccessError, AccessResult, SessionBody, SessionLimitConfig};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AccessAuthSessionCacheKey {
@@ -44,6 +44,7 @@ pub struct AccessAuth {
     pub(crate) session_cache: Arc<LocalCache<AccessAuthSessionCacheKey, SessionModel>>,
     pub(crate) session_data_cache:
         Arc<LocalCache<AccessAuthSessionCacheKey, Vec<(String, String)>>>,
+    session_limit: SessionLimitConfig,
 }
 
 impl AccessAuth {
@@ -52,6 +53,7 @@ impl AccessAuth {
         user: Arc<AccessUser>,
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
+        session_limit: SessionLimitConfig,
     ) -> Self {
         Self {
             // user_cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
@@ -59,6 +61,7 @@ impl AccessAuth {
             session_data_cache: Arc::new(LocalCache::new(remote_notify, config)),
             db,
             user,
+            session_limit,
         }
     }
     //通过ID获取用户
@@ -350,6 +353,55 @@ impl AccessAuth {
             Err(sqlx::Error::RowNotFound) => {
                 let mut db = self.db.begin().await?;
 
+                // --- 登录数量限制：按 login_type 单独控制，并发安全踢出 ---
+                // FOR UPDATE 对同一用户同类型的有效 session 行加锁，保证并发登录时串行执行。
+                let mut evict_list: Vec<(u64, u64, String)> = Vec::new(); // (id, oauth_app_id, token_data)
+                let type_limit = self.session_limit.limit_for(&login_type);
+                if type_limit > 0 {
+                    let rows = match sqlx::query_as::<_, (u64, u64, String)>(&format!(
+                        "SELECT id, oauth_app_id, token_data FROM {} \
+                         WHERE user_id=? AND user_app_id=? AND login_type=? AND status=? AND expire_time>? \
+                         ORDER BY add_time ASC FOR UPDATE",
+                        SessionModel::table_name()
+                    ))
+                    .bind(user_id)
+                    .bind(login_param.app_id)
+                    .bind(&login_type)
+                    .bind(SessionStatus::Enable as i8)
+                    .bind(time)
+                    .fetch_all(&mut *db)
+                    .await
+                    {
+                        Ok(r) => r,
+                        Err(err) => {
+                            db.rollback().await?;
+                            return Err(err.into());
+                        }
+                    };
+                    let keep = (type_limit as usize).saturating_sub(1);
+                    let evict_count = rows.len().saturating_sub(keep);
+                    for (id, oauth_app_id, token_data) in rows.into_iter().take(evict_count) {
+                        evict_list.push((id, oauth_app_id, token_data));
+                    }
+                    // 批量踢出超额 session（事务内原子完成）
+                    if !evict_list.is_empty() {
+                        let evict_ids: Vec<u64> =
+                            evict_list.iter().map(|(id, _, _)| *id).collect();
+                        if let Err(err) = Update::<MySql, SessionModel>::new()
+                            .set(SessionModel::STATUS, SessionStatus::Delete as i8)
+                            .set(SessionModel::LOGOUT_TIME, time)
+                            .execute(&mut *db, |qb| {
+                                qb.push_where().field_in_copied("id", &evict_ids);
+                            })
+                            .await
+                        {
+                            db.rollback().await?;
+                            return Err(err.into());
+                        }
+                    }
+                }
+                // --- 结束登录数量限制 ---
+
                 let sid = match Insert::<_, SessionModel>::new()
                     .set(SessionModel::USER_ID, user_id)
                     .set(SessionModel::USER_APP_ID, login_param.app_id)
@@ -391,6 +443,13 @@ impl AccessAuth {
                     }
                 }
                 db.commit().await?;
+
+                // 事务提交后清理被踢出 session 的缓存
+                for (_, evict_oauth_app_id, evict_token) in evict_list {
+                    self.cache()
+                        .del_session(login_param.app_id, evict_oauth_app_id, &evict_token)
+                        .await?;
+                }
             }
             Err(err) => Err(err)?,
         };
@@ -399,24 +458,48 @@ impl AccessAuth {
             .login_data(login_param.app_id, login_param.oauth_app_id, &token_data)
             .await
     }
-    //延长登录时间
-    pub async fn extend_login(
+    async fn update_session_token(
         &self,
         session_body: &SessionBody,
         add_time: u64,
+        new_token: Option<String>,
+        reset_from_now: bool,
     ) -> AccessResult<SessionBody> {
         session_body.valid()?;
         let mut session = session_body.session().to_owned();
         if add_time == 0 || session.expire_time == 0 {
+            if let Some(token_data) = new_token {
+                let old_token = session.token_data.clone();
+                Update::<_, SessionModel>::new()
+                    .set(SessionModel::TOKEN_DATA, &token_data)
+                    .execute(&self.db, |qb| {
+                        qb.push_where().field_eq("id", session.id);
+                    })
+                    .await?;
+                self.cache()
+                    .del_session(session.user_app_id, session.oauth_app_id, &old_token)
+                    .await?;
+                session.token_data = token_data;
+            }
             return Ok(SessionBody::new(session_body.user().to_owned(), session));
         }
-        let expire_time = add_time + session.expire_time;
-        Update::<_, SessionModel>::new()
-            .set(SessionModel::EXPIRE_TIME, expire_time)
+
+        let expire_time = if reset_from_now {
+            now_time()? + add_time
+        } else {
+            add_time + session.expire_time
+        };
+
+        let mut update = Update::<_, SessionModel>::new().set(SessionModel::EXPIRE_TIME, expire_time);
+        if let Some(ref token_data) = new_token {
+            update = update.set(SessionModel::TOKEN_DATA, token_data);
+        }
+        update
             .execute(&self.db, |qb| {
                 qb.push_where().field_eq("id", session.id);
             })
             .await?;
+
         self.cache()
             .del_session(
                 session.user_app_id,
@@ -424,9 +507,36 @@ impl AccessAuth {
                 &session.token_data,
             )
             .await?;
+
+        if let Some(token_data) = new_token {
+            session.token_data = token_data;
+        }
         session.expire_time = expire_time;
         self.load_session_body(session).await
     }
+
+    //延长登录时间
+    pub async fn extend_login(
+        &self,
+        session_body: &SessionBody,
+        add_time: u64,
+    ) -> AccessResult<SessionBody> {
+        self.update_session_token(session_body, add_time, None, false).await
+    }
+
+    //轮换登录 token（更换 token 字符串并重置有效期）
+    //
+    //用于客户端显式刷新（非 cookie）：生成全新的 token_data，旧 token 立即失效
+    //（删除旧 cache key 并改写 DB 行）。返回携带新 token 的会话。
+    pub async fn rotate_token(
+        &self,
+        session_body: &SessionBody,
+        add_time: u64,
+    ) -> AccessResult<SessionBody> {
+        let new_token = rand_str(RandType::LowerHex, 32);
+        self.update_session_token(session_body, add_time, Some(new_token), true).await
+    }
+
     //退出登录
     pub async fn do_logout(&self, session_body: &SessionBody) -> AccessResult<()> {
         let time = now_time()?;

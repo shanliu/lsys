@@ -20,6 +20,7 @@ pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
 mod mapping;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 pub use mapping::*;
 
@@ -28,17 +29,19 @@ pub use mapping::*;
 //外部用户需要固定一个user_data作为系统用户标识
 
 //校验APP是否开通RBAC功能
-async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResult<()> {
-    let app_user = req_dao
-        .web_dao
+async fn inner_app_rbac_check(
+    app: &AppModel,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
+) -> JsonResult<()> {
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -46,8 +49,7 @@ async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResul
         )
         .await?;
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -58,6 +60,7 @@ async fn inner_app_rbac_check(app: &AppModel, req_dao: &RequestDao) -> JsonResul
     Ok(())
 }
 //校验APP是否相同
+
 #[allow(clippy::result_large_err)]
 fn inner_app_self_check(app: &AppModel, res_app_id: u64) -> JsonResult<()> {
     if app.id != res_app_id {
@@ -72,13 +75,12 @@ async fn inner_user_data_to_user_id(
     app: &AppModel,
     use_app_user: bool,
     user_data: Option<&str>,
-    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<u64> {
     if use_app_user {
         return Ok(app.user_id);
     }
-    Ok(req_dao
-        .web_dao
+    Ok(web_dao
         .web_access
         .access_dao
         .user

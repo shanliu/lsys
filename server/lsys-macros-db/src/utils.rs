@@ -1,5 +1,5 @@
 use heck::{ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutySnakeCase, ToSnakeCase};
-use syn::{Attribute, Meta, NestedMeta};
+use syn::{Attribute, Expr, Lit, Meta, Token, punctuated::Punctuated};
 
 /// 支持的命名规则
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,29 +44,27 @@ impl RenameRule {
 
 pub fn get_field_rename(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs.iter() {
-        let is_target = attr.path.is_ident("sqlx")
-            || attr.path.is_ident("column")
-            || attr.path.is_ident("field");
+        let is_target = attr.path().is_ident("sqlx")
+            || attr.path().is_ident("column")
+            || attr.path().is_ident("field");
 
         if !is_target {
             continue;
         }
 
-        let meta = match attr.parse_meta() {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-
-        if let Meta::List(list) = meta {
-            for nested in list.nested.iter() {
-                if let NestedMeta::Meta(Meta::NameValue(nv)) = nested
-                    && nv.path.is_ident("rename")
-                    && let syn::Lit::Str(lit) = &nv.lit
-                {
-                    return Some(lit.value());
+        if let Meta::List(list) = &attr.meta
+            && let Ok(nested) =
+                list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+            {
+                for meta in nested.iter() {
+                    if let Meta::NameValue(nv) = meta
+                        && nv.path.is_ident("rename")
+                            && let Expr::Lit(expr_lit) = &nv.value
+                                && let Lit::Str(lit) = &expr_lit.lit {
+                                    return Some(lit.value());
+                                }
                 }
             }
-        }
     }
     None
 }

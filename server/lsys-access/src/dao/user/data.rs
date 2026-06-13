@@ -153,7 +153,7 @@ impl AccessUser {
             }
             query.push_limit(&mut qb);
             qb.push(") as t");
-            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await?
         } else {
             let mut qb = QueryBuilder::<MySql>::new(format!(
                 "select count(*) as total from {}",
@@ -165,7 +165,7 @@ impl AccessUser {
                     return Ok(TotalRow::Exact(0));
                 }
             }
-            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await?
         };
         Ok(query.finalize(out_total))
     }
@@ -298,7 +298,7 @@ impl AccessUser {
             }
             query.push_limit(&mut qb);
             qb.push(") as t");
-            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await?
         } else {
             let mut qb = QueryBuilder::<MySql>::new(format!(
                 "select count(*) as total from {}",
@@ -308,7 +308,7 @@ impl AccessUser {
                 let mut wb = WhereClause::new(&mut qb);
                 self.session_data_where(&mut wb, param);
             }
-            qb.build_query_scalar::<i64>().fetch_one(&self.db).await? as u64
+            qb.build_query_scalar::<i64>().fetch_one(&self.db).await?
         };
         Ok(query.finalize(out_total))
     }

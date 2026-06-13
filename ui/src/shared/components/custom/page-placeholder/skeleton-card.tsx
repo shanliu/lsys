@@ -1,8 +1,10 @@
 import { Skeleton } from "@shared/components/ui/skeleton";
 import { cn } from "@shared/lib/utils";
-import { PageSkeletonBaseProps } from "./base";
 
-export interface CardSkeletonProps extends PageSkeletonBaseProps {
+
+export interface CardSkeletonProps {
+    /** 外层容器 class */
+    className?: string;
     /** 卡片数量（0 表示自动计算以填满屏幕） */
     itemCount?: number;
     /** 

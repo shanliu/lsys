@@ -1,4 +1,4 @@
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary';
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary';
 import { AppNotifyPage } from '@apps/main/features/user/pages/app/detail/notify-page';
 import { AppNotifyListFilterParamSchema } from '@apps/main/features/user/pages/app/detail/notify-schema';
 import { createFileRoute } from '@tanstack/react-router';

@@ -3,20 +3,23 @@ use std::borrow::Borrow;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::{ShowUserAuthData, access::api::system::auth::CheckSystemLogin},
+    dao::{ShowUserAuthData, WebDao, access::api::system::auth::CheckSystemLogin},
 };
 use lsys_access::dao::{AccessSession, SessionBody};
+use lsys_core::fluents::IntoFluentMessage;
 use lsys_user::dao::UserAuthToken;
 use lsys_user::dao::login::{EmailCodeLogin, EmailLogin, MobileCodeLogin, MobileLogin, NameLogin};
 use serde::Deserialize;
 use serde_json::json;
+use tracing::warn;
 
 pub async fn user_login_finish(
     session_body: SessionBody,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&session_body, &req_dao.req_env),
@@ -30,16 +33,20 @@ pub async fn user_login_finish(
         session_body.user_id(),
         session_body.session().expire_time,
     );
-    req_dao
+    auth_dao
         .user_session
         .write()
         .await
         .set_session_token(user_token.to_owned());
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     Ok((
         user_token,
-        req_dao
-            .web_dao
+        web_dao
             .web_user
             .auth
             .create_show_account_auth_data(&auth_data)
@@ -56,15 +63,16 @@ pub struct NameLoginParam {
 
 pub async fn user_login_from_name(
     param: &NameLoginParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .auth
         .user_login(
             &NameLogin::new(
-                req_dao.web_dao.web_user.user_dao.account_dao.clone(),
+                web_dao.web_user.user_dao.account_dao.clone(),
                 &param.name,
                 &param.password,
             )
@@ -73,7 +81,7 @@ pub async fn user_login_from_name(
             Some(&req_dao.req_env),
         )
         .await?;
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }
 
 #[derive(Deserialize)]
@@ -84,15 +92,16 @@ pub struct EmailLoginParam {
 }
 pub async fn user_login_from_email(
     param: &EmailLoginParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .auth
         .user_login(
             &EmailLogin::new(
-                req_dao.web_dao.web_user.user_dao.account_dao.clone(),
+                web_dao.web_user.user_dao.account_dao.clone(),
                 &param.email,
                 &param.password,
             )
@@ -101,7 +110,7 @@ pub async fn user_login_from_email(
             Some(&req_dao.req_env),
         )
         .await?;
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }
 
 #[derive(Deserialize)]
@@ -113,16 +122,17 @@ pub struct EmailCodeLoginParam {
 
 pub async fn user_login_from_email_code(
     param: &EmailCodeLoginParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .auth
         .user_login(
             &EmailCodeLogin::new(
-                req_dao.web_dao.redis.clone(),
-                req_dao.web_dao.web_user.user_dao.account_dao.clone(),
+                web_dao.redis.clone(),
+                web_dao.web_user.user_dao.account_dao.clone(),
                 &param.email,
                 &param.code,
             )
@@ -131,7 +141,7 @@ pub async fn user_login_from_email_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }
 
 #[derive(Deserialize)]
@@ -144,15 +154,16 @@ pub struct MobileLoginParam {
 
 pub async fn user_login_from_mobile(
     param: &MobileLoginParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .auth
         .user_login(
             &MobileLogin::new(
-                req_dao.web_dao.web_user.user_dao.account_dao.clone(),
+                web_dao.web_user.user_dao.account_dao.clone(),
                 &param.area_code,
                 &param.mobile,
                 &param.password,
@@ -162,7 +173,7 @@ pub async fn user_login_from_mobile(
             Some(&req_dao.req_env),
         )
         .await?;
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }
 
 #[derive(Deserialize)]
@@ -175,16 +186,17 @@ pub struct MobileCodeLoginParam {
 
 pub async fn user_login_from_mobile_code(
     param: &MobileCodeLoginParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .auth
         .user_login(
             &MobileCodeLogin::new(
-                req_dao.web_dao.redis.clone(),
-                req_dao.web_dao.web_user.user_dao.account_dao.clone(),
+                web_dao.redis.clone(),
+                web_dao.web_user.user_dao.account_dao.clone(),
                 &param.area_code,
                 &param.mobile,
                 &param.code,
@@ -194,7 +206,7 @@ pub async fn user_login_from_mobile_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }
 
 #[derive(Deserialize)]
@@ -207,23 +219,22 @@ pub struct MobileSendCodeLoginParam {
 pub async fn user_login_mobile_send_code(
     param: &MobileSendCodeLoginParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let valid_code = req_dao
-        .web_dao
+    let valid_code = web_dao
         .app_captcha
         .valid_code(&crate::dao::CaptchaKey::LoginSmsCode);
     valid_code
         .check_code(&param.captcha.borrow().into())
         .await?;
     let data = MobileCodeLogin::valid_code_set(
-        req_dao.web_dao.redis.clone(),
+        web_dao.redis.clone(),
         &mut EmailCodeLogin::valid_code_builder(),
         &param.area_code,
         &param.mobile,
     )
     .await?;
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .smser
         .send_valid_code(
@@ -235,12 +246,18 @@ pub async fn user_login_mobile_send_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    let _ = valid_code
+    if let Err(e) = valid_code
         .destroy_code(
             &param.captcha.key,
-            &mut req_dao.web_dao.app_captcha.valid_code_builder(),
+            &mut web_dao.app_captcha.valid_code_builder(),
         )
-        .await;
+        .await
+    {
+        warn!(
+            "user_login_mobile_send_code: destroy_code failed: {}",
+            e.to_fluent_message().default_format()
+        );
+    }
     Ok(JsonResponse::data(JsonData::body(json!({ "ttl": data.1 }))))
 }
 
@@ -253,22 +270,21 @@ pub struct EmailSendCodeLoginParam {
 pub async fn user_login_email_send_code(
     param: &EmailSendCodeLoginParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let valid_code = req_dao
-        .web_dao
+    let valid_code = web_dao
         .app_captcha
         .valid_code(&crate::dao::CaptchaKey::LoginEmailCode);
     valid_code
         .check_code(&param.captcha.borrow().into())
         .await?;
     let data = EmailCodeLogin::valid_code_set(
-        req_dao.web_dao.redis.clone(),
+        web_dao.redis.clone(),
         &mut EmailCodeLogin::valid_code_builder(),
         &param.email,
     )
     .await?;
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .mailer
         .send_valid_code(
@@ -279,11 +295,17 @@ pub async fn user_login_email_send_code(
             Some(&req_dao.req_env),
         )
         .await?;
-    let _ = valid_code
+    if let Err(e) = valid_code
         .destroy_code(
             &param.captcha.key,
-            &mut req_dao.web_dao.app_captcha.valid_code_builder(),
+            &mut web_dao.app_captcha.valid_code_builder(),
         )
-        .await;
+        .await
+    {
+        warn!(
+            "user_login_email_send_code: destroy_code failed: {}",
+            e.to_fluent_message().default_format()
+        );
+    }
     Ok(JsonResponse::data(JsonData::body(json!({ "ttl": data.1 }))))
 }

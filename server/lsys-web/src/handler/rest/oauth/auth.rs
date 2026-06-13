@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
@@ -18,19 +19,24 @@ pub struct ScopeGetParam {
 //登录页面显示的scope,当前登陆scope对应的功能
 pub async fn scope_get(
     param: &ScopeGetParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckRestApp {},
         )
         .await?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -38,16 +44,14 @@ pub async fn scope_get(
         .find_by_client_id(&param.client_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .oauth_client
         .oauth_check(&app)
         .await?;
     let scope_data = param.scope.split(',').collect::<Vec<&str>>();
-    let scope = req_dao
-        .web_dao
+    let scope = web_dao
         .web_app
         .app_oauth_server_parse_scope_data(&app, &scope_data)
         .await?;
@@ -65,7 +69,9 @@ pub struct AuthorizeDoParam {
 //登陆code后创建,从访问页面来
 pub async fn create_code(
     param: &AuthorizeDoParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     //   用户授权 scope跟资源静态编码关系 检查授权通过scope得到res检查全局授权 接口检查授权跟检查资源是否在token的scope中
     //   1. 请求用户 /oauth/authorize?client_id=app_id&redirect_uri=CALLBACK_URL&scope=read
@@ -73,25 +79,27 @@ pub async fn create_code(
     //   3. 完成授权. 生成code ,存放redis, scope,授权时间 +client_id+授权user_id ,设置5分钟超时,回到用户站点 /callback?code=AUTHORIZATION_CODE
     //   4. 请求令牌 /oauth/token?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&code=AUTHORIZATION_CODE
     //   5. 读取redis 判断client_id,生成token记录并放入本地缓存
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_client_id(&param.client_id)
         .await?;
 
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -99,8 +107,7 @@ pub async fn create_code(
         )
         .await?;
 
-    if !req_dao
-        .web_dao
+    if !web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -113,8 +120,7 @@ pub async fn create_code(
         ));
     }
     let scope_data = param.scope.split(',').collect::<Vec<&str>>();
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_oauth_server_parse_scope_data(&app, &scope_data)
         .await?;
@@ -129,8 +135,7 @@ pub async fn create_code(
         })));
     }
 
-    let code = req_dao
-        .web_dao
+    let code = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -163,27 +168,25 @@ pub struct SessionRecord {
 
 async fn check_app_secret(
     req_dao: &RequestDao,
+    web_dao: &WebDao,
     client_id: &str,
     client_secret: &String,
 ) -> JsonResult<AppModel> {
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
         .cache()
         .find_by_client_id(client_id)
         .await?;
-    let app_user = req_dao
-        .web_dao
+    let app_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(&app.user_id)
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&app_user, &req_dao.req_env),
@@ -191,8 +194,7 @@ async fn check_app_secret(
         )
         .await?;
 
-    let oauth_secret = req_dao
-        .web_dao
+    let oauth_secret = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -216,10 +218,13 @@ pub struct CodeParam {
 }
 
 //创建登陆token
-pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<JsonResponse> {
-    let app = check_app_secret(req_dao, &code.client_id, &code.client_secret).await?;
-    let (auth_data, refresh_token) = req_dao
-        .web_dao
+pub async fn create_token(
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
+    code: &CodeParam,
+) -> JsonResult<JsonResponse> {
+    let app = check_app_secret(req_dao, web_dao, &code.client_id, &code.client_secret).await?;
+    let (auth_data, refresh_token) = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -229,8 +234,7 @@ pub async fn create_token(req_dao: &RequestDao, code: &CodeParam) -> JsonResult<
         access_token: auth_data.session_body().token_data().to_owned(),
         refresh_token,
         openid: auth_data.session_body().user_id().to_string(),
-        scope: req_dao
-            .web_dao
+        scope: web_dao
             .web_app
             .app_dao
             .oauth_client
@@ -252,10 +256,10 @@ pub struct RefreshCodeParam {
 pub async fn refresh_token(
     param: &RefreshCodeParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let app = check_app_secret(req_dao, &param.client_id, &param.client_secret).await?;
-    let new_token = req_dao
-        .web_dao
+    let app = check_app_secret(req_dao, web_dao, &param.client_id, &param.client_secret).await?;
+    let new_token = web_dao
         .web_app
         .app_dao
         .oauth_client
@@ -265,8 +269,7 @@ pub async fn refresh_token(
         access_token: new_token.session_body().token_data().to_owned(),
         refresh_token: param.refresh_token.to_owned(),
         openid: new_token.session_body().user_id().to_string(),
-        scope: req_dao
-            .web_dao
+        scope: web_dao
             .web_app
             .app_dao
             .oauth_client

@@ -1,4 +1,5 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::{
     common::{JsonResponse, JsonResult, RestAuthQueryDao},
     dao::AccountOptionData,
@@ -28,9 +29,15 @@ pub struct AccountOptionDataParam {
 
 pub async fn account_data_from_oauth(
     param: &AccountOptionDataParam,
-    req_dao: &RestAuthQueryDao,
+    auth_dao: &RestAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     if auth_data.user().app_id > 0 {
         //oauth 服务处理,有2种传递数据方式
         //1. 外部站点先把数据存储在session中,通过这里获取
@@ -74,8 +81,7 @@ pub async fn account_data_from_oauth(
         }
 
         let user_data = if !check_scope.is_empty() {
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .oauth_client
@@ -100,8 +106,7 @@ pub async fn account_data_from_oauth(
                 external: None,
                 mobile: mobile.as_deref(),
             };
-            let user_data = req_dao
-                .web_dao
+            let user_data = web_dao
                 .web_user
                 .account
                 .user_detail(account_id, &data_option)

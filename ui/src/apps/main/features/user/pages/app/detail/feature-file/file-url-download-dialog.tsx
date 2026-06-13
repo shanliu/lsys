@@ -3,19 +3,18 @@ import { ConfirmDialog } from '@shared/components/custom/dialog/confirm-dialog';
 import { ContentDialog } from '@shared/components/custom/dialog/content-dialog';
 import { Button } from '@shared/components/ui/button';
 import { Label } from '@shared/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/components/ui/select';
 import { Textarea } from '@shared/components/ui/textarea';
 import { useToast } from '@shared/contexts/toast-context';
 import { cn } from '@shared/lib/utils';
 import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, Download, Loader2, Pause, Play, XCircle } from 'lucide-react';
+import { Download, ListOrdered, Loader2, Pause, Play, XCircle } from 'lucide-react';
 import React, { useCallback, useRef, useState } from 'react';
 
 type DialogStage = 'input' | 'downloading' | 'paused' | 'done';
 
 interface UrlRecord {
     url: string;
-    status: 'pending' | 'downloading' | 'success' | 'error';
+    status: 'pending' | 'downloading' | 'queued' | 'error';
     message?: string;
     fileUserId?: number;
 }
@@ -26,9 +25,6 @@ interface FileUrlDownloadDialogProps {
     onSuccess?: () => void;
 }
 
-// 从 max_upload_size 推导出合理的最大并发数范围
-const MAX_CONCURRENCY_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10];
-
 export function FileUrlDownloadDialog({
     children,
     appId,
@@ -38,15 +34,15 @@ export function FileUrlDownloadDialog({
     const [open, setOpen] = useState(false);
     const [stage, setStage] = useState<DialogStage>('input');
     const [urlText, setUrlText] = useState('');
-    const [maxConcurrency, setMaxConcurrency] = useState(10);
     const [records, setRecords] = useState<UrlRecord[]>([]);
     const isPausedRef = useRef(false);
     const isAbortedRef = useRef(false);
     const downloadingRef = useRef(false);
+    const hasTriggeredSuccessRef = useRef(false);
 
     // React Query Mutation
     const downloadFileMutation = useMutation({
-        mutationFn: (params: { app_id: number; source_url: string; max_concurrency: number }) =>
+        mutationFn: (params: { app_id: number; source_url: string }) =>
             userFileFromUrl(params),
     });
 
@@ -57,6 +53,7 @@ export function FileUrlDownloadDialog({
         isPausedRef.current = false;
         isAbortedRef.current = false;
         downloadingRef.current = false;
+        hasTriggeredSuccessRef.current = false;
     }, []);
 
     const handleOpenChange = useCallback((newOpen: boolean) => {
@@ -97,13 +94,17 @@ export function FileUrlDownloadDialog({
                 const res = await downloadFileMutation.mutateAsync({
                     app_id: appId,
                     source_url: updatedRecords[i].url,
-                    max_concurrency: maxConcurrency,
                 });
 
                 if (res.status && res.response) {
-                    updatedRecords[i].status = 'success';
+                    updatedRecords[i].status = 'queued';
                     updatedRecords[i].fileUserId = res.response.id;
-                    updatedRecords[i].message = '下载成功';
+                    updatedRecords[i].message = '已加入下载队列';
+                    // 一旦有文件成功加入队列，立即触发外层刷新
+                    if (!hasTriggeredSuccessRef.current) {
+                        hasTriggeredSuccessRef.current = true;
+                        onSuccess?.();
+                    }
                 } else {
                     updatedRecords[i].status = 'error';
                     updatedRecords[i].message = res.message || '下载失败';
@@ -119,16 +120,15 @@ export function FileUrlDownloadDialog({
         downloadingRef.current = false;
 
         // 检查是否都完成了
-        const allDone = updatedRecords.every(r => r.status === 'success' || r.status === 'error');
+        const allDone = updatedRecords.every(r => r.status === 'queued' || r.status === 'error');
         if (allDone) {
             setStage('done');
-            const successCount = updatedRecords.filter(r => r.status === 'success').length;
-            if (successCount > 0) {
-                showSuccess(`${successCount} 个文件下载成功`);
-                onSuccess?.();
+            const queuedCount = updatedRecords.filter(r => r.status === 'queued').length;
+            if (queuedCount > 0) {
+                showSuccess(`${queuedCount} 个文件已加入下载队列`);
             }
         }
-    }, [appId, maxConcurrency, showSuccess, onSuccess, downloadFileMutation]);
+    }, [appId, showSuccess, onSuccess, downloadFileMutation]);
 
     // 开始下载
     const startDownload = useCallback(async () => {
@@ -167,6 +167,7 @@ export function FileUrlDownloadDialog({
         isPausedRef.current = false;
         isAbortedRef.current = false;
         downloadingRef.current = true;
+        hasTriggeredSuccessRef.current = false;
         await processRecords(records);
     }, [records, processRecords]);
 
@@ -210,24 +211,7 @@ export function FileUrlDownloadDialog({
                             每行输入一个 URL，支持批量下载
                         </p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 w-full">
-                        <div className="flex items-center gap-3">
-                            <Label className="flex-shrink-0">最大下载线程</Label>
-                            <Select
-                                value={String(maxConcurrency)}
-                                onValueChange={(val) => setMaxConcurrency(Number(val))}
-                            >
-                                <SelectTrigger className="w-24">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {MAX_CONCURRENCY_OPTIONS.map(n => (
-                                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
+                    <div className="flex items-center justify-end gap-3 w-full">
                         <div className="flex items-center gap-2">
                             <Button
                                 onClick={startDownload}
@@ -249,14 +233,14 @@ export function FileUrlDownloadDialog({
                             key={idx}
                             className={cn(
                                 "flex items-center gap-2 p-2 rounded border text-sm",
-                                record.status === 'success' && "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950",
+                                record.status === 'queued' && "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950",
                                 record.status === 'error' && "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950",
                                 record.status === 'downloading' && "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950",
                                 record.status === 'pending' && "border-muted",
                             )}
                         >
                             <div className="flex-shrink-0">
-                                {record.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                {record.status === 'queued' && <ListOrdered className="h-4 w-4 text-amber-500" />}
                                 {record.status === 'error' && <XCircle className="h-4 w-4 text-red-500" />}
                                 {record.status === 'downloading' && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
                                 {record.status === 'pending' && <Download className="h-4 w-4 text-muted-foreground" />}
@@ -266,7 +250,11 @@ export function FileUrlDownloadDialog({
                                 {record.message && (
                                     <p className={cn(
                                         "text-xs mt-0.5",
-                                        record.status === 'success' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                        record.status === 'queued'
+                                            ? "text-amber-700 dark:text-amber-300"
+                                            : record.status === 'error'
+                                                ? "text-red-600 dark:text-red-400"
+                                                : "text-muted-foreground"
                                     )}>
                                         {record.message}
                                     </p>
@@ -332,10 +320,6 @@ export function FileUrlDownloadDialog({
         return (
             <div className="flex gap-2 w-full justify-end">
                 <Button onClick={() => {
-                    const successCount = records.filter(r => r.status === 'success').length;
-                    if (successCount > 0) {
-                        onSuccess?.();
-                    }
                     resetState();
                     setOpen(false);
                 }}>

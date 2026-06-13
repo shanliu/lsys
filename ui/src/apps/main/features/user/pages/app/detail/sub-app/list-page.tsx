@@ -1,10 +1,9 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_SUB_APP_LIST } from "@shared/apis/user/file";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
@@ -45,6 +44,7 @@ import { useState } from "react";
 import { subAppModuleConfig } from "../nav-info";
 import { ListNotifyDrawer } from "./list-notify-drawer";
 import { SubAppListFilterFormSchema } from "./list-schema";
+import * as z from "zod";
 import { SubAppDetailDrawer } from "./list-sub-app-detail-drawer";
 import { SubAppSecretDrawer } from "./list-sub-app-secret-drawer";
 
@@ -180,6 +180,21 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["appSubAppList"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof SubAppListFilterFormSchema>>({
+    defaultValues: {
+      sub_app_id: filterParam.sub_app_id,
+      status: filterParam.status,
+    },
+    resolver: zodResolver(SubAppListFilterFormSchema) as any,
+    initValues: { sub_app_id: undefined, status: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 字典数据已加载，创建状态映射器
   const appStatus = createStatusMapper(
@@ -331,78 +346,20 @@ function SubAppListContent({ dictData }: SubAppListContentProps) {
     // 使用与 feature-mail 一致的布局样式和间距
     <div className="flex flex-col min-h-0 space-y-3">
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        {/* 过滤器 */}
-        <FilterContainer
-          defaultValues={{
-            sub_app_id: filterParam.sub_app_id?.toString(),
-            status: filterParam.status?.toString(),
-          }}
-          resolver={zodResolver(SubAppListFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              {/* 子应用ID过滤 */}
-              <FilterInput
-                name="sub_app_id"
-                placeholder="输入应用ID"
-                label="应用ID"
-                type="number"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-              />
-
-              {/* 状态过滤 */}
-              {dictData.app_status && (
-                <FilterDictSelect
-                  name="status"
-                  placeholder="选择状态"
-                  label="状态"
-                  disabled={isLoading}
-                  dictData={dictData.app_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-                extraActions={
-                  <UserExportAction
-                    appId={Number(appId)}
-                    exportType={EXPORT_TYPE_USER_SUB_APP_LIST}
-                    params={{
-                      app_id: Number(appId),
-                      sub_app_id: filters.sub_app_id,
-                      status: filters.status,
-                    }}
-                    layoutParams={layoutParams}
-                  />
-                }
-              />
-            </div>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterInput name="sub_app_id" placeholder="输入应用ID" label="应用ID" type="number" disabled={isLoading} />
+          {dictData.app_status && (
+            <FilterDictSelect name="status" placeholder="选择状态" label="状态" disabled={isLoading}
+              dictData={dictData.app_status} allLabel="全部" />
           )}
-        </FilterContainer>
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+          </FilterActions>
+        </FilterBar>
       </div>
 
       {/* 表格和分页容器 - 确保不超出页面高度 */}

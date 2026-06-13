@@ -4,6 +4,7 @@ use lsys_core::cache::LocalCacheConfig;
 use lsys_core::fluent_message;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::secret::{FieldEncryptor, SecretManager};
 
 use lsys_logger::dao::ChangeLoggerDao;
 
@@ -108,7 +109,7 @@ pub struct AccountDao {
     pub account_address: Arc<AccountAddress>,
     pub account_password: Arc<AccountPassword>,
     pub account_login_history: Arc<AccountLoginHistory>,
-    pub account_passwrod_hash: Arc<AccountPasswordHash>,
+    pub account_password_hash: Arc<AccountPasswordHash>,
 }
 
 impl AccountDao {
@@ -119,9 +120,14 @@ impl AccountDao {
         config: AccountConfig,
         remote_notify: Arc<RemoteNotify>,
         logger: Arc<ChangeLoggerDao>,
+        secret_manager: Arc<SecretManager>,  // 用于获取 password_pepper
+        field_encryptor: Arc<FieldEncryptor>,  // 用于字段加密
     ) -> Self {
-        let account_index = Arc::from(AccountIndex::new(db.clone()));
-        let password_hash = Arc::from(AccountPasswordHash::default());
+        let account_index = Arc::from(AccountIndex::new(db.clone(), field_encryptor.clone()));
+        // 使用 Argon2id 哈希（OWASP 推荐）。
+        // 从 SecretManager 获取 pepper（如果配置了）
+        let pepper = secret_manager.require("password_pepper").ok();
+        let password_hash = Arc::from(AccountPasswordHash::new_argon2_hash(pepper));
         let account = Arc::from(Account::new(
             db.clone(),
             account_index.clone(),
@@ -139,6 +145,7 @@ impl AccountDao {
                 remote_notify.clone(),
                 config.email_cache,
                 logger.clone(),
+                field_encryptor.clone(),
             )),
             account_external: Arc::from(AccountExternal::new(
                 db.clone(),
@@ -146,6 +153,7 @@ impl AccountDao {
                 remote_notify.clone(),
                 config.external_cache,
                 logger.clone(),
+                field_encryptor.clone(),
             )),
             account_mobile: Arc::from(AccountMobile::new(
                 db.clone(),
@@ -154,6 +162,7 @@ impl AccountDao {
                 remote_notify.clone(),
                 config.mobile_cache,
                 logger.clone(),
+                field_encryptor.clone(),
             )),
             account_name: Arc::from(AccountName::new(
                 db.clone(),
@@ -175,6 +184,7 @@ impl AccountDao {
                 remote_notify.clone(),
                 config.address_cache,
                 logger.clone(),
+                field_encryptor.clone(),
             )),
             account_password: Arc::from(AccountPassword::new(
                 db,
@@ -184,7 +194,7 @@ impl AccountDao {
                 logger,
                 password_hash.clone(),
             )),
-            account_passwrod_hash: password_hash,
+            account_password_hash: password_hash,
             account_login_history,
         }
     }

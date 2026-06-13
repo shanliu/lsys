@@ -1,25 +1,16 @@
-use actix_http::header;
 use actix_utils::future::{Ready, err, ok};
 use actix_web::{FromRequest, HttpRequest, dev::Payload, web::Data};
-use jsonwebtoken::{DecodingKey, Validation, decode};
 use lsys_web::lsys_access::dao::AccessSession;
 use lsys_web::lsys_core::api_utils::{
     SERVICE_SIGNATURE_HEADER, SERVICE_TIMESTAMP_HEADER, compute_service_sign,
 };
-use lsys_web::lsys_core::fluents::IntoFluentMessage;
-use lsys_web::lsys_core::utils::RequestEnv;
 use lsys_web::lsys_user::dao::{UserAuthSession, UserAuthToken};
-use lsys_web::{
-    common::{JsonData, JsonResponse, RequestAuthDao},
-    dao::WebDao,
-};
+use lsys_web::{common::{JsonData, JsonResponse, RequestAuthDao}, dao::WebDao};
 use std::ops::Deref;
 use std::str::FromStr;
 
 use super::ResponseJson;
-use super::request_jwt::{JwtClaims, JwtQueryConfig};
-
-const FORWARDED_FOR_HEADER: &str = "X-Forwarded-For";
+use super::request_token::{TokenSignConfig, verify_token};
 
 /// 时间戳有效期（秒）
 const TIMESTAMP_TOLERANCE_SECS: i64 = 3600; // 1小时
@@ -31,11 +22,9 @@ const TIMESTAMP_TOLERANCE_SECS: i64 = 3600; // 1小时
 /// 签名验证: X-Signature = MD5(service_api_key + X-Timestamp)
 /// 时间戳验证: X-Timestamp 必须在 1小时
 pub struct ServiceQuery {
-    pub inner:
+    inner:
         RequestAuthDao<UserAuthToken, lsys_web::lsys_user::dao::UserAuthData, UserAuthSession>,
-    pub jwt_claims: Option<JwtClaims>,
-    #[allow(unused)]
-    pub req: HttpRequest,
+    bearer_token: Option<String>,
 }
 
 impl Deref for ServiceQuery {
@@ -164,80 +153,22 @@ impl FromRequest for ServiceQuery {
             );
         }
 
-        // Now we trust forwarded headers
-        let user_lang = req
-            .headers()
-            .get(header::ACCEPT_LANGUAGE)
-            .and_then(|t| t.to_str().map(|s| s.split(',').next().unwrap_or(s)).ok())
-            .unwrap_or("zh_CN")
-            .replace('-', "_");
-
-        let user_agent = req
-            .headers()
-            .get("User-Agent")
-            .and_then(|e| e.to_str().ok());
-
-        let request_id = req
-            .headers()
-            .get("X-Request-ID")
-            .and_then(|e| e.to_str().ok());
-
-        let device_id = req
-            .headers()
-            .get("X-Device-ID")
-            .and_then(|e| e.to_str().ok());
-
-        // Trust X-Forwarded-For from validated service calls
-        let client_ip: Option<String> = req
-            .headers()
-            .get(FORWARDED_FOR_HEADER)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .map(|s| s.trim().to_string())
-            .or_else(|| {
-                req.connection_info()
-                    .realip_remote_addr()
-                    .map(|s| s.to_string())
-            });
-
-        let env = match RequestEnv::new(
-            Some(&user_lang),
-            client_ip.as_deref(),
-            request_id,
-            user_agent,
-            device_id,
-        ) {
-            Ok(tmp) => tmp,
-            Err(verr) => {
-                return err(JsonResponse::data(
-                    JsonData::default()
-                        .set_sub_code("env_valid_err")
-                        .set_code(400),
-                )
-                .set_message(verr.to_fluent_message().default_format())
-                .into());
-            }
-        };
-
-        // Parse JWT if present (optional - some endpoints may not require auth)
-        let jwt_claims = parse_jwt_from_request(req, web_dao);
+        // Parse opaque bearer token if present (optional - some endpoints may not require auth)
+        let bearer_token = parse_bearer_from_request(req);
 
         ok(Self {
             inner: RequestAuthDao::new(
-                web_dao.clone().into_inner(),
-                env,
                 UserAuthSession::new(
                     web_dao.web_user.user_dao.auth_dao.clone(),
                     UserAuthToken::default(),
                 ),
             ),
-            jwt_claims,
-            req: req.to_owned(),
+            bearer_token,
         })
     }
 }
 
-fn parse_jwt_from_request(req: &HttpRequest, web_dao: &Data<WebDao>) -> Option<JwtClaims> {
+fn parse_bearer_from_request(req: &HttpRequest) -> Option<String> {
     let auth_header = req.headers().get("Authorization")?;
     let token_str = auth_header.to_str().ok()?;
 
@@ -246,50 +177,31 @@ fn parse_jwt_from_request(req: &HttpRequest, web_dao: &Data<WebDao>) -> Option<J
     }
 
     let token = token_str.trim()[7..].trim();
-
-    // Try to get JWT config from app_data
-    if let Some(config) = req.app_data::<JwtQueryConfig>()
-        && let Ok(token_data) = decode::<JwtClaims>(token, &config.decode_key, &config.validation)
-    {
-        return Some(token_data.claims);
+    if token.is_empty() {
+        return None;
     }
 
-    // Fallback: try to decode with app_jwt_key from config
-    let jwt_key = web_dao
-        .app_core
-        .config
-        .find(None)
-        .get_string("app_jwt_key")
-        .ok()?;
-
-    let mut validation = Validation::default();
-    validation.validate_exp = true;
-
-    decode::<JwtClaims>(
-        token,
-        &DecodingKey::from_secret(jwt_key.as_bytes()),
-        &validation,
-    )
-    .ok()
-    .map(|t| t.claims)
+    // 过「前缀 + 校验和」闸门，拿到内部不透明 token
+    let sign_key = TokenSignConfig::from_request(req).sign_key().to_string();
+    verify_token(token, &sign_key).ok()
 }
 
 impl ServiceQuery {
-    /// Get JWT claims, returning error if not present
-    pub fn require_jwt(&self) -> Result<&JwtClaims, ResponseJson> {
-        self.jwt_claims.as_ref().ok_or_else(|| {
-            JsonResponse::data(JsonData::error().set_sub_code("jwt_required"))
-                .set_message("Authorization header with valid JWT is required")
+    /// Get the opaque bearer token, returning error if not present
+    pub fn require_token(&self) -> Result<&String, ResponseJson> {
+        self.bearer_token.as_ref().ok_or_else(|| {
+            JsonResponse::data(JsonData::error().set_sub_code("token_required"))
+                .set_message("Authorization header with valid token is required")
                 .into()
         })
     }
 
-    /// Set user token from JWT claims
-    pub async fn set_user_token_from_jwt(&self) -> Result<(), ResponseJson> {
-        let claims = self.require_jwt()?;
-        let token = UserAuthToken::from_str(&claims.token).map_err(|e| {
-            JsonResponse::data(JsonData::error().set_sub_code("jwt_token_invalid"))
-                .set_message(format!("Invalid token in JWT: {:?}", e))
+    /// Set user token from the opaque bearer token
+    pub async fn set_user_token_from_bearer(&self) -> Result<(), ResponseJson> {
+        let token_str = self.require_token()?;
+        let token = UserAuthToken::from_str(token_str).map_err(|e| {
+            JsonResponse::data(JsonData::error().set_sub_code("token_invalid"))
+                .set_message(format!("Invalid token: {:?}", e))
         })?;
         self.user_session.write().await.set_session_token(token);
         Ok(())

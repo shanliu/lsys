@@ -3,6 +3,7 @@ pub mod api;
 pub mod export;
 pub mod rest;
 pub mod service;
+pub mod shared;
 
 pub const APP_FEATURE_SMS: &str = "sms";
 pub const APP_FEATURE_MAIL: &str = "mail";

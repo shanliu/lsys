@@ -1,10 +1,9 @@
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_RBAC_APP_AUDIT } from "@shared/apis/user/file";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
 import { AuditDetailTooltip } from "@apps/main/components/local/audit-detail-tooltip";
 import { UserDataTooltip } from "@apps/main/components/local/user-data-tooltip";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
@@ -49,6 +48,7 @@ import { useState } from "react";
 import { featureRbacModuleConfig } from "../nav-info";
 import { AuditDetailDrawer } from "./audit-detail-drawer";
 import { AuditListFilterFormSchema } from "./audit-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureRbacAuditPage() {
   const { appId } = Route.useParams();
@@ -208,6 +208,28 @@ function AppDetailFeatureRbacAuditContent({
   // loading 状态
   const isLoading = dataLoading;
 
+  const filterForm = useFilterBarForm<z.infer<typeof AuditListFilterFormSchema>>({
+    defaultValues: {
+      user_ip: filterParam.user_ip,
+      request_id: filterParam.request_id,
+      check_result: filterParam.check_result,
+    },
+    resolver: zodResolver(AuditListFilterFormSchema) as any,
+    initValues: { user_ip: undefined, request_id: undefined, check_result: undefined },
+    onSubmit: (data) => {
+      searchGo({
+        user_ip: data.user_ip,
+        request_id: data.request_id,
+        check_result: data.check_result,
+        pos: null,
+        forward: true,
+      });
+    },
+    onReset: () => {
+      searchGo({ pos: null, limit: currentLimit, forward: true, user_ip: undefined, request_id: undefined, check_result: undefined });
+    },
+  });
+
   // 审计结果状态映射：1=授权通过(success), 0=授权失败(danger)
   const checkResultStatus = createStatusMapper<string>(
     {
@@ -342,110 +364,21 @@ function AppDetailFeatureRbacAuditContent({
       <div className="flex flex-col min-h-0 space-y-6">
         <div className="flex-shrink-0 mb-1 sm:mb-4">
           {/* 过滤器 */}
-          <FilterContainer
-            defaultValues={{
-              user_ip: filterParam.user_ip,
-              request_id: filterParam.request_id,
-              check_result: filterParam.check_result,
-            }}
-            resolver={zodResolver(AuditListFilterFormSchema) as any}
-            onSubmit={(data) => {
-              const transformedData = data as {
-                user_ip?: string;
-                request_id?: string;
-                check_result?: string;
-              };
-              searchGo({
-                user_ip: transformedData.user_ip,
-                request_id: transformedData.request_id,
-                check_result: transformedData.check_result,
-                pos: null,
-                forward: true,
-              });
-            }}
-            onReset={() => {
-              searchGo({
-                pos: null,
-                limit: currentLimit,
-                forward: true,
-                user_ip: undefined,
-                request_id: undefined,
-                check_result: undefined,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotalInfo())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                {/* 审计结果过滤 */}
-                {dictData.audit_result && (
-                  <FilterDictSelect
-                    name="check_result"
-                    placeholder="选择结果"
-                    label="授权结果"
-                    disabled={isLoading}
-                    dictData={dictData.audit_result}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                    className="w-28"
-                  />
-                )}
-
-                {/* IP地址过滤 */}
-                <FilterInput
-                  name="user_ip"
-                  placeholder="输入IP地址"
-                  label="IP地址"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className="w-[13rem]"
-                />
-
-                {/* 请求ID过滤 */}
-                <FilterInput
-                  name="request_id"
-                  placeholder="输入请求ID"
-                  label="请求ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className="w-[13rem]"
-                />
-
-                {/* 动作按钮区域 */}
-                <div
-                  className={cn(
-                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                  )}
-                >
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <UserExportAction
-                        appId={appId}
-                        exportType={EXPORT_TYPE_USER_RBAC_APP_AUDIT}
-                        params={{
-                          app_id: appId,
-                          user_ip: filters.user_ip,
-                          request_id: filters.request_id,
-                          check_result: filters.check_result,
-                        }}
-                        layoutParams={layoutParams}
-                      />
-                    }
-                  />
-                </div>
-              </div>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+            </FilterBar.Summary>
+            {dictData.audit_result && (
+              <FilterDictSelect name="check_result" placeholder="选择结果" label="授权结果"
+                disabled={isLoading} dictData={dictData.audit_result} allLabel="全部" className="w-28" />
             )}
-          </FilterContainer>
+            <FilterInput name="user_ip" placeholder="输入IP地址" label="IP地址" disabled={isLoading} className="w-[13rem]" />
+            <FilterInput name="request_id" placeholder="输入请求ID" label="请求ID" disabled={isLoading} className="w-[13rem]" />
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+            </FilterActions>
+          </FilterBar>
         </div>
 
         {/* 数据表格 */}

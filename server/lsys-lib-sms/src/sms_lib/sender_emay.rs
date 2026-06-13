@@ -33,9 +33,9 @@ impl EmaySms {
     /// AES-128-ECB 加密，PKCS7 填充
     ///
     /// secretKey 超过 16 字节取前 16 字节，不足 16 字节末尾补 `0x00`
-    fn aes_encrypt(secret_key: &str, data: &[u8]) -> Vec<u8> {
+    fn aes_encrypt(secret_key: &str, data: &[u8]) -> Result<Vec<u8>, String> {
         use aes::Aes128;
-        use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
+        use aes::cipher::{BlockCipherEncrypt, KeyInit};
 
         let mut key_bytes = [0u8; 16];
         let key = secret_key.as_bytes();
@@ -47,20 +47,21 @@ impl EmaySms {
         let mut padded = data.to_vec();
         padded.extend(std::iter::repeat_n(pad_len as u8, pad_len));
 
-        let cipher = Aes128::new(GenericArray::from_slice(&key_bytes));
+        let cipher = Aes128::new(&key_bytes.into());
         let mut result = Vec::with_capacity(padded.len());
-        for chunk in padded.chunks(16) {
-            let mut block = GenericArray::clone_from_slice(chunk);
+        for chunk in padded.chunks_exact(16) {
+            let mut block = aes::cipher::Array::try_from(chunk)
+                .map_err(|_| "aes_encrypt: chunk size mismatch".to_string())?;
             cipher.encrypt_block(&mut block);
             result.extend_from_slice(&block);
         }
-        result
+        Ok(result)
     }
 
     /// AES-128-ECB 解密，移除 PKCS7 填充
     fn aes_decrypt(secret_key: &str, data: &[u8]) -> Result<Vec<u8>, String> {
         use aes::Aes128;
-        use aes::cipher::{BlockDecrypt, KeyInit, generic_array::GenericArray};
+        use aes::cipher::{BlockCipherDecrypt, KeyInit};
 
         if data.is_empty() || !data.len().is_multiple_of(16) {
             return Err(format!("响应数据长度无效:{}", data.len()));
@@ -71,10 +72,11 @@ impl EmaySms {
         let copy_len = key.len().min(16);
         key_bytes[..copy_len].copy_from_slice(&key[..copy_len]);
 
-        let cipher = Aes128::new(GenericArray::from_slice(&key_bytes));
+        let cipher = Aes128::new(&key_bytes.into());
         let mut result = Vec::with_capacity(data.len());
-        for chunk in data.chunks(16) {
-            let mut block = GenericArray::clone_from_slice(chunk);
+        for chunk in data.chunks_exact(16) {
+            let mut block = aes::cipher::Array::try_from(chunk)
+                .map_err(|_| "aes_decrypt: chunk size mismatch".to_string())?;
             cipher.decrypt_block(&mut block);
             result.extend_from_slice(&block);
         }
@@ -193,7 +195,8 @@ impl EmaySms {
         let json_str = req.to_string();
         debug!("emay batch send body: {}", json_str);
 
-        let encrypted = Self::aes_encrypt(secret_key, json_str.as_bytes());
+        let encrypted = Self::aes_encrypt(secret_key, json_str.as_bytes())
+            .map_err(|e| SendError::Next(format!("encrypt request fail:{}", e)))?;
 
         let mut headers = HeaderMap::new();
         if let Ok(v) = HeaderValue::from_str(app_id) {
@@ -266,7 +269,8 @@ impl EmaySms {
         let json_str = req.to_string();
         debug!("emay custom send body: {}", json_str);
 
-        let encrypted = Self::aes_encrypt(secret_key, json_str.as_bytes());
+        let encrypted = Self::aes_encrypt(secret_key, json_str.as_bytes())
+            .map_err(|e| SendError::Next(format!("encrypt request fail:{}", e)))?;
 
         let mut headers = HeaderMap::new();
         if let Ok(v) = HeaderValue::from_str(app_id) {

@@ -1,11 +1,15 @@
 "use client";
 
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useUserAppExportAction } from "@apps/main/hooks/use-user-app-export-action";
 import { EXPORT_TYPE_APP_NOTIFY_LIST } from "@shared/apis/user/file";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import { NotifyKeyLink } from "@apps/main/features/user/components/ui/notify-key-link";
 import {
@@ -61,6 +65,7 @@ import React from "react";
 import { notifyModuleConfig } from "./nav-info";
 import { NotifyDetailDrawer } from "./notify-detail-drawer";
 import { AppNotifyListFilterFormSchema } from "./notify-schema";
+import * as z from "zod";
 import { NotifySecretDrawer } from "./notify-secret-drawer";
 
 export function AppNotifyPage() {
@@ -108,7 +113,7 @@ export function AppNotifyPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["user_app"] as const);
+  } = useDictData(["user_app", "user_export"] as const);
 
   // 字典数据已加载，创建状态映射器（需要在早期返回之前调用）
   const notifyStatusMapper = React.useMemo(
@@ -202,7 +207,7 @@ export function AppNotifyPage() {
 
 // 内容组件：负责内容加载和渲染
 interface AppNotifyContentProps {
-  dictData: TypedDictData<["user_app"]>;
+  dictData: TypedDictData<["user_app", "user_export"]>;
   notifyStatusMapper: ReturnType<typeof createStatusMapper<string>>;
   appData: AppListItemType | null | undefined;
   onOpenDetail: (notify: AppNotifyListItemType) => void;
@@ -229,6 +234,15 @@ function AppNotifyContent({
     notify_method: filterParam.notify_method || null,
     notify_status: filterParam.notify_status || null,
   };
+
+  const exportAction = useUserAppExportAction({
+    appId: Number(appId),
+    exportType: EXPORT_TYPE_APP_NOTIFY_LIST,
+    params: {
+      method: filters.notify_method ?? undefined,
+      status: filters.notify_status ? Number(filters.notify_status) : undefined,
+    },
+  });
 
   // 分页状态 - 直接从 URL 参数派生
   const pagination: LimitType = {
@@ -424,6 +438,31 @@ function AppNotifyContent({
     queryClient.invalidateQueries({ queryKey: ["app-notify-list"] });
   }, [queryClient, countNumManager]);
 
+  const filterForm = useFilterBarForm<z.infer<typeof AppNotifyListFilterFormSchema>>({
+    defaultValues: {
+      notify_method: filterParam.notify_method,
+      notify_status: filterParam.notify_status,
+    },
+    resolver: zodResolver(AppNotifyListFilterFormSchema) as any,
+    initValues: { notify_method: undefined, notify_status: undefined },
+    onSubmit: (data) => {
+      const d = data as { notify_method?: string; notify_status?: string };
+      searchGo({ notify_method: d.notify_method, notify_status: d.notify_status, pos: null });
+    },
+    onReset: () => {
+      searchGo({ pos: null, limit: currentLimit, forward: true, notify_method: undefined, notify_status: undefined });
+    },
+  });
+
+  const filteredNotifyMethodData = (() => {
+    if (!dictData.notify_method) return null;
+    if (appData?.parent_app_id && appData.parent_app_id > 0) {
+      const filtered = dictData.notify_method.filter((item: any) => item.key !== "sub_app_notify");
+      return new DictList(...filtered);
+    }
+    return dictData.notify_method;
+  })();
+
   // 页面大小变化处理
   const handlePageSizeChange = React.useCallback(
     (pageSize: number) => {
@@ -440,109 +479,44 @@ function AppNotifyContent({
     <div className="flex h-full flex-1 flex-col">
       {/* 过滤器 */}
       <div className="flex-shrink-0 mb-2">
-        <FilterContainer
-          defaultValues={{
-            notify_method: filterParam.notify_method,
-            notify_status: filterParam.notify_status,
-          }}
-          resolver={zodResolver(AppNotifyListFilterFormSchema) as any}
-          onSubmit={(data) => {
-            const transformedData = data as {
-              notify_method?: string;
-              notify_status?: string;
-            };
-            searchGo({
-              notify_method: transformedData.notify_method,
-              notify_status: transformedData.notify_status,
-              pos: null,
-            });
-          }}
-          onReset={() => {
-            searchGo({
-              pos: null,
-              limit: currentLimit,
-              forward: true,
-              notify_method: undefined,
-              notify_status: undefined,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotalInfo())}
-              loading={isLoading}
-            />
-          }
-          className={cn("bg-card rounded-lg border shadow-sm relative")}
-        >
-          {(layoutParams, form) => (
-            <div className={cn("flex-1 flex flex-wrap items-end gap-3")}>
-              {/* 回调方法过滤 */}
-              {dictData.notify_method &&
-                (() => {
-                  // 如果有父应用，过滤掉 sub_app_notify
-                  let notifyMethodData = dictData.notify_method;
-                  if (appData?.parent_app_id && appData.parent_app_id > 0) {
-                    const filtered = dictData.notify_method.filter(
-                      (item: any) => item.key !== "sub_app_notify",
-                    );
-                    notifyMethodData = new DictList(...filtered);
-                  }
-
-                  return (
-                    <FilterDictSelect
-                      name="notify_method"
-                      placeholder="选择回调方法"
-                      label="回调类型"
-                      disabled={isLoading}
-                      dictData={notifyMethodData}
-                      layoutParams={layoutParams}
-                      allLabel="全部"
-                    />
-                  );
-                })()}
-
-              {/* 回调状态过滤 */}
-              {dictData.notify_status && (
-                <FilterDictSelect
-                  name="notify_status"
-                  placeholder="选择状态"
-                  label="状态"
-                  disabled={isLoading}
-                  dictData={dictData.notify_status}
-                  layoutParams={layoutParams}
-                  allLabel="全部"
-                />
-              )}
-
-              {/* 动作按钮区域 */}
-              <div
-                className={cn(
-                  layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                )}
-              >
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <UserExportAction
-                      appId={Number(appId)}
-                      exportType={EXPORT_TYPE_APP_NOTIFY_LIST}
-                      params={{
-                        method: filters.notify_method ?? undefined,
-                        status: filters.notify_status
-                          ? Number(filters.notify_status)
-                          : undefined,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            </div>
+        <FilterBar form={filterForm} className={cn("bg-card rounded-lg border shadow-sm relative")}>
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterBar.MobileExtra>
+            <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+          </FilterBar.MobileExtra>
+          {filteredNotifyMethodData && (
+            <FilterDictSelect name="notify_method" placeholder="选择回调方法" label="回调类型" disabled={isLoading}
+              dictData={filteredNotifyMethodData} allLabel="全部" />
           )}
-        </FilterContainer>
+          {dictData.notify_status && (
+            <FilterDictSelect name="notify_status" placeholder="选择状态" label="状态" disabled={isLoading}
+              dictData={dictData.notify_status} allLabel="全部" />
+          )}
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+            <FilterBar.DesktopOnly>
+              <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+            </FilterBar.DesktopOnly>
+          </FilterActions>
+          <FilterBar.MobileFooter>
+            {(closeDrawer) => (
+              <ExportButton isSubmitting={exportAction.isSubmitting}
+                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+            )}
+          </FilterBar.MobileFooter>
+        </FilterBar>
+        <ExportDrawer
+          open={exportAction.drawerOpen}
+          onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+          statusDict={dictData.export_task_status!}
+          tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+          currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+          onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+        />
       </div>
 
       <div className="flex flex-col flex-1 min-h-0">

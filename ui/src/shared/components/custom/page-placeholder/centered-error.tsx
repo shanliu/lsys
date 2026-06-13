@@ -5,7 +5,7 @@ import { cn } from "@shared/lib/utils";
 import type { ApiResult } from "@shared/types/apis-rest";
 import { AlertTriangle, ChevronDown, Info, RefreshCw, ShieldAlert } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { PageSkeletonBaseProps } from "./base";
+
 
 /**
  * 服务器错误类型（支持 ApiResult 和 Axios 错误格式）
@@ -21,7 +21,9 @@ interface ServerError {
     data?: ApiResult;
 }
 
-export interface CenteredErrorProps extends PageSkeletonBaseProps {
+export interface CenteredErrorProps {
+    /** 外层容器 class */
+    className?: string;
     /** 
      * 错误展示变体
      * - 'content': 无边框模式（仅居中错误内容）

@@ -2,6 +2,7 @@ use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::UserAuthQueryDao;
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_core::fluent_message;
 use lsys_mfa::dao::MfaSubject;
@@ -11,15 +12,22 @@ use serde_json::json;
 
 /// 生成用户绑定MFA设备的二维码数据信息
 /// 返回二维码URL、Secret密钥等信息供MFA设备扫描
-pub async fn mfa_bind_qrcode(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn mfa_bind_qrcode(
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     // 获取应用名称
     let app_name = if auth_data.user().app_id == 0 {
         "lsys".to_string()
     } else {
         // 获取应用信息
-        let app = req_dao
-            .web_dao
+        let app = web_dao
             .web_app
             .app_dao
             .app
@@ -52,8 +60,7 @@ pub async fn mfa_bind_qrcode(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRespo
         "otpauth://totp/{}:{}?secret={}&issuer={}",
         issuer_enc, user_enc, secret_enc, issuer_enc
     );
-    let len = req_dao
-        .web_dao
+    let len = web_dao
         .app_core
         .config
         .find(None)
@@ -82,9 +89,15 @@ pub struct MfaBindParam {
 /// 用户在MFA设备扫描二维码后，输入显示的TOTP验证码进行绑定
 pub async fn mfa_bind_device(
     param: &MfaBindParam,
-    req_dao: &UserAuthQueryDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
     // 创建MFA主体
     let subject = MfaSubject {
@@ -94,13 +107,13 @@ pub async fn mfa_bind_device(
 
     // 在启用新Secret前先验证TOTP码是否正确
     // 这确保用户确实拥有该MFA设备
-    let totp_dao = &req_dao.web_dao.web_mfa.totp_dao;
+    let totp_dao = &web_dao.web_mfa.totp_dao;
 
     // 验证Secret格式并解码
     let secret_key = lsys_mfa::dao::decode_base32(&param.secret)?;
 
     // 获取TOTP配置
-    let config = lsys_mfa::dao::MfaTotpConfig::load(&req_dao.web_dao.app_core);
+    let config = lsys_mfa::dao::MfaTotpConfig::load(&web_dao.app_core);
 
     // 验证TOTP码 - 检查用户输入的验证码是否正确
     let code_trimmed = param.code.trim();
@@ -136,20 +149,20 @@ pub async fn mfa_bind_device(
 }
 
 /// 获取用户MFA绑定状态
-pub async fn mfa_status(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn mfa_status(auth_dao: &UserAuthQueryDao, web_dao: &WebDao) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
     let subject = MfaSubject {
         app_id: auth_data.user().app_id,
         user_data: auth_data.user().user_data.clone(),
     };
 
-    let is_enabled = req_dao
-        .web_dao
-        .web_mfa
-        .totp_dao
-        .is_enabled(&subject)
-        .await?;
+    let is_enabled = web_dao.web_mfa.totp_dao.is_enabled(&subject).await?;
 
     Ok(JsonResponse::data(JsonData::body(json!({
         "enabled": is_enabled,
@@ -157,13 +170,18 @@ pub async fn mfa_status(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> 
 }
 
 /// 解绑MFA设备
-pub async fn mfa_unbind(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn mfa_unbind(auth_dao: &UserAuthQueryDao, web_dao: &WebDao) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let subject = MfaSubject {
         app_id: auth_data.user().app_id,
         user_data: auth_data.user().user_data.clone(),
     };
     // 禁用MFA
-    req_dao.web_dao.web_mfa.totp_dao.disable(&subject).await?;
+    web_dao.web_mfa.totp_dao.disable(&subject).await?;
     Ok(JsonResponse::default())
 }

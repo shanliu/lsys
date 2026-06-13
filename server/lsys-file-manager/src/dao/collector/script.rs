@@ -2,13 +2,12 @@
 
 use lsys_core::db::{
     CursorPageData, CursorPageParam, Insert, OffsetPageParam, QueryBuilderExt, TableMeta,
-    TotalParam, TotalRow, Update, WhereClause,
-    utils::FetchField,
+    TotalParam, TotalRow, Update, WhereClause, utils::FetchField,
 };
 use lsys_core::fluent_message;
 use lsys_core::utils::{RequestEnv, now_time};
-use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidStrlen};
 use lsys_core::valid_key;
+use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidStrlen};
 use lsys_file::dao::FileListAttrParam;
 use sqlx::{MySql, QueryBuilder};
 
@@ -25,7 +24,7 @@ pub struct ScriptFileTag {
     pub add_time: u64,
 }
 
-/// 脚本关联的文件信息（含标签 + URL）
+/// 脚本关联的文件信息（使用私有存储，通过 file_key 访问）
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ScriptFileItem {
     pub file_id: u64,
@@ -34,20 +33,17 @@ pub struct ScriptFileItem {
     pub file_size: u64,
     pub storage_type: String,
     pub content_type: String,
-    pub file_url: Option<String>,
+    pub file_key: String,
     pub add_time: u64,
-    pub tags: Vec<ScriptFileTag>,
-    // 新增字段
     pub user_id: u64,
     pub add_user_id: u64,
     pub app_id: u64,
     pub status: i8,
-    pub file_user_status: i8,
+    pub file_ref_status: i8,
     pub source_url: String,
     pub source_md5: String,
     pub modify_time: u64,
-    pub attr_local: Option<lsys_file::dao::FileLocalAttr>,
-    pub attr_oss: Option<lsys_file::dao::FileOssAttr>,
+    pub attr_local: Option<lsys_file::dao::FileLocalAttrData>,
 }
 
 impl FileCollector {
@@ -84,14 +80,12 @@ impl FileCollector {
             .add(
                 valid_key!("name"),
                 &name,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(1, name_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, name_max)),
             )
             .add(
                 valid_key!("script_code"),
                 &script_code,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(1, script_code_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, script_code_max)),
             )
             .check()?;
 
@@ -203,14 +197,12 @@ impl FileCollector {
             .add(
                 valid_key!("name"),
                 &name,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(1, name_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, name_max)),
             )
             .add(
                 valid_key!("script_code"),
                 &script_code,
-                &ValidParamCheck::default()
-                    .add_rule(ValidStrlen::range(1, script_code_max)),
+                &ValidParamCheck::default().add_rule(ValidStrlen::range(1, script_code_max)),
             )
             .check()?;
 
@@ -423,78 +415,44 @@ impl FileCollector {
         script: &CollectorScriptModel,
         page: &CursorPageParam<u64>,
         app_id: Option<u64>,
-        attr_param: &FileListAttrParam,
     ) -> FileManagerResult<(Vec<ScriptFileItem>, CursorPageData<u64>)> {
         let tag_name = format!("script_id_{}", script.id);
 
-        let (files, page_data): (Vec<lsys_file::dao::FileListItemAttr>, _) = self
+        let (files, page_data): (Vec<lsys_file::dao::FileListItemAttrData>, _) = self
             .file_dao
             .data_dao()
-            .list_files_by_tag(&tag_name, None, app_id, page, attr_param)
+            .list_files_by_tag(
+                &tag_name,
+                None,
+                app_id,
+                page,
+                &FileListAttrParam {
+                    attr_local: Some(true),
+                    ..Default::default()
+                },
+            )
             .await?;
-
-        // 批量获取 URL
-        let file_models: Vec<lsys_file::model::FileModel> = files
-            .iter()
-            .map(|item| lsys_file::model::FileModel {
-                id: item.item.file_id,
-                storage_type: item.item.storage_type.clone(),
-                status: item.item.status,
-                file_name: item.item.file_name.clone(),
-                file_md5: item.item.file_md5.clone(),
-                file_size: item.item.file_size,
-                modify_time: item.item.modify_time,
-                content_type: item.item.content_type.clone(),
-                copy_file_id: item.item.copy_file_id,
-                from_user_id: item.item.from_user_id,
-                add_time: item.item.add_time,
-                change_time: item.item.change_time,
-            })
-            .collect();
-        let url_map = self
-            .file_dao
-            .get_file_urls(&file_models)
-            .await
-            .unwrap_or_else(|_| std::collections::HashMap::new());
 
         let items: Vec<ScriptFileItem> = files
             .iter()
-            .map(|item| {
-                let file_url = url_map.get(&item.item.file_id).cloned();
-                let tags: Vec<ScriptFileTag> = item
-                    .attr_tag
-                    .as_ref()
-                    .map(|t| {
-                        t.tags
-                            .iter()
-                            .map(|tag| ScriptFileTag {
-                                tag_name: tag.tag_name.clone(),
-                                add_time: tag.add_time,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                ScriptFileItem {
-                    file_id: item.item.file_id,
-                    file_name: item.item.file_name.clone(),
-                    file_md5: item.item.file_md5.clone(),
-                    file_size: item.item.file_size,
-                    storage_type: item.item.storage_type.clone(),
-                    content_type: item.item.content_type.clone(),
-                    file_url,
-                    add_time: item.item.file_user_add_time,
-                    tags,
-                    user_id: item.item.user_id,
-                    add_user_id: item.item.add_user_id,
-                    app_id: item.item.app_id,
-                    status: item.item.status,
-                    file_user_status: item.item.file_user_status,
-                    source_url: item.item.source_url.clone(),
-                    source_md5: item.item.source_md5.clone(),
-                    modify_time: item.item.modify_time,
-                    attr_local: item.attr_local.clone(),
-                    attr_oss: item.attr_oss.clone(),
-                }
+            .map(|item| ScriptFileItem {
+                file_id: item.item.file_id,
+                file_name: item.item.file_name.clone(),
+                file_md5: item.item.file_md5.clone(),
+                file_size: item.item.file_size,
+                storage_type: item.item.storage_type.clone(),
+                content_type: item.item.content_type.clone(),
+                file_key: item.file_key.clone(),
+                add_time: item.item.file_ref_add_time,
+                user_id: item.item.user_id,
+                add_user_id: item.item.add_user_id,
+                app_id: item.item.app_id,
+                status: item.item.status,
+                file_ref_status: item.item.file_ref_status,
+                source_url: item.item.source_url.clone(),
+                source_md5: item.item.source_md5.clone(),
+                modify_time: item.item.modify_time,
+                attr_local: item.attr_local.clone(),
             })
             .collect();
 

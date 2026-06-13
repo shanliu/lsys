@@ -4,10 +4,11 @@ use actix_utils::future::{Ready, err, ok};
 use actix_web::{FromRequest, HttpRequest, dev::Payload, web::Data};
 
 use actix_http::header;
+use lsys_web::common::JsonResponse;
 use lsys_web::lsys_core::fluents::IntoFluentMessage;
 use lsys_web::lsys_core::utils::RequestEnv;
 use lsys_web::{
-    common::{JsonData, JsonResponse, RequestDao},
+    common::{JsonData, RequestDao},
     dao::WebDao,
 };
 
@@ -16,8 +17,7 @@ use super::ResponseJson;
 //正常用户登陆，如cookie登陆
 
 pub struct ReqQuery {
-    pub inner: RequestDao,
-    // pub req: HttpRequest,
+    inner: RequestDao,
 }
 
 impl Deref for ReqQuery {
@@ -72,8 +72,7 @@ impl FromRequest for ReqQuery {
                     }
                 };
                 ok(Self {
-                    inner: RequestDao::new(app_dao.clone().into_inner(), env),
-                    // req: req.to_owned(),
+                    inner: RequestDao::new(&app_dao.fluent, env),
                 })
             }
             None => err(JsonResponse::data(JsonData::error())

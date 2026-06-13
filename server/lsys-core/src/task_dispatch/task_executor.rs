@@ -321,6 +321,59 @@ impl<
             return;
         }
 
+        // 启动时清理当前 host 的孤立任务（上次崩溃/重启遗留），并触发立即扫描
+        // 这样可避免等待 task_timeout 超时才重试已中断的任务
+        let current_host = hostname::get()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        if let Ok(mut redis_conn) = self.redis.get().await {
+            match self._task_data(&mut redis_conn).await {
+                Ok(data) => {
+                    let mut cleaned = 0usize;
+                    for (k, v) in &data {
+                        if v.host == current_host {
+                            match redis_conn.hdel(self.config.task_list_key(), k).await {
+                                Ok(()) => cleaned += 1,
+                                Err(e) => warn!(
+                                    "startup cleanup: failed to remove orphaned task {}: {}",
+                                    k, e
+                                ),
+                            }
+                        }
+                    }
+                    if cleaned > 0 {
+                        info!(
+                            "startup cleanup: removed {} orphaned task(s) from host '{}' for [{}]",
+                            cleaned,
+                            current_host,
+                            self.config.task_list_key()
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "startup cleanup: failed to read task list for [{}]: {}",
+                        self.config.task_list_key(),
+                        e.to_fluent_message().default_format()
+                    );
+                }
+            }
+            // 无论是否有孤立任务，都发一个 notify 信号让 dispatch 循环立即扫描 DB
+            if let Err(e) = self.notify._notify(&mut redis_conn).await {
+                warn!(
+                    "startup notify failed for [{}]: {}",
+                    self.config.task_list_key(),
+                    e
+                );
+            } else {
+                info!(
+                    "startup notify sent for [{}]",
+                    self.config.task_list_key()
+                );
+            }
+        }
+
         let (channel_sender, mut channel_receiver) =
             tokio::sync::mpsc::channel::<T>(self.config.task_size);
         let task_list_key = self.config.task_list_key().to_owned();
@@ -587,7 +640,7 @@ impl<
                                 }
                                 info!("timeout check task:{}", self.config.task_list_key());
                             } else {
-                                debug!("read task data:{}", self.config.task_list_key());
+                                info!("dispatch: received notify signal for [{}]", self.config.task_list_key());
                             }
                         }
                         Err(err) => {
@@ -604,7 +657,8 @@ impl<
                         }
                     };
 
-                    match redis.ltrim(list_notify_key, 0, -1).await {
+                    // 清空剩余通知信号，避免多余唤醒
+                    match redis.del::<&str, ()>(list_notify_key).await {
                         Ok(()) => {
                             debug!("clear list succ :{}", self.config.task_list_key(),);
                         }
@@ -612,36 +666,25 @@ impl<
                             warn!("clear list error:{}:{}", self.config.task_list_key(), err);
                         }
                     };
-                    match redis.set_nx(&self.config.read_lock_key, 1).await {
-                        //确保读取待执行任务,全局只有一个在执行
-                        Ok(()) => {
-                            debug!("lock read succ :{}", self.config.task_list_key(),);
-                        }
-                        Err(err) => {
-                            warn!("lock read error:{}", err);
-                            sleep(Duration::from_secs(1)).await;
-                            continue;
-                        }
-                    };
-                    match redis
-                        .expire(
-                            &self.config.read_lock_key,
-                            self.config.read_lock_timeout as i64,
-                        )
+                    // 使用原子命令 SET key value NX EX timeout 获取读锁，避免 SET_NX + EXPIRE 之间崩溃导致锁永久无 TTL
+                    let lock_result: redis::Value = redis::cmd("SET")
+                        .arg(&self.config.read_lock_key)
+                        .arg(1i64)
+                        .arg("NX")
+                        .arg("EX")
+                        .arg(self.config.read_lock_timeout as usize)
+                        .query_async(&mut redis)
                         .await
-                    {
-                        Ok(()) => {}
-                        Err(err) => {
-                            match redis.del(&self.config.read_lock_key).await {
-                                Ok(()) => {}
-                                Err(err) => {
-                                    warn!("expire set fail,delete lock fail:{}", err);
-                                }
-                            };
-                            warn!("set expire error:{}", err);
-                            continue;
-                        }
-                    };
+                        .unwrap_or(Value::Nil);
+                    if !matches!(lock_result, Value::Okay) {
+                        info!(
+                            "lock read failed (held by another node): {}",
+                            self.config.task_list_key()
+                        );
+                        sleep(Duration::from_secs(1)).await;
+                        continue;
+                    }
+                    debug!("lock read succ :{}", self.config.task_list_key(),);
                     //完成读取锁定
 
                     //获取当前执行任务中数据
@@ -714,9 +757,15 @@ impl<
                             );
                         }
                     };
+                    info!(
+                        "dispatch: read_exec_task returned {} tasks, has_next={} for [{}]",
+                        task_data.result.len(),
+                        task_data.next,
+                        self.config.task_list_key()
+                    );
                     if task_data.result.is_empty() {
                         //无任务重新监听
-                        info!("not task:{} record data ", self.config.task_list_key());
+                        info!("dispatch: no pending tasks found for [{}]", self.config.task_list_key());
                         continue;
                     }
                     //添加任务中的数据

@@ -1,7 +1,8 @@
 use crate::common::{JsonData, ToCursorPageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, LimitParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, LimitParam, RequestDao, UserAuthQueryDao},
     dao::{AccountOptionData, access::api::system::admin::CheckAdminUserManage},
 };
 use lsys_access::dao::AccessSession;
@@ -37,12 +38,18 @@ pub struct AccountSearchParam {
 }
 pub async fn account_search(
     param: &AccountSearchParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -88,8 +95,7 @@ pub async fn account_search(
         mobile: mobile.as_deref(),
     };
 
-    let user = req_dao
-        .web_dao
+    let user = web_dao
         .web_user
         .user_dao
         .account_dao
@@ -102,8 +108,7 @@ pub async fn account_search(
         .await?;
     let cursor = PageCursorValue::from(&user.1);
 
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_user
         .account
         .list_user(
@@ -191,12 +196,18 @@ pub struct AccountDetailParam {
 
 pub async fn account_detail(
     param: &AccountDetailParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -248,8 +259,7 @@ pub async fn account_detail(
         }))));
     }
 
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_user
         .account
         .list_user(&[param.account_id], &data_option)

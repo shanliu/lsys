@@ -4,12 +4,17 @@ import {
   type AppRbacResDataItemType,
 } from "@shared/apis/user/rbac";
 import { ConfirmDialog } from "@shared/components/custom/dialog/confirm-dialog";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
-import { EXPORT_TYPE_USER_RBAC_APP_RES } from "@shared/apis/user/file";
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useUserAppExportAction } from "@apps/main/hooks/use-user-app-export-action";
+import { useDictData } from "@apps/main/hooks/use-dict-data";
+import { EXPORT_TYPE_APP_RES_DATA } from "@shared/apis/user/file";
 import { formatTotalCount } from "@shared/lib/utils/format-utils";
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import {
@@ -51,6 +56,7 @@ import { ResListFilterFormSchema } from "./res-schema";
 import { ResTypeOpsDrawer } from "./res-type-ops-drawer";
 import { UserDataTooltip } from "@/apps/main/components/local/user-data-tooltip";
 import { UserDataResType } from "@/shared/types/base-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureRbacResPage() {
   const { appId } = Route.useParams();
@@ -137,6 +143,17 @@ function ResListContent({
     res_data: filterParam.res_data ?? null,
   };
 
+  // 导出操作 hook
+  const exportAction = useUserAppExportAction({
+    appId: Number(appId),
+    exportType: EXPORT_TYPE_APP_RES_DATA,
+    params: {
+      res_name: filters.res_name ?? undefined,
+      res_type: filters.res_type ?? undefined,
+      res_data: filters.res_data ?? undefined,
+    },
+  });
+
   // count_num 优化管理器
   const countNumManager = usePageCountNum(filters);
 
@@ -210,6 +227,25 @@ function ResListContent({
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["rbac-res-list"] });
   };
+
+  // 导出字典数据
+  const { dictData: exportDictData } = useDictData(["user_export"] as const);
+
+  const filterForm = useFilterBarForm<z.infer<typeof ResListFilterFormSchema>>({
+    defaultValues: {
+      res_name: filterParam.res_name,
+      res_type: filterParam.res_type,
+      res_data: filterParam.res_data,
+    },
+    resolver: zodResolver(ResListFilterFormSchema) as any,
+    initValues: { res_name: undefined, res_type: undefined, res_data: undefined },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 打开编辑抽屉
   const handleEdit = (res: AppRbacResDataItemType) => {
@@ -364,88 +400,40 @@ function ResListContent({
     <div className="flex flex-col min-h-0 space-y-3">
       {/* 过滤器 */}
       <div className="flex-shrink-0 mb-1 sm:mb-4">
-        <FilterContainer
-          defaultValues={{
-            res_name: filterParam.res_name,
-            res_type: filterParam.res_type,
-            res_data: filterParam.res_data,
-          }}
-          resolver={zodResolver(ResListFilterFormSchema) as any}
-          onSubmit={(data) => {
-            navigate({
-              search: { ...data, page: 1, limit: currentLimit } as any,
-            });
-          }}
-          onReset={() => {
-            navigate({
-              search: { page: 1, limit: currentLimit } as any,
-            });
-          }}
-          countComponent={
-            <FilterTotalCount
-              value={formatTotalCount(countNumManager.getTotal())}
-              loading={isLoading}
-            />
-          }
-          className="bg-card rounded-lg border shadow-sm relative"
-        >
-          {(layoutParams, form) => (
-            <div className="flex-1 flex flex-wrap items-end gap-3">
-              <FilterUserMode
-                value={userMode}
-                onChange={setUserMode}
-                layoutParams={layoutParams}
-              />
-
-              <FilterInput
-                name="res_name"
-                placeholder="输入资源名称"
-                label="资源名称"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                className="w-[8.5rem]"
-              />
-
-              <FilterInput
-                name="res_type"
-                placeholder="输入资源类型"
-                label="资源类型"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                className="w-[8.5rem]"
-              />
-
-              <FilterInput
-                name="res_data"
-                placeholder="输入资源数据"
-                label="资源数据"
-                disabled={isLoading}
-                layoutParams={layoutParams}
-                className="w-[8.5rem]"
-              />
-
-              <FilterActions
-                form={form}
-                loading={isLoading}
-                layoutParams={layoutParams}
-                onRefreshSearch={clearCacheAndReload}
-                extraActions={
-                  <UserExportAction
-                    appId={Number(appId)}
-                    exportType={EXPORT_TYPE_USER_RBAC_APP_RES}
-                    params={{
-                      app_id: Number(appId),
-                      res_name: filters.res_name,
-                      res_type: filters.res_type,
-                      res_data: filters.res_data,
-                    }}
-                    layoutParams={layoutParams}
-                  />
-                }
-              />
-            </div>
-          )}
-        </FilterContainer>
+        <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+          <FilterBar.Summary>
+            <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+          </FilterBar.Summary>
+          <FilterBar.MobileExtra>
+            <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+          </FilterBar.MobileExtra>
+          <FilterUserMode value={userMode} onChange={setUserMode} />
+          <FilterInput name="res_name" placeholder="输入资源名称" label="资源名称" disabled={isLoading} className="w-[8.5rem]" />
+          <FilterInput name="res_type" placeholder="输入资源类型" label="资源类型" disabled={isLoading} className="w-[8.5rem]" />
+          <FilterInput name="res_data" placeholder="输入资源数据" label="资源数据" disabled={isLoading} className="w-[8.5rem]" />
+          <FilterActions>
+            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+            <FilterResetButton loading={isLoading} />
+            <FilterBar.DesktopOnly>
+              <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+            </FilterBar.DesktopOnly>
+          </FilterActions>
+          <FilterBar.MobileFooter>
+            {(closeDrawer) => (
+              <ExportButton isSubmitting={exportAction.isSubmitting}
+                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+            )}
+          </FilterBar.MobileFooter>
+        </FilterBar>
+        <ExportDrawer
+          open={exportAction.drawerOpen}
+          onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+          statusDict={exportDictData.export_task_status!}
+          tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+          currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+          onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+        />
       </div>
 
       {/* 表格和分页 */}

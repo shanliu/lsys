@@ -4,7 +4,8 @@ use sqlx::{MySql, Pool, QueryBuilder, Transaction};
 
 use super::*;
 use crate::model::*;
-
+use lsys_core::db::utils::FetchField;
+use lsys_core::utils::{STRING_CLEAR_FORMAT, StringClear, string_clear};
 /// 文件标签 DAO
 pub struct FileTagDao {
     db: Pool<MySql>,
@@ -83,9 +84,20 @@ impl FileTagDao {
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> FileResult<Vec<u64>> {
         // 去重、trim、转小写，过滤空串
+        let tag_name_max = FetchField::<MySql>::new(&self.db)
+            .string_max::<FileTagModel>(&FileTagModel::TAG_NAME)
+            .await
+            .len_or(100);
+
         let tag_names: Vec<String> = tag_names
             .iter()
-            .map(|t| t.trim().to_lowercase())
+            .map(|t| {
+                string_clear(
+                    t,
+                    StringClear::Option(STRING_CLEAR_FORMAT),
+                    Some(tag_name_max as usize),
+                )
+            })
             .filter(|t| !t.is_empty())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
@@ -162,7 +174,15 @@ impl FileTagDao {
         tag_name: &str,
         transaction: Option<&mut Transaction<'_, sqlx::MySql>>,
     ) -> FileResult<u64> {
-        let tag_name = tag_name.trim().to_lowercase();
+        let tag_name_max = FetchField::<MySql>::new(&self.db)
+            .string_max::<FileTagModel>(&FileTagModel::TAG_NAME)
+            .await
+            .len_or(100);
+        let tag_name = string_clear(
+            tag_name,
+            StringClear::Option(STRING_CLEAR_FORMAT),
+            Some(tag_name_max as usize),
+        );
         if tag_name.is_empty() {
             return Err(FileError::Param(lsys_core::fluent_message!(
                 "file-tag-name-empty"

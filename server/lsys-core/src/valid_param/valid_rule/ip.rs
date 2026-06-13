@@ -75,7 +75,7 @@ impl<T: Display> ValidRule for ValidIp<T> {
 }
 
 #[test]
-fn ccc() {
+fn test_ip_regex() {
     let ipv6_regex = Regex::new(r"(?xi)
     ^
     (

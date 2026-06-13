@@ -1,5 +1,6 @@
 use crate::common::{JsonError, JsonResult};
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -15,18 +16,26 @@ pub struct ConfirmParam {
     pub confirm_note: String,
 }
 
-pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn confirm(
+    param: &ConfirmParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    let req_app = req_dao
-        .web_dao
+    let req_app = web_dao
         .web_app
         .app_dao
         .app
         .request_find_by_id(param.app_req_id)
         .await?;
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -36,8 +45,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         return Err(JsonError::Message(fluent_message!("not-user-app-confirm")));
     }
 
-    let parent_app = req_dao
-        .web_dao
+    let parent_app = web_dao
         .web_app
         .app_dao
         .app
@@ -45,8 +53,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .await?;
 
     //当前登录用户对父应用的可编辑
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -56,8 +63,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         )
         .await?;
     //父应用的子应用权限启用
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -65,8 +71,7 @@ pub async fn confirm(param: &ConfirmParam, req_dao: &UserAuthQueryDao) -> JsonRe
         .await?;
 
     let confirm_status = AppRequestStatus::try_from(param.confirm_status)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

@@ -1,4 +1,5 @@
-import type { LayoutParams } from '@apps/main/components/filter-container/container'
+import type { LayoutParams } from '@apps/main/components/filter-bar/context'
+import { useFilterFieldContext } from '@apps/main/components/filter-bar/context'
 import { ClearableInput } from '@shared/components/custom/input/clearable-input'
 import {
   Select,
@@ -45,9 +46,18 @@ export function FilterUserMode({
   value,
   onChange,
   disabled = false,
-  layoutParams,
+  layoutParams: layoutParamsProp,
   className,
 }: FilterUserModeProps) {
+  // Fall back to FilterBar context if layoutParams not provided as prop
+  let contextLayoutParams: LayoutParams | undefined;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    contextLayoutParams = useFilterFieldContext().layoutParams;
+  } catch {
+    contextLayoutParams = undefined;
+  }
+  const layoutParams = layoutParamsProp ?? contextLayoutParams;
   const handleModeChange = (mode: string) => {
     const useAppUser = mode === 'app'
     onChange({

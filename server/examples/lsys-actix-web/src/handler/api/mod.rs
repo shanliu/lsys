@@ -24,6 +24,7 @@ where
                 .service(auth::login)
                 .service(auth::logout)
                 .service(auth::user_data)
+                .service(auth::token_refresh)
                 .service(auth::external_login_url)
                 .service(auth::external_state_callback)
                 .service(auth::external_state_check)
@@ -32,8 +33,7 @@ where
         )
         .service(scope("/oauth").service(auth::oauth))
         .service(scope("/site").service(public::site_info))
-        .service(scope("/area").service(public::area_data))
-        .service(scope("/file").service(public::upload_by_token));
+        .service(scope("/area").service(public::area_data));
 
     let mut system_scope = scope("/system");
     system_scope = system_scope
@@ -58,8 +58,10 @@ where
         )
         .service(
             scope("/file")
-                .service(scope("/collector").service(system::collector))
-                .service(system::file),
+                .service(system::file::export_task_download)
+                .service(system::file::export_task)
+                .service(system::file::admin_file_access)  // 具体路由放在通配之前
+                .service(system::file::file),              // 通配路由 /{type} 放最后
         );
     api_scope = api_scope.service(system_scope);
     let mut user_scope = scope("/user");
@@ -79,25 +81,43 @@ where
                 .service(user::rbac::res)
                 .service(user::rbac::role),
         )
+        .service(scope("/export_task")
+            .service(user::file::export_task_download)
+            .service(user::file::export_task))
+        .service(scope("/file")
+            .service(user::file::file_upload_data)
+            .service(user::file::file_download_progress)
+            .service(user::file::user_file_access)
+            .service(user::file::user_file_access_public)
+            .service(user::file::file))
         .service(
             scope("/app_rbac")
-                .service(user::app::rbac::base)
-                .service(user::app::rbac::op)
-                .service(user::app::rbac::res)
-                .service(user::app::rbac::role),
+                .service(user::app_rbac::base)
+                .service(user::app_rbac::op)
+                .service(user::app_rbac::res)
+                .service(user::app_rbac::role),
         )
         .service(
             scope("/app_sender")
-                .service(user::app::sender::mailer)
-                .service(user::app::sender::smser),
+                .service(user::app_sender::mailer)
+                .service(user::app_sender::smser),
         )
         .service(
             scope("/app_file")
-                .service(user::app::file::file_upload_data)
-                .service(user::app::file::file),
+                .service(user::app_file::file_upload_data)
+                .service(user::app_file::file_download_progress)
+                .service(user::app_file::app_file_access)  // 移到 file 之前
+                .service(user::app_file::app_file_access_public)
+                .service(user::app_file::file),  // 通配路由放在最后
         )
-        .service(scope("/app_export_task").service(user::app::file::export_task))
-        .service(scope("/app_collector").service(user::app::file::collector))
+        .service(
+            scope("/app_collector")
+
+                .service(user::app_collector::collector)
+        )
+        .service(scope("/app_export_task")
+            .service(user::app_file::export_task_download)
+            .service(user::app_file::export_task))
         .service(scope("/app").service(user::app::base));
     api_scope = api_scope.service(user_scope);
     app.service(api_scope)

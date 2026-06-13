@@ -6,7 +6,7 @@ use sqlx::pool::PoolOptions;
 #[cfg(feature = "db-mysql")]
 use sqlx::{ConnectOptions, Pool};
 
-use std::str::FromStr;
+
 
 use crate::app_core::AppCore;
 use crate::app_core::result::AppCoreError;
@@ -24,6 +24,7 @@ pub async fn init_tracing(app_core: &AppCore) -> Result<(), AppCoreError> {
         .find(None)
         .get_string("log_level")
         .unwrap_or_else(|_| String::from("info"));
+    use std::str::FromStr;
     let log_max_level = tracing::Level::from_str(
         &app_core
             .config
@@ -163,6 +164,7 @@ pub async fn create_mysql_pool(app_core: &AppCore) -> Result<Pool<sqlx::MySql>, 
         .find(None)
         .get_int("database_connect_max")
         .unwrap_or(5) as u32;
+    use std::str::FromStr;
     let level = log::LevelFilter::from_str(&database_level).unwrap_or(log::LevelFilter::Trace);
 
     let mut option = sqlx::mysql::MySqlConnectOptions::from_str(&database_url)

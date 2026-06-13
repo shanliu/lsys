@@ -9,6 +9,7 @@ use lsys_core::config::ConfigError;
 use lsys_core::fluent_message;
 use lsys_core::fluents::{FluentBundle, FluentBundleError, IntoFluentMessage};
 use lsys_core::remote_notify::RemoteNotifyError;
+use lsys_core::secret::SecretError;
 use lsys_core::valid_code::ValidCodeError;
 use lsys_core::valid_param::ValidError;
 use lsys_logger::dao::LoggerError;
@@ -296,6 +297,12 @@ impl FluentFormat for WebError {
 }
 
 impl FluentFormat for lsys_file_manager::dao::FileManagerError {
+    fn fluent_format(&self, fluent: &FluentBundle) -> String {
+        fluent.format_message(&self.to_fluent_message())
+    }
+}
+
+impl FluentFormat for SecretError {
     fn fluent_format(&self, fluent: &FluentBundle) -> String {
         fluent.format_message(&self.to_fluent_message())
     }

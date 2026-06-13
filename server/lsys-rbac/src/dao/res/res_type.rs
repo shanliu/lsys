@@ -58,7 +58,7 @@ impl RbacRes {
         qb.push_where().field_eq("res_type", res_type);
         qb.push_and().field_eq("user_id", res_type_data.user_id);
         qb.push_and().field_eq("app_id", res_type_data.app_id);
-        qb.field_in("op_id", op_vec.iter().map(|e| e.id));
+        qb.push_and().field_in("op_id", op_vec.iter().map(|e| e.id));
         let op_res = qb
             .build_query_as::<(u64, u64)>()
             .fetch_all(&self.db)
@@ -200,7 +200,7 @@ impl RbacRes {
                 qb.push_where().field_eq("res_type", res_type.to_owned());
                 qb.push_and().field_eq("user_id", res_type_data.user_id);
                 qb.push_and().field_eq("app_id", res_type_data.app_id);
-                qb.field_in_copied("op_id", op_id_vec);
+                qb.push_and().field_in_copied("op_id", op_id_vec);
             })
             .await;
         if let Err(e) = tmp {
@@ -308,7 +308,7 @@ impl RbacRes {
                             .field_eq("res_type", tmp_res_type.to_owned());
                         qb.push_and().field_eq("user_id", tmp_user_id);
                         qb.push_and().field_eq("app_id", tmp_app_id);
-                        qb.field_in_copied("op_id", &op_id_vec);
+                        qb.push_and().field_in_copied("op_id", &op_id_vec);
                     })
                     .await;
                 if let Err(e) = tmp {

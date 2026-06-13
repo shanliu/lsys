@@ -1,6 +1,7 @@
 use crate::common::JsonData;
 use crate::common::JsonResult;
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -15,11 +16,20 @@ pub struct AddParam {
     pub parent_app_id: Option<u64>,
 }
 
-pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+pub async fn add(
+    param: &AddParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -31,30 +41,17 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
 
     let user_app_id = auth_data.session().user_app_id;
     let parent_app = if user_app_id > 0 {
-        let tmp_app = req_dao
-            .web_dao
-            .web_app
-            .app_dao
-            .app
-            .find_by_id(user_app_id)
-            .await?;
+        let tmp_app = web_dao.web_app.app_dao.app.find_by_id(user_app_id).await?;
         Some(tmp_app)
     } else if let Some(parent_id) = param.parent_app_id {
-        let tmp_app = req_dao
-            .web_dao
-            .web_app
-            .app_dao
-            .app
-            .find_by_id(parent_id)
-            .await?;
+        let tmp_app = web_dao.web_app.app_dao.app.find_by_id(parent_id).await?;
         Some(tmp_app)
     } else {
         None
     };
 
     if let Some(parent_app) = &parent_app {
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .app
@@ -62,8 +59,7 @@ pub async fn add(param: &AddParam, req_dao: &UserAuthQueryDao) -> JsonResult<Jso
             .await?;
     }
 
-    let app_id = req_dao
-        .web_dao
+    let app_id = web_dao
         .web_app
         .app_dao
         .app

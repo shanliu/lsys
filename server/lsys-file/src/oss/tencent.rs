@@ -3,14 +3,12 @@ use std::time::Duration;
 
 use chrono::Utc;
 use futures_util::StreamExt;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{Client, Method, header};
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 
-use crate::common::{FileResult, OssProvider, OssProviderConfig, OssResult, UploadFileInfo};
+use crate::common::{FileResult, OssObjectMeta, OssProvider, OssProviderConfig, OssResult, UploadFileInfo};
 use crate::model::FileOssModel;
 
 type HmacSha1 = Hmac<Sha1>;
@@ -120,12 +118,18 @@ impl OssProvider for TencentCosProvider {
         PROVIDER_TYPE
     }
 
-    fn download_to_local(
+    fn download_stream(
         &self,
         file_oss: &FileOssModel,
-        local_path: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<()>> + Send + '_>> {
-        let local_path = local_path.to_string();
+        offset: Option<u64>,
+        length: Option<u64>,
+    ) -> Pin<
+        Box<
+            dyn std::future::Future<Output = FileResult<crate::common::OssDownloadResult>>
+                + Send
+                + '_,
+        >,
+    > {
         let object_key = file_oss.object_key.clone();
         Box::pin(async move {
             let signature = self.sign(&Method::GET, &object_key)?;
@@ -135,51 +139,62 @@ impl OssProvider for TencentCosProvider {
             );
             let host_header = format!("{}.{}", self.config.bucket, self.config.endpoint);
 
-            let response = self
+            let mut request = self
                 .client
                 .get(&url)
                 .header(header::HOST, host_header)
-                .header(header::AUTHORIZATION, signature)
-                .send()
-                .await
-                .map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!(
-                        "tencent-cos-error",
-                        e
-                    ))
-                })?;
+                .header(header::AUTHORIZATION, signature);
 
-            if !response.status().is_success() {
+            // 腾讯云 COS 支持 Range 请求
+            if let Some(start) = offset {
+                let range_value = if let Some(len) = length {
+                    format!("bytes={}-{}", start, start + len - 1)
+                } else {
+                    format!("bytes={}-", start)
+                };
+                request = request.header(header::RANGE, range_value);
+            }
+
+            let response = request.send().await.map_err(|e| {
+                crate::common::FileError::System(lsys_core::fluent_message!("tencent-cos-error", e))
+            })?;
+
+            // 支持 200 (完整响应) 和 206 (部分内容)
+            let status = response.status();
+            if !status.is_success() && status.as_u16() != 206 {
                 return Err(crate::common::FileError::System(
                     lsys_core::fluent_message!(
                         "tencent-cos-error",
-                        format!("download failed with status: {}", response.status())
+                        format!("download failed with status: {}", status)
                     ),
                 ));
             }
 
-            let mut file = File::create(&local_path).await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-            })?;
+            let byte_stream = response.bytes_stream();
 
-            let mut stream = response.bytes_stream();
-            while let Some(chunk) = stream.next().await {
-                let bytes = chunk.map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!(
-                        "tencent-cos-error",
-                        e
-                    ))
-                })?;
-                file.write_all(&bytes).await.map_err(|e| {
-                    crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-                })?;
-            }
+            let stream = async_stream::try_stream! {
+                tokio::pin!(byte_stream);
+                let mut downloaded: u64 = 0;
+                while let Some(bytes) = byte_stream.next().await {
+                    let bytes = bytes.map_err(|e| {
+                        crate::common::FileError::System(
+                            lsys_core::fluent_message!("tencent-cos-error", e)
+                        )
+                    })?;
+                    let chunk_size = bytes.len() as u64;
+                    downloaded += chunk_size;
+                    yield crate::common::OssDownloadChunk {
+                        data: bytes,
+                        offset: offset.map(|o| o + downloaded - chunk_size),
+                        downloaded,
+                    };
+                }
+            };
 
-            file.flush().await.map_err(|e| {
-                crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
-            })?;
-
-            Ok(())
+            // 腾讯云 COS 支持 Range 请求
+            Ok(crate::common::OssDownloadResult::RangeSupported(
+                Box::pin(stream) as crate::common::OssDownloadStream,
+            ))
         })
     }
 
@@ -194,7 +209,7 @@ impl OssProvider for TencentCosProvider {
         let file_size = file_info.file_size;
         let content_type = file_info.content_type.to_string();
         Box::pin(async move {
-            let file = File::open(&local_path).await.map_err(|e| {
+            let file = tokio::fs::File::open(&local_path).await.map_err(|e| {
                 crate::common::FileError::System(lsys_core::fluent_message!("file-io-error", e))
             })?;
             let stream = reqwest::Body::wrap_stream(tokio_util::io::ReaderStream::new(file));
@@ -202,7 +217,7 @@ impl OssProvider for TencentCosProvider {
             let ext = crate::common::extract_extension(Some(&file_name));
             let object_key = format!(
                 "{}/{}{}",
-                chrono::Local::now().format("%Y/%m/%d"),
+                chrono::Local::now().format("%Y%m%d"),
                 file_md5,
                 if ext.is_empty() {
                     String::new()
@@ -253,8 +268,6 @@ impl OssProvider for TencentCosProvider {
                 modify_time: Some(chrono::Utc::now().timestamp() as u64),
                 file_name: Some(file_name),
                 region: Some(self.config.endpoint.clone()),
-                local_file_id: None,
-                source_url: None,
             })
         })
     }
@@ -297,5 +310,81 @@ impl OssProvider for TencentCosProvider {
 
             Ok(())
         })
+    }
+
+    fn object_meta(
+        &self,
+        file_oss: &FileOssModel,
+    ) -> Pin<Box<dyn std::future::Future<Output = FileResult<OssObjectMeta>> + Send + '_>> {
+        let object_key = file_oss.object_key.clone();
+        Box::pin(async move {
+            let signature = self.sign(&Method::HEAD, &object_key)?;
+            let url = format!(
+                "https://{}.{}/{}",
+                self.config.bucket, self.config.endpoint, object_key
+            );
+            let host_header = format!("{}.{}", self.config.bucket, self.config.endpoint);
+
+            let response = self
+                .client
+                .head(&url)
+                .header(header::HOST, host_header)
+                .header(header::AUTHORIZATION, signature)
+                .send()
+                .await
+                .map_err(|e| {
+                    crate::common::FileError::System(lsys_core::fluent_message!(
+                        "tencent-cos-error",
+                        e
+                    ))
+                })?;
+
+            let status = response.status();
+            if status.as_u16() == 404 {
+                return Ok(OssObjectMeta {
+                    exists: false,
+                    file_size: None,
+                    content_md5: None,
+                    content_type: None,
+                    last_modified: None,
+                });
+            }
+            if !status.is_success() {
+                return Err(crate::common::FileError::System(
+                    lsys_core::fluent_message!(
+                        "tencent-cos-error",
+                        format!("head object failed with status: {}", status)
+                    ),
+                ));
+            }
+
+            let headers = response.headers();
+            let file_size = headers
+                .get(header::CONTENT_LENGTH)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok());
+            // ETag = "hexmd5"；分片上传时含 '-'，不代表文件 MD5
+            let content_md5 = headers
+                .get(header::ETAG)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim_matches('"').to_string())
+                .filter(|s| !s.contains('-'));
+            let content_type = headers
+                .get(header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            let last_modified = headers
+                .get(header::LAST_MODIFIED)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| chrono::DateTime::parse_from_rfc2822(s).ok())
+                .map(|dt| dt.timestamp() as u64);
+
+            Ok(OssObjectMeta {
+                exists: true,
+                file_size,
+                content_md5,
+                content_type,
+                last_modified,
+            })        })
     }
 }

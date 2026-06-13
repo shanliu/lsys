@@ -114,7 +114,10 @@ pub(crate) async fn handle_parse_record_list(
         })
         .collect::<Vec<Value>>();
 
-    json_ok(serde_json::to_value(JsonPageData::total(data, count)).unwrap())
+    match serde_json::to_value(JsonPageData::total(data, count)) {
+        Ok(val) => json_ok(val),
+        Err(err) => json_err(StatusCode::INTERNAL_SERVER_ERROR, "json", err.to_string()),
+    }
 }
 
 pub(crate) async fn handle_parse_record_delete(

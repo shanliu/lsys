@@ -1,6 +1,7 @@
 use crate::common::JsonData;
+use crate::dao::WebDao;
 use crate::{
-    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::res_op::RbacSyncOpParam,
 };
 use lsys_access::dao::AccessSession;
@@ -10,9 +11,18 @@ use serde::Deserialize;
 use serde_json::json;
 
 //系统内置的用户资源数据
-pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, false);
+pub async fn static_res_data(
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let tpl_data = web_dao.web_rbac.res_tpl_data(true, false);
     let mut out_data = vec![];
     for tmp in tpl_data.into_iter() {
         let key_data = tmp
@@ -24,8 +34,7 @@ pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRespo
             })
             .collect::<Vec<_>>();
         let key_data = key_data.iter().collect::<Vec<_>>();
-        let tpl_data = req_dao
-            .web_dao
+        let tpl_data = web_dao
             .web_rbac
             .sync_res_type_op_id(
                 &ResTypeParam {
@@ -64,9 +73,18 @@ pub async fn static_res_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonRespo
 }
 
 //系统内置的用户资源数据
-pub async fn dynamic_res_type(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, true);
+pub async fn dynamic_res_type(
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let tpl_data = web_dao.web_rbac.res_tpl_data(true, true);
     let mut out_data = vec![];
     for tmp in tpl_data.into_iter() {
         let key_data = tmp
@@ -78,8 +96,7 @@ pub async fn dynamic_res_type(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResp
             })
             .collect::<Vec<_>>();
         let key_data = key_data.iter().collect::<Vec<_>>();
-        let tpl_data = req_dao
-            .web_dao
+        let tpl_data = web_dao
             .web_rbac
             .sync_res_type_op_id(
                 &ResTypeParam {
@@ -126,13 +143,19 @@ pub struct UserResDataFromUserResTypeParam {
 
 pub async fn dynamic_res_type_from_test(
     _param: &UserResDataFromUserResTypeParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let res_data = vec!["111"]; //@todo 资源标识列表
-    let tpl_data = req_dao.web_dao.web_rbac.res_tpl_data(true, true);
-    let res_data = req_dao
-        .web_dao
+    let tpl_data = web_dao.web_rbac.res_tpl_data(true, true);
+    let res_data = web_dao
         .web_rbac
         .res_tpl_sync(
             &tpl_data,

@@ -1,7 +1,14 @@
-import { FilterContainer } from '@apps/main/components/filter-container/container'
-import { FilterActions } from '@apps/main/components/filter-container/filter-actions'
-import { FilterContentSearch } from '@apps/main/components/filter-container/filter-content-search'
-import { FilterTotalCount } from '@apps/main/components/filter-container/filter-total-count'
+import { FilterBar } from '@apps/main/components/filter-bar/container'
+import { FilterActions } from '@apps/main/components/filter-bar/filter-actions/filter-actions'
+import { FilterResetButton } from '@apps/main/components/filter-bar/filter-actions/filter-reset-button'
+import { FilterSearchButton } from '@apps/main/components/filter-bar/filter-actions/filter-search-button'
+import { useAdminExportAction } from '@apps/main/hooks/use-admin-export-action'
+import { EXPORT_TYPE_SYSTEM_ADMIN_FILE_LIST } from '@shared/apis/admin/export'
+import { FilterContentSearch, FilterTotalCount } from '@apps/main/components/filter-bar/filter-fields'
+import { ExportButton, ExportMobileButton, ExportSplitButton } from '@apps/main/components/export-manager/export-buttons'
+import { ExportDrawer } from '@apps/main/components/export-manager/export-drawer'
+import { useFilterBarForm } from '@apps/main/hooks/use-filter-bar-form'
+import * as z from 'zod'
 import {
     CursorPagination,
     DEFAULT_PAGE_SIZE,
@@ -10,6 +17,7 @@ import {
     useSearchNavigate,
 } from '@apps/main/lib/pagination-utils'
 import { createStatusMapper } from '@apps/main/lib/status-utils'
+import { PostDownload } from '@apps/main/components/local/post-download'
 import { Route } from '@apps/main/routes/_main/admin/file/list'
 import { useDictData } from '@apps/main/hooks/use-dict-data'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -39,7 +47,7 @@ import { type LimitType } from '@shared/types/base-schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Cloud, Eye, Trash2 } from 'lucide-react'
+import { Cloud, Download, Eye, HardDrive, Lock, ShieldCheck, Trash2 } from 'lucide-react'
 import React, { useState } from 'react'
 import { AdminFileDetailDrawer } from './file-detail-drawer'
 import { AdminFileListFilterFormSchema, CONTENT_SEARCH_TYPES } from './file-list-schema'
@@ -56,7 +64,46 @@ export function AdminFileListPage() {
     const [detailFile, setDetailFile] = useState<AdminFileItemType | null>(null)
 
     // 加载文件管理字典
-    const { dictData: adminFileDict } = useDictData(['admin_file'] as const)
+    const { dictData: adminFileDict } = useDictData(['admin_file', 'admin_export'] as const)
+
+    // 从字典数据中获取存储类型
+    const storageTypes = React.useMemo(() => adminFileDict?.storage_type || [], [adminFileDict?.storage_type])
+    
+    // 创建 storage_type 到 is_private 的映射
+    const storageTypePrivateMap = React.useMemo(() => {
+        const map = new Map<string, boolean>();
+        storageTypes.forEach(st => {
+            // 本地存储类型：local_public 是公开的，其他是私有的
+            if (st.key.startsWith('local_')) {
+                map.set(st.key, st.key !== 'local_public');
+            } else {
+                // OSS 存储类型：根据 is_private 字段判断
+                map.set(st.key, st.is_private ?? false);
+            }
+        });
+        return map;
+    }, [storageTypes]);
+    
+    // 创建 storage_type key 到名称的映射
+    const storageTypeNameMap = React.useMemo(() => {
+        const map = new Map<string, string>();
+        storageTypes.forEach(st => {
+            map.set(st.key, st.val);
+        });
+        return map;
+    }, [storageTypes]);
+    
+    // 判断文件是否为公开存储
+    const isPublicStorage = (storageType: string): boolean => {
+        const isPrivate = storageTypePrivateMap.get(storageType);
+        // 如果找不到配置，默认为私有（安全起见）
+        return isPrivate === false;
+    };
+    
+    // 获取存储类型的显示名称
+    const getStorageTypeName = (storageType: string): string => {
+        return storageTypeNameMap.get(storageType) || storageType;
+    };
 
     const filters = {
         status: filterParam.status || null,
@@ -134,6 +181,45 @@ export function AdminFileListPage() {
         queryClient.invalidateQueries({ queryKey: ['adminFileList'] })
     }
 
+    // 导出操作 hook
+    const exportAction = useAdminExportAction({
+        exportType: EXPORT_TYPE_SYSTEM_ADMIN_FILE_LIST,
+        params: {
+            status: filters.status ?? undefined,
+            content_type: filters.content_type ?? undefined,
+            content_value: filters.content_value ?? undefined,
+        },
+    })
+
+    const filterForm = useFilterBarForm<z.infer<typeof AdminFileListFilterFormSchema>>({
+        defaultValues: {
+            status: filterParam.status,
+            content_type: filterParam.content_type,
+            content_value: filterParam.content_value,
+        },
+        resolver: zodResolver(AdminFileListFilterFormSchema) as any,
+        initValues: {
+            status: undefined,
+            content_type: undefined,
+            content_value: undefined,
+        },
+        onSubmit: (data) => {
+            const transformedData = data as { status?: number; content_type?: string; content_value?: string }
+            searchGo({
+                status: transformedData.status,
+                content_type: transformedData.content_type,
+                content_value: transformedData.content_type ? transformedData.content_value : undefined,
+                pos: null, forward: true,
+            })
+        },
+        onReset: () => {
+            searchGo({
+                pos: null, limit: currentLimit, forward: true,
+                status: undefined, content_type: undefined, content_value: undefined,
+            })
+        },
+    })
+
     const fileStatus = createStatusMapper(
         {
             1: 'success',
@@ -159,20 +245,61 @@ export function AdminFileListPage() {
             cell: ({ row }) => {
                 const fileName = row.original.file_name
                 const storageType = row.original.storage_type
-                const isCloud = storageType && storageType !== 'local'
+                const isLocal = storageType?.startsWith("local")
+                const isCloud = !!storageType && !isLocal
+                const isPrivate = !isPublicStorage(storageType)
+                const isCrypto = storageType === "local_crypto"
+                const storageName = getStorageTypeName(storageType)
+                
                 return (
                     <div className="flex items-center gap-1 py-1 max-w-[220px]">
                         <span className="truncate text-sm" title={fileName}>
                             {fileName || '-'}
                         </span>
+                        {isLocal && (
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <HardDrive className="h-3 w-3 flex-shrink-0 text-emerald-500 cursor-pointer" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <span>{storageName}</span>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                         {isCloud && (
                             <TooltipProvider delayDuration={200}>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Cloud className="h-3.5 w-3.5 flex-shrink-0 text-blue-400 cursor-pointer" />
+                                        <Cloud className="h-3 w-3 flex-shrink-0 text-blue-400 cursor-pointer" />
                                     </TooltipTrigger>
                                     <TooltipContent side="top">
-                                        <span>{storageType}</span>
+                                        <span>{storageName}</span>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                        {isCrypto && (
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <ShieldCheck className="h-3 w-3 flex-shrink-0 text-amber-500/70 cursor-pointer" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <span>加密存储</span>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                        {isPrivate && (
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Lock className="h-3 w-3 flex-shrink-0 text-muted-foreground/50 cursor-pointer" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <span>私有文件</span>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -240,6 +367,7 @@ export function AdminFileListPage() {
             size: 100,
             cell: ({ row }) => {
                 const file = row.original
+                
                 return (
                     <DataTableAction className="justify-end sm:justify-center">
                         <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
@@ -249,6 +377,32 @@ export function AdminFileListPage() {
                                 <span className="text-xs ml-1">详细</span>
                             </Button>
                         </DataTableActionItem>
+
+                        {/* 下载 */}
+                        {file.file_key && file.status === 1 ? (
+                            <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
+                                <PostDownload
+                                    url="/api/system/file/read"
+                                    body={{ key: file.file_key }}
+                                >
+                                    {({ onClick, isLoading }) => (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={cn("h-auto px-2 py-1")}
+                                            title="下载文件"
+                                            onClick={onClick}
+                                            disabled={isLoading}
+                                        >
+                                            <Download className="h-3 w-3" />
+                                            <span className="text-xs ml-1">{isLoading ? '下载中...' : '下载'}</span>
+                                        </Button>
+                                    )}
+                                </PostDownload>
+                            </DataTableActionItem>
+                        ) : null}
+
+
                         <DataTableActionItem mobileDisplay="display" desktopDisplay="collapsed">
                             <ConfirmDialog
                                 title="确认删除"
@@ -271,54 +425,48 @@ export function AdminFileListPage() {
     return (
         <div className="container mx-auto p-4 lg:px-6 py-5 max-w-[1600px] flex flex-col min-h-0 space-y-5">
             <div className="flex-shrink-0 mb-1 sm:mb-4 space-y-3">
-                <FilterContainer
-                    defaultValues={{
-                        status: filterParam.status?.toString(),
-                        content_type: filterParam.content_type,
-                        content_value: filterParam.content_value,
-                    }}
-                    resolver={zodResolver(AdminFileListFilterFormSchema) as any}
-                    onSubmit={(data) => {
-                        const transformedData = data as {
-                            status?: number; content_type?: string; content_value?: string
-                        }
-                        searchGo({
-                            status: transformedData.status,
-                            content_type: transformedData.content_type,
-                            content_value: transformedData.content_type ? transformedData.content_value : undefined,
-                            pos: null, forward: true,
-                        })
-                    }}
-                    onReset={() => {
-                        searchGo({
-                            pos: null, limit: currentLimit, forward: true,
-                            status: undefined, content_type: undefined, content_value: undefined,
-                        })
-                    }}
-                    countComponent={
+                <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+                    <FilterBar.Summary>
                         <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
-                    }
-                    className="bg-card rounded-lg border shadow-sm relative"
-                >
-                    {(layoutParams, form) => (
-                        <div className="flex-1 flex flex-wrap items-end gap-3">
-                            <FilterContentSearch typeName="content_type" valueName="content_value"
-                                options={CONTENT_SEARCH_TYPES as unknown as { value: string; label: string }[]}
-                                label="文件搜索" typePlaceholder="选择类型"
-                                valuePlaceholder={(type) => {
-                                    const placeholders: Record<string, string> = {
-                                        file_md5: '输入文件MD5', source_url: '输入来源URL', url: '输入本地URL',
-                                    }
-                                    return placeholders[type] || '请输入...'
-                                }}
-                                disabled={isLoading} layoutParams={layoutParams} />
-                            <div className={cn(layoutParams.isMobile ? 'w-full' : 'flex-shrink-0')}>
-                                <FilterActions form={form} loading={isLoading} layoutParams={layoutParams}
-                                    onRefreshSearch={clearCacheAndReload} />
-                            </div>
-                        </div>
-                    )}
-                </FilterContainer>
+                    </FilterBar.Summary>
+                    <FilterBar.MobileExtra>
+                        <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+                    </FilterBar.MobileExtra>
+                    <FilterContentSearch typeName="content_type" valueName="content_value"
+                        options={CONTENT_SEARCH_TYPES}
+                        label="文件搜索" typePlaceholder="选择类型"
+                        valuePlaceholder={(type) => {
+                            const placeholders: Record<string, string> = {
+                                file_md5: '输入文件MD5', source_url: '输入来源URL', url: '输入本地URL',
+                            }
+                            return placeholders[type] || '请输入...'
+                        }}
+                        disabled={isLoading} />
+                    <div className={cn('flex-shrink-0')}>
+                        <FilterActions>
+                            <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+                            <FilterResetButton loading={isLoading} />
+                            <FilterBar.DesktopOnly>
+                                <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                                    onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+                            </FilterBar.DesktopOnly>
+                        </FilterActions>
+                    </div>
+                    <FilterBar.MobileFooter>
+                        {(closeDrawer) => (
+                            <ExportButton isSubmitting={exportAction.isSubmitting}
+                                onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+                        )}
+                    </FilterBar.MobileFooter>
+                </FilterBar>
+                <ExportDrawer
+                    open={exportAction.drawerOpen}
+                    onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+                    statusDict={adminFileDict.export_task_status!}
+                    tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+                    currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+                    onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+                />
             </div>
 
             <div className="flex-1 flex flex-col min-h-0">

@@ -1,24 +1,33 @@
 mod file_chunks;
 mod file_delete;
+mod file_download_progress;
 mod file_from_url;
 mod file_list;
 mod file_logs;
+mod file_operations;
 mod file_upload;
 mod mapping;
+mod read;
 
 pub use file_chunks::*;
 pub use file_delete::*;
+pub use file_download_progress::*;
 pub use file_from_url::*;
 pub use file_list::*;
 pub use file_logs::*;
+pub use file_operations::*;
 pub use file_upload::*;
 pub use mapping::*;
+pub use read::*;
 
 use crate::{
-    common::{JsonResult, UserAuthQueryDao},
-    dao::access::{
-        RbacAccessCheckEnv,
-        api::system::user::{CheckUserAppEdit, CheckUserAppView},
+    common::{JsonResult, RequestDao},
+    dao::{
+        WebDao,
+        access::{
+            RbacAccessCheckEnv,
+            api::system::user::{CheckUserAppEdit, CheckUserAppView},
+        },
     },
 };
 use lsys_app::model::AppModel;
@@ -31,19 +40,13 @@ async fn app_check_get(
     app_id: u64,
     is_edit: bool,
     auth_data: &UserAuthData,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<AppModel> {
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(app_id)
-        .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(app_id).await?;
 
     if is_edit {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -53,8 +56,7 @@ async fn app_check_get(
             )
             .await?;
     } else {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -65,8 +67,7 @@ async fn app_check_get(
             .await?;
     }
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app

@@ -3,9 +3,9 @@
  * 
  * This module provides API client for the barcode HTTP service running in the same domain.
  * 
- * JWT is obtained from userStore (same as other APIs) and used to authenticate
+ * Auth token is obtained from userStore (same as other APIs) and used to authenticate
  * requests to the barcode service. Requests are directed to the barcode service URL
- * configured in BARCODE_BASE_URL while using the current user's JWT token.
+ * configured in BARCODE_BASE_URL while using the current user's token.
  */
 
 import { Config } from '../config';
@@ -26,17 +26,14 @@ export function getBarcodeBaseUrl(): string {
 
 /**
  * Create API client for barcode service
- * Uses JWT from current user (userStore) to authenticate requests
+ * Uses the auth token from current user (userStore) to authenticate requests
  * Directs requests to the barcode service URL
  */
 export async function barcodeApi(): Promise<AxiosInstance> {
     const baseUrl = getBarcodeBaseUrl();
 
     const ApiParse = createApiResultParse((data: any) => {
-        if (data?.result?.state === "not_login" ||
-            data?.result?.state === "jwt_bad_token" ||
-            data?.result?.state === "jwt_parse_system"
-        ) {
+        if (data?.result?.state === "not_login") {
             const state = userStore.getState();
             const msg = data?.result?.message || data?.result?.state;
             state.invalidatedUser(state.useUserId, msg);
@@ -44,7 +41,7 @@ export async function barcodeApi(): Promise<AxiosInstance> {
         return data?.result?.code === "200" || data?.result?.state === "not_found";
     });
 
-    return createApiClient({
+    const client = createApiClient({
         apiBaseUrl: baseUrl,
         timeout: Config.timeOut,
         headers: () => {
@@ -60,4 +57,5 @@ export async function barcodeApi(): Promise<AxiosInstance> {
         parseResult: ApiParse.parseResult,
         parseErrorResult: ApiParse.parseErrorResult,
     });
+    return client;
 }

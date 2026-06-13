@@ -3,8 +3,7 @@
 use lsys_access::dao::AccessError;
 use lsys_app_sender::dao::SenderError;
 use lsys_core::{
-    app_core::AppCoreError, config::ConfigError, fluents::FluentBundle,
-    remote_notify::RemoteNotifyError, valid_code::ValidCodeError, valid_param::ValidError,
+    app_core::AppCoreError, config::ConfigError, fluents::FluentBundle, remote_notify::RemoteNotifyError, secret::SecretError, valid_code::ValidCodeError, valid_param::ValidError
 };
 
 use lsys_logger::dao::LoggerError;
@@ -258,7 +257,36 @@ impl JsonFluent for LoggerError {
         }
     }
 }
-
+impl JsonFluent for SecretError {
+    fn to_json_data(&self, _: &FluentBundle) -> JsonData {
+        match self {
+            SecretError::KeyNotFound(key) => JsonData::default()
+                .set_code(400)
+                .set_sub_code("secret_key_not_found")
+                .set_body(json!({ "key": key })),
+            SecretError::Config(detail) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("secret_config_error")
+                .set_body(json!({ "detail": detail })),
+            SecretError::KmsNotFound(name) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("secret_kms_not_found")
+                .set_body(json!({ "kms_name": name })),
+            SecretError::KmsDecrypt(detail) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("secret_kms_error")
+                .set_body(json!({ "detail": detail })),
+            SecretError::Decode(detail) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("secret_decode_error")
+                .set_body(json!({ "detail": detail })),
+            SecretError::Encrypt(detail) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("secret_encrypt_error")
+                .set_body(json!({ "detail": detail })),
+        }
+    }
+}
 impl JsonFluent for WebError {
     fn to_json_data(&self, fluent: &FluentBundle) -> JsonData {
         match self {
@@ -281,6 +309,7 @@ impl JsonFluent for WebError {
             WebError::FileError(err) => err.to_json_data(fluent),
             WebError::FileManagerError(err) => err.to_json_data(fluent),
             WebError::LoggerError(err) => err.to_json_data(fluent),
+            WebError::SecretError(err) =>err.to_json_data(fluent),
         }
     }
 }
@@ -357,6 +386,21 @@ impl JsonFluent for lsys_file::common::FileError {
         match self {
             lsys_file::common::FileError::Sqlx(e) => e.to_json_data(fluent),
             lsys_file::common::FileError::Io(e) => e.to_json_data(fluent),
+            lsys_file::common::FileError::Redis(_) => {
+                JsonData::default().set_code(500).set_sub_code("file-redis")
+            }
+            lsys_file::common::FileError::RedisPool(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-redis-pool"),
+            lsys_file::common::FileError::AppCore(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-app-core"),
+            lsys_file::common::FileError::Setting(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-setting"),
+            lsys_file::common::FileError::Valid(_) => {
+                JsonData::default().set_code(400).set_sub_code("file-valid")
+            }
             lsys_file::common::FileError::System(_) => JsonData::default()
                 .set_code(500)
                 .set_sub_code("file-system"),
@@ -381,6 +425,20 @@ impl JsonFluent for lsys_file::common::FileError {
             lsys_file::common::FileError::DownloadFailed(_, _) => JsonData::default()
                 .set_code(500)
                 .set_sub_code("file-download-failed"),
+            lsys_file::common::FileError::Lock(
+                lsys_core::dist_lock::DistLockError::AcquireFailed { .. },
+            ) => JsonData::default()
+                .set_code(409)
+                .set_sub_code("file-merge-retry"),
+            lsys_file::common::FileError::Lock(_) => JsonData::default()
+                .set_code(500)
+                .set_sub_code("file-lock-failed"),
+            lsys_file::common::FileError::InvalidFileKey(_) => JsonData::default()
+                .set_code(400)
+                .set_sub_code("file-invalid-key"),
+            lsys_file::common::FileError::FileKeyExpired(_) => JsonData::default()
+                .set_code(400)
+                .set_sub_code("file-key-expired"),
         }
     }
 }

@@ -8,7 +8,7 @@ edition = "2024"
 tracing = { version = "0.1.*" }
 tracing-subscriber = { version = "0.3.*", features = ["env-filter"] }
 
-tokio = { version = "~1.51.0", features = [
+tokio = { version = "~1.52.0", features = [
     "rt-multi-thread",
     "macros",
     "fs",
@@ -25,4 +25,4 @@ serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0.*"
 
 lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
-lsys-sdk = { path = "../../lsys-sdk" }
+lsys-sdk = { path = "../lsys-sdk" }

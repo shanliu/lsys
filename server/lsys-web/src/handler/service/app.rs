@@ -1,5 +1,6 @@
 //! 服务间应用接口
-use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao};
+use crate::common::{JsonData, JsonResponse, JsonResult};
+use crate::dao::WebDao;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -22,10 +23,9 @@ pub struct AppFeatureResult {
 ///
 /// 该接口用于服务间调用检查某个应用是否启用了特定的功能，
 /// 例如SMS、邮件、RBAC等功能
-pub async fn feature(param: &AppFeatureParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
+pub async fn feature(param: &AppFeatureParam, web_dao: &WebDao) -> JsonResult<JsonResponse> {
     // 查找应用
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -38,8 +38,7 @@ pub async fn feature(param: &AppFeatureParam, req_dao: &RequestDao) -> JsonResul
 
     // 检查功能 - 将 Vec<String> 转换为 Vec<&str>
     let keys: Vec<&str> = param.feature_keys.iter().map(|s| s.as_str()).collect();
-    let feature_result = req_dao
-        .web_dao
+    let feature_result = web_dao
         .web_app
         .app_dao
         .app
@@ -83,10 +82,9 @@ pub struct AppSecretResult {
 ///
 /// 该接口用于服务间调用获取应用的密钥信息，
 /// 主要用于REST签名验证
-pub async fn secret(param: &AppSecretParam, req_dao: &RequestDao) -> JsonResult<JsonResponse> {
+pub async fn secret(param: &AppSecretParam, web_dao: &WebDao) -> JsonResult<JsonResponse> {
     // 根据client_id查找应用
-    let app = req_dao
-        .web_dao
+    let app = web_dao
         .web_app
         .app_dao
         .app
@@ -98,8 +96,7 @@ pub async fn secret(param: &AppSecretParam, req_dao: &RequestDao) -> JsonResult<
     app.app_status_check()?;
 
     // 使用缓存方法获取应用密钥
-    let secrets = req_dao
-        .web_dao
+    let secrets = web_dao
         .web_app
         .app_dao
         .app

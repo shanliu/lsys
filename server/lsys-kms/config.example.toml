@@ -1,0 +1,86 @@
+# lsys-kms 配置示例
+#
+# 本文件展示如何配置阿里云和腾讯云 KMS 密钥
+
+# ============================================================================
+# 阿里云 KMS 密钥示例
+# ============================================================================
+
+# 数据库密钥（使用阿里云 KMS）
+[secret.database_password]
+source     = "kms"
+kms        = "aliyun"
+# 密文可以通过以下命令生成：
+# aliyun kms Encrypt --region cn-beijing --KeyId <key-id> --Plaintext "your-db-password"
+ciphertext = "base64:i4+7vLQnj2kLe5+R7w/KxZqH0pB2e1D3v4F5g6H7i8J9k0L1m2N3o4P5q6R7s8T9u0"
+
+# Redis 密钥（使用阿里云 KMS）
+[secret.redis_password]
+source     = "kms"
+kms        = "aliyun"
+ciphertext = "base64:a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0"
+
+# ============================================================================
+# 腾讯云 KMS 密钥示例
+# ============================================================================
+
+# API Token（使用腾讯云 KMS）
+[secret.api_token]
+source     = "kms"
+kms        = "tencent"
+# 密文可以通过以下命令生成：
+# tccli kms Encrypt --region ap-beijing --KeyId <key-id> --Plaintext "your-api-token"
+ciphertext = "base64:j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z1a2b3c4d5e6f7g8h9i0j1k2l3m4"
+
+# WeChat Token（使用腾讯云 KMS）
+[secret.wechat_token]
+source     = "kms"
+kms        = "tencent"
+ciphertext = "base64:x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9"
+
+# ============================================================================
+# 明文密钥示例（开发环境使用）
+# ============================================================================
+# 注意：不要在生产环境使用明文密钥！
+
+# 本地开发用的密钥
+[secret.dev_key]
+source = "plain"
+value  = "raw:this-is-a-plain-text-key-only-for-dev"
+
+# 支持的值格式：
+# - raw: 直接作为 UTF-8 字符串
+# - hex: 十六进制编码，例如 hex:6368616e67652d746869732d746f2d796f757273656372657421
+# - base64: Base64 编码，例如 base64:dGhpcyBpcyBhIHRlc3Qga2V5
+# - 无前缀: 默认视为 raw:
+
+# ============================================================================
+# 密钥配置说明
+# ============================================================================
+#
+# 1. source 字段必须
+#    - "plain": 使用明文密钥
+#    - "kms": 使用 KMS 服务解密
+#
+# 2. KMS 配置（当 source = "kms" 时）
+#    - kms: KMS 提供商名称
+#      * "aliyun" - 阿里云 KMS
+#      * "tencent" - 腾讯云 KMS
+#    - ciphertext: KMS 返回的密文
+#
+# 3. 明文配置（当 source = "plain" 时）
+#    - value: 支持以下格式
+#      * "raw:<value>" - UTF-8 字符串
+#      * "hex:<value>" - 十六进制编码
+#      * "base64:<value>" - Base64 编码
+#      * "<value>" - 默认为 raw
+#
+# ============================================================================
+# 环境部署时
+# ============================================================================
+#
+# 开发环境：使用明文密钥或本地 KMS
+# 测试环境：使用阿里云/腾讯云 KMS（开发账户）
+# 生产环境：使用阿里云/腾讯云 KMS（生产账户），启用密钥轮换
+#
+# ============================================================================

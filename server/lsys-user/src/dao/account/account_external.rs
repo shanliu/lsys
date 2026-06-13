@@ -6,6 +6,7 @@ use crate::dao::{AccountError, AccountResult};
 use crate::model::{AccountExternalModel, AccountExternalStatus, AccountModel};
 use lsys_core::cache::{LocalCache, LocalCacheConfig};
 use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::secret::FieldEncryptor;
 use lsys_core::utils::{RequestEnv, STRING_CLEAR_FORMAT, StringClear, now_time, string_clear};
 use lsys_core::valid_param::{ValidParam, ValidParamCheck, ValidPattern, ValidStrlen, ValidUrl};
 use lsys_core::{db::utils::FetchField, fluent_message, valid_key};
@@ -23,6 +24,7 @@ pub struct AccountExternal {
     pub(crate) cache: Arc<LocalCache<u64, AccountExternalModel>>,
     pub(crate) account_cache: Arc<LocalCache<u64, Vec<u64>>>,
     logger: Arc<ChangeLoggerDao>,
+    encryptor: Arc<FieldEncryptor>,
 }
 
 impl AccountExternal {
@@ -32,6 +34,7 @@ impl AccountExternal {
         remote_notify: Arc<RemoteNotify>,
         config: LocalCacheConfig,
         logger: Arc<ChangeLoggerDao>,
+        encryptor: Arc<FieldEncryptor>,
     ) -> Self {
         Self {
             cache: Arc::new(LocalCache::new(remote_notify.clone(), config)),
@@ -39,7 +42,15 @@ impl AccountExternal {
             db,
             index,
             logger,
+            encryptor,
         }
+    }
+
+    fn decrypt_model(&self, model: &mut AccountExternalModel) -> AccountResult<()> {
+        if !model.token_data.is_empty() {
+            model.token_data = self.encryptor.decrypt_str(&model.token_data)?;
+        }
+        Ok(())
     }
 
     /// 根据第三方信息查找记录
@@ -78,6 +89,8 @@ impl AccountExternal {
         .fetch_one(&self.db)
         .await?;
 
+        let mut res = res;
+        self.decrypt_model(&mut res)?;
         Ok(res)
     }
     /// 根据用户跟第三方id查找记录
@@ -118,6 +131,8 @@ impl AccountExternal {
         .fetch_one(&self.db)
         .await?;
 
+        let mut res = res;
+        self.decrypt_model(&mut res)?;
         Ok(res)
     }
     async fn external_param_valid(
@@ -338,10 +353,6 @@ impl AccountExternal {
             .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NAME)
             .await
             .len_or(256);
-        let token_data_max = fetch_field
-            .string_max::<AccountExternalModel>(&AccountExternalModel::TOKEN_DATA)
-            .await
-            .len_or(256);
         let external_nikename_max = fetch_field
             .string_max::<AccountExternalModel>(&AccountExternalModel::EXTERNAL_NIKENAME)
             .await
@@ -373,7 +384,7 @@ impl AccountExternal {
                 &token_data,
                 &ValidParamCheck::default()
                     .add_rule(ValidPattern::NotFormat)
-                    .add_rule(ValidStrlen::range(1, token_data_max)),
+                    .add_rule(ValidStrlen::range(1, 512)),
             );
         if let Some(external_nikename) = external_nikename {
             param_valid.add(
@@ -440,10 +451,10 @@ impl AccountExternal {
         .await?;
         let time = now_time()?;
         let external_name_ow = external_name.to_string();
-        let token_data_ow = token_data.to_string();
+        let token_data_encrypted = self.encryptor.encrypt_str(token_data)?;
         let mut update = Update::<_, AccountExternalModel>::new()
             .set(AccountExternalModel::EXTERNAL_NAME, external_name_ow)
-            .set(AccountExternalModel::TOKEN_DATA, token_data_ow)
+            .set(AccountExternalModel::TOKEN_DATA, token_data_encrypted)
             .set(AccountExternalModel::TOKEN_TIMEOUT, token_timeout)
             .set(AccountExternalModel::CHANGE_TIME, time);
         if let Some(link) = external_link {
@@ -596,19 +607,21 @@ impl AccountExternal {
     }
     pub async fn find_by_id(&self, id: &u64) -> AccountResult<AccountExternalModel> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::one(&self.db, |qb| {
+        let mut model = Fetch::<MySql, AccountExternalModel>::one(&self.db, |qb| {
             qb.field_eq("id", *id);
             qb.push_and()
                 .field_eq("status", AccountExternalStatus::Enable as i8);
         })
-        .await?)
+        .await?;
+        self.decrypt_model(&mut model)?;
+        Ok(model)
     }
     pub async fn find_by_ids(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, AccountExternalModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::map(
+        let mut map = Fetch::<MySql, AccountExternalModel>::map(
             &self.db,
             |qb| {
                 qb.field_in_copied("id", ids);
@@ -617,26 +630,34 @@ impl AccountExternal {
             },
             |v| v.id,
         )
-        .await?)
+        .await?;
+        for m in map.values_mut() {
+            self.decrypt_model(m)?;
+        }
+        Ok(map)
     }
     pub async fn find_by_account_id_vec(
         &self,
         id: &u64,
     ) -> AccountResult<Vec<AccountExternalModel>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::vec(&self.db, |qb| {
+        let mut models = Fetch::<MySql, AccountExternalModel>::vec(&self.db, |qb| {
             qb.field_eq("account_id", *id);
             qb.push_and()
                 .field_eq("status", AccountExternalStatus::Enable as i8);
         })
-        .await?)
+        .await?;
+        for m in &mut models {
+            self.decrypt_model(m)?;
+        }
+        Ok(models)
     }
     pub async fn find_by_account_ids_vec(
         &self,
         ids: &[u64],
     ) -> AccountResult<HashMap<u64, Vec<AccountExternalModel>>> {
         use lsys_core::db::utils::Fetch;
-        Ok(Fetch::<MySql, AccountExternalModel>::group(
+        let mut map = Fetch::<MySql, AccountExternalModel>::group(
             &self.db,
             |qb| {
                 qb.field_in_copied("account_id", ids);
@@ -645,7 +666,13 @@ impl AccountExternal {
             },
             |v| v.account_id,
         )
-        .await?)
+        .await?;
+        for models in map.values_mut() {
+            for m in models.iter_mut() {
+                self.decrypt_model(m)?;
+            }
+        }
+        Ok(map)
     }
     pub fn cache(&'_ self) -> AccountExternalCache<'_> {
         AccountExternalCache { dao: self }

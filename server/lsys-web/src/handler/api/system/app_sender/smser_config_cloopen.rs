@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::admin::{CheckAdminSmsConfig, CheckAdminSmsMgr};
 use lsys_access::dao::AccessSession;
@@ -33,20 +34,25 @@ pub struct ShowCloOpenConfigRecord {
 pub async fn smser_cloopen_config_list(
     param: &SmserCloOpenConfigListParam,
     callback_call: impl Fn(&SettingData<CloOpenConfig>) -> String,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .cloopen_sender
@@ -87,20 +93,25 @@ pub struct SmserCloOpenConfigAddParam {
 
 pub async fn smser_cloopen_config_add(
     param: &SmserCloOpenConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .cloopen_sender
@@ -133,12 +144,18 @@ pub struct SmserCloOpenConfigEditParam {
 
 pub async fn smser_cloopen_config_edit(
     param: &SmserCloOpenConfigEditParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -146,8 +163,7 @@ pub async fn smser_cloopen_config_edit(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .cloopen_sender
@@ -174,20 +190,25 @@ pub struct SmserCloOpenConfigDelParam {
 
 pub async fn smser_cloopen_config_del(
     param: &SmserCloOpenConfigDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminSmsConfig {},
         )
         .await?;
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .cloopen_sender
@@ -208,12 +229,18 @@ pub struct SmserAppCloopenConfigAddParam {
 
 pub async fn smser_tpl_config_cloopen_add(
     param: &SmserAppCloopenConfigAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -221,8 +248,7 @@ pub async fn smser_tpl_config_cloopen_add(
         )
         .await?;
 
-    let row = req_dao
-        .web_dao
+    let row = web_dao
         .app_sender
         .smser
         .cloopen_sender

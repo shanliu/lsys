@@ -1,7 +1,7 @@
 use crate::common::JsonData;
 use crate::common::JsonResponse;
 use crate::common::JsonResult;
-use crate::common::UserAuthQueryDao;
+use crate::common::RequestDao;
 use lsys_app_sender::model::SenderLogStatus;
 use lsys_app_sender::model::SenderLogType;
 use lsys_app_sender::model::SenderMailBodyStatus;
@@ -11,7 +11,7 @@ use lsys_app_sender::model::SenderSmsBodyStatus;
 use lsys_app_sender::model::SenderSmsConfigType;
 use lsys_app_sender::model::SenderSmsMessageStatus;
 use serde_json::json;
-pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn mailer_mapping_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
         "config_type":vec![
             var_json_format!(req_dao, "smtp-config"),
@@ -50,7 +50,7 @@ pub async fn mailer_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonR
     }))))
 }
 
-pub async fn smser_mapping_data(req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
+pub async fn smser_mapping_data(req_dao: &RequestDao) -> JsonResult<JsonResponse> {
     Ok(JsonResponse::data(JsonData::body(json!({
          "config_type":vec![
             var_json_format!(req_dao, "ali-sms-config"),

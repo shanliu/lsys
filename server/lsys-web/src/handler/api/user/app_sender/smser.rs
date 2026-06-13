@@ -1,6 +1,7 @@
 use crate::common::{JsonData, JsonPageData, ToCursorPageParam, ToOffsetPageParam};
-use crate::common::{JsonError, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonError, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
 use crate::common::{LimitParam, PageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::{CheckUserAppSenderSmsSend, CheckUserAppSenderSmsView};
 use lsys_access::dao::AccessSession;
@@ -25,28 +26,32 @@ pub struct SmserMessageLogParam {
 
 pub async fn smser_message_log(
     param: &SmserMessageLogParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -55,8 +60,7 @@ pub async fn smser_message_log(
             },
         )
         .await?;
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -65,8 +69,7 @@ pub async fn smser_message_log(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .smser
                 .smser_dao
@@ -90,27 +93,31 @@ pub struct SmserMessageBodyParam {
 
 pub async fn smser_message_body(
     param: &SmserMessageBodyParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .app_sender
         .smser
         .smser_message_body(&msg, &body, &auth_data, Some(&req_dao.req_env))
@@ -138,11 +145,17 @@ pub struct SmserMessageListParam {
 
 pub async fn smser_message_list(
     param: &SmserMessageListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -157,8 +170,7 @@ pub async fn smser_message_list(
         None
     };
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -176,8 +188,7 @@ pub async fn smser_message_list(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .app_sender
                 .smser
                 .smser_dao
@@ -199,8 +210,7 @@ pub async fn smser_message_list(
         None
     };
 
-    if let Err(err) = req_dao
-        .web_dao
+    if let Err(err) = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -219,8 +229,7 @@ pub async fn smser_message_list(
     }
     let ntime = now_time().unwrap_or_default();
     let cursor = PageCursorValue::from(&res.1);
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .app_sender
         .smser
         .smser_dao
@@ -266,27 +275,31 @@ pub struct SmserMessageCancelParam {
 
 pub async fn smser_message_cancel(
     param: &SmserMessageCancelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let msg = req_dao
-        .web_dao
+    let msg = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_message_by_id(param.message_id)
         .await?;
-    let body = req_dao
-        .web_dao
+    let body = web_dao
         .app_sender
         .smser
         .smser_dao
         .sms_record
         .find_body_by_id(msg.sender_body_id)
         .await?;
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -295,8 +308,7 @@ pub async fn smser_message_cancel(
             },
         )
         .await?;
-    let mut res = req_dao
-        .web_dao
+    let mut res = web_dao
         .app_sender
         .smser
         .send_cancel(&body, &[&msg], auth_data.user_id(), Some(&req_dao.req_env))
@@ -331,20 +343,20 @@ pub struct SmserMessageSendParam {
 //后台界面发送短信接口
 pub async fn smser_message_send(
     param: &SmserMessageSendParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
 
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -365,8 +377,7 @@ pub async fn smser_message_send(
         None
     };
     let mobile = param.mobile.iter().map(|e| e.as_str()).collect::<Vec<_>>();
-    req_dao
-        .web_dao
+    web_dao
         .app_sender
         .smser
         .app_send(

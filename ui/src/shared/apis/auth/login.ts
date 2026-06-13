@@ -72,7 +72,7 @@ export const LoginAuthDataSchema = z.object({
 // Login Response Schema (成功登录)
 export const LoginResSchema = z.object({
     auth_data: LoginAuthDataSchema,
-    jwt: z.string().optional(),
+    token: z.string().optional(),
     passwrod_timeout: z.string().optional(),
 });
 export type LoginResType = z.infer<typeof LoginResSchema>;

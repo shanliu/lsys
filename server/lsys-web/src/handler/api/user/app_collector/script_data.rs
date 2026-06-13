@@ -1,4 +1,5 @@
-use crate::common::{JsonData, JsonResponse, JsonResult, UserAuthQueryDao};
+use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 
 use crate::handler::api::user::app_collector::app_check_get;
 use lsys_access::dao::AccessSession;
@@ -16,30 +17,32 @@ pub struct ScriptListParam {
     pub count_num: Option<bool>,
 }
 
-/// GET /api/user/collector/scripts — 用户应用脚本列表
 pub async fn scripts(
     param: &ScriptListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let _app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
     use crate::common::ToOffsetPageParam;
     let page = param.page.to_offset_page_param();
 
-    let data = req_dao
-        .web_dao
-        .web_files
-        .collector
+    let data = web_dao
+        .web_collector.collector
         .list_scripts(param.app_id, param.status, &page)
         .await?;
 
     let total = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
-                .web_files
-                .collector
+            web_dao
+                .web_collector.collector
                 .count_scripts(param.app_id, param.status)
                 .await?,
         )

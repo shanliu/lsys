@@ -9,6 +9,7 @@ use lsys_app_sender::{
 };
 use lsys_core::app_core::AppCore;
 use lsys_core::fluent_message;
+use lsys_core::secret::FieldEncryptor;
 use lsys_core::utils::RequestEnv;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
@@ -23,6 +24,7 @@ use super::logger::MessageView;
 pub struct SenderMailer {
     tpls: Arc<MessageTpls>,
     logger: Arc<ChangeLoggerDao>,
+    encryptor: Arc<FieldEncryptor>,
     pub mailer_dao: Arc<MailSenderDao>,
     pub smtp_sender: SenderSmtpConfig,
 }
@@ -37,6 +39,7 @@ impl SenderMailer {
         logger: Arc<ChangeLoggerDao>,
         tpls: Arc<MessageTpls>,
         mail_config: MailSenderConfig,
+        encryptor: Arc<FieldEncryptor>,
     ) -> Self {
         let mailer_dao = Arc::new(MailSenderDao::new(
             app_core.clone(),
@@ -47,12 +50,13 @@ impl SenderMailer {
             mail_config,
         ));
         let smtp_sender =
-            SenderSmtpConfig::new(setting.multiple.clone(), mailer_dao.tpl_config.clone());
+            SenderSmtpConfig::new(setting.multiple.clone(), mailer_dao.tpl_config.clone(), encryptor.clone());
         Self {
             mailer_dao,
             smtp_sender,
             logger,
             tpls,
+            encryptor,
         }
     }
     pub async fn send_valid_code(
@@ -115,7 +119,7 @@ impl SenderMailer {
     }
     // 后台任务
     pub async fn task_sender(&self) -> WebResult<()> {
-        let task = SmtpSenderTask::new(self.tpls.clone());
+        let task = SmtpSenderTask::new(self.tpls.clone(), self.encryptor.clone());
         Ok(self.mailer_dao.task_sender(vec![Box::new(task)]).await?)
     }
     // 后台任务

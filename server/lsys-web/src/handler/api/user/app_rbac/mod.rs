@@ -10,9 +10,12 @@ mod role_user;
 
 use crate::{
     common::{JsonError, JsonResult, RequestDao, UserAuthQueryDao},
-    dao::access::{
-        RbacAccessCheckEnv,
-        api::system::user::{CheckUserAppEdit, CheckUserAppView},
+    dao::{
+        WebDao,
+        access::{
+            RbacAccessCheckEnv,
+            api::system::user::{CheckUserAppEdit, CheckUserAppView},
+        },
     },
 };
 pub use audit::*;
@@ -29,8 +32,13 @@ pub use role::*;
 pub use role_perm::*;
 pub use role_user::*;
 
-async fn parent_app_check(req_dao: &UserAuthQueryDao) -> JsonResult<UserAuthData> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+async fn parent_app_check(auth_dao: &UserAuthQueryDao) -> JsonResult<UserAuthData> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     if auth_data.session().user_app_id != 0 {
         return Err(JsonError::Message(fluent_message!("bad-audit-access")));
     }
@@ -41,19 +49,13 @@ async fn app_check_get(
     app_id: u64,
     is_edit: bool,
     auth_data: &UserAuthData,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<AppModel> {
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(app_id)
-        .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(app_id).await?;
 
     if is_edit {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -63,8 +65,7 @@ async fn app_check_get(
             )
             .await?;
     } else {
-        req_dao
-            .web_dao
+        web_dao
             .web_rbac
             .check(
                 &RbacAccessCheckEnv::session_body(auth_data, &req_dao.req_env),
@@ -75,8 +76,7 @@ async fn app_check_get(
             .await?;
     }
     app.app_status_check()?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -89,13 +89,12 @@ async fn inner_user_data_to_user_id(
     app: &AppModel,
     use_app_user: bool,
     user_data: Option<&str>,
-    req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<u64> {
     if use_app_user {
         return Ok(app.user_id);
     }
-    Ok(req_dao
-        .web_dao
+    Ok(web_dao
         .web_access
         .access_dao
         .user

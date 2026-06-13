@@ -1,10 +1,13 @@
-import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { UserExportAction } from "@apps/main/features/user/components/ui/user-export-action";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterDictSelect, FilterInput, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import { ExportButton, ExportMobileButton, ExportSplitButton } from "@apps/main/components/export-manager/export-buttons";
+import { ExportDrawer } from "@apps/main/components/export-manager/export-drawer";
+import { useUserAppExportAction } from "@apps/main/hooks/use-user-app-export-action";
 import { EXPORT_TYPE_USER_SMSER_MESSAGE_LIST } from "@shared/apis/user/file";
-import { FilterDictSelect } from "@apps/main/components/filter-container/filter-dict-select";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
 import { AppDetailNavContainer } from "@apps/main/features/user/components/ui/app-detail-nav";
 import {
   useDictData,
@@ -58,6 +61,7 @@ import { ListContentDrawer } from "./list-content-drawer";
 import { ListLogsDrawer } from "./list-logs-drawer";
 import { ListNotifyDrawer } from "./list-notify-drawer";
 import { SmsListFilterFormSchema } from "./list-schema";
+import * as z from "zod";
 
 export default function AppDetailFeatureSmsListPage() {
   // user\app_sender_smser\mapping.md
@@ -76,7 +80,7 @@ export default function AppDetailFeatureSmsListPage() {
     isError: dictError,
     errors: dictErrors,
     refetch: refetchDict,
-  } = useDictData(["user_sender_sms"] as const);
+  } = useDictData(["user_sender_sms", "user_export"] as const);
 
   // 如果字典加载失败，显示错误页面
   if (dictError && dictErrors.length > 0) {
@@ -117,7 +121,7 @@ export default function AppDetailFeatureSmsListPage() {
   );
 }
 interface AppDetailFeatureSmsListContentProps {
-  dictData: TypedDictData<["user_sender_sms"]>;
+  dictData: TypedDictData<["user_sender_sms", "user_export"]>;
 }
 
 function AppDetailFeatureSmsListContent({
@@ -151,6 +155,18 @@ function AppDetailFeatureSmsListContent({
     mobile: filterParam.mobile || null,
     snid: filterParam.snid || null,
   };
+
+  // 导出操作 hook
+  const exportAction = useUserAppExportAction({
+    appId: Number(appId),
+    exportType: EXPORT_TYPE_USER_SMSER_MESSAGE_LIST,
+    params: {
+      status: filters.status ?? undefined,
+      tpl_key: filters.tpl_key ?? undefined,
+      mobile: filters.mobile ?? undefined,
+      snid: filters.snid ?? undefined,
+    },
+  });
 
   // 分页状态 - 直接从 URL 参数派生，无需 useState
   const pagination: LimitType = {
@@ -254,6 +270,24 @@ function AppDetailFeatureSmsListContent({
     countNumManager.reset();
     queryClient.invalidateQueries({ queryKey: ["userSenderSmsMessageList"] });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof SmsListFilterFormSchema>>({
+    defaultValues: {
+      status: filterParam.status?.toString() as any,
+      tpl_key: filterParam.tpl_key,
+      mobile: filterParam.mobile,
+      snid: filterParam.snid,
+    },
+    resolver: zodResolver(SmsListFilterFormSchema) as any,
+    initValues: { status: undefined, tpl_key: undefined, mobile: undefined, snid: undefined },
+    onSubmit: (data) => {
+      const d = data as { status?: number; tpl_key?: string; mobile?: string; snid?: string };
+      searchGo({ status: d.status, tpl_key: d.tpl_key, mobile: d.mobile, snid: d.snid, pos: null, forward: true });
+    },
+    onReset: () => {
+      searchGo({ pos: null, limit: currentLimit, forward: true, status: undefined, tpl_key: undefined, mobile: undefined, snid: undefined });
+    },
+  });
 
   // 字典数据已加载，创建状态映射器
   const smsStatus = createStatusMapper(
@@ -463,123 +497,43 @@ function AppDetailFeatureSmsListContent({
     <>
       <div className="flex flex-col min-h-0 space-y-6">
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          {/* 过滤器 */}
-          <FilterContainer
-            defaultValues={{
-              status: filterParam.status?.toString(),
-              tpl_key: filterParam.tpl_key,
-              mobile: filterParam.mobile,
-              snid: filterParam.snid,
-            }}
-            resolver={zodResolver(SmsListFilterFormSchema) as any}
-            onSubmit={(data) => {
-              // zod schema 已经处理了类型转换和空值清理
-              const transformedData = data as {
-                status?: number;
-                tpl_key?: string;
-                mobile?: string;
-                snid?: string;
-              };
-              searchGo({
-                status: transformedData.status,
-                tpl_key: transformedData.tpl_key,
-                mobile: transformedData.mobile,
-                snid: transformedData.snid,
-                pos: null, // 重置分页位置
-                forward: true,
-              });
-            }}
-            onReset={() => {
-              searchGo({
-                pos: null,
-                limit: currentLimit,
-                forward: true,
-                status: undefined,
-                tpl_key: undefined,
-                mobile: undefined,
-                snid: undefined,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotalInfo())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                {/* 状态过滤 */}
-                {dictData.sms_send_status && (
-                  <FilterDictSelect
-                    name="status"
-                    placeholder="选择状态"
-                    label="状态"
-                    disabled={isLoading}
-                    dictData={dictData.sms_send_status}
-                    layoutParams={layoutParams}
-                    allLabel="全部"
-                  />
-                )}
-
-                {/* ID过滤 */}
-                <FilterInput
-                  name="snid"
-                  placeholder="输入ID"
-                  label="ID"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                {/* 手机号过滤 */}
-                <FilterInput
-                  name="mobile"
-                  placeholder="输入手机号"
-                  label="手机号"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                {/* 模板Key过滤 */}
-                <FilterInput
-                  name="tpl_key"
-                  placeholder="输入模板Key"
-                  label="模板Key"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                />
-
-                {/* 动作按钮区域 */}
-                <div
-                  className={cn(
-                    layoutParams.isMobile ? "w-full" : "flex-shrink-0",
-                  )}
-                >
-                  <FilterActions
-                    form={form}
-                    loading={isLoading}
-                    layoutParams={layoutParams}
-                    onRefreshSearch={clearCacheAndReload}
-                    extraActions={
-                      <UserExportAction
-                        appId={Number(appId)}
-                        exportType={EXPORT_TYPE_USER_SMSER_MESSAGE_LIST}
-                        params={{
-                          app_id: Number(appId),
-                          status: filters.status,
-                          tpl_key: filters.tpl_key,
-                          mobile: filters.mobile,
-                          snid: filters.snid,
-                        }}
-                        layoutParams={layoutParams}
-                      />
-                    }
-                  />
-                </div>
-              </div>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotalInfo())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterBar.MobileExtra>
+              <ExportMobileButton activeCount={exportAction.activeCount} isLoading={exportAction.activeCount > 0} onClick={exportAction.openDrawer} />
+            </FilterBar.MobileExtra>
+            {dictData.sms_send_status && (
+              <FilterDictSelect name="status" placeholder="选择状态" label="状态" disabled={isLoading}
+                dictData={dictData.sms_send_status} allLabel="全部" />
             )}
-          </FilterContainer>
+            <FilterInput name="snid" placeholder="输入ID" label="ID" disabled={isLoading} />
+            <FilterInput name="mobile" placeholder="输入手机号" label="手机号" disabled={isLoading} />
+            <FilterInput name="tpl_key" placeholder="输入模板Key" label="模板Key" disabled={isLoading} />
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+              <FilterBar.DesktopOnly>
+                <ExportSplitButton activeCount={exportAction.activeCount} onSubmitExport={exportAction.submit}
+                  onViewHistory={exportAction.openDrawer} isSubmitting={exportAction.isSubmitting} />
+              </FilterBar.DesktopOnly>
+            </FilterActions>
+            <FilterBar.MobileFooter>
+              {(closeDrawer) => (
+                <ExportButton isSubmitting={exportAction.isSubmitting}
+                  onSubmitExport={() => void exportAction.submit().then(closeDrawer).catch(() => {})} />
+              )}
+            </FilterBar.MobileFooter>
+          </FilterBar>
+          <ExportDrawer
+            open={exportAction.drawerOpen}
+            onOpenChange={(open) => open ? exportAction.openDrawer() : exportAction.closeDrawer()}
+            statusDict={dictData.export_task_status!}
+            tasks={exportAction.tasks} totalCount={exportAction.totalCount}
+            currentPage={exportAction.currentPage} totalPages={exportAction.totalPages}
+            onPageChange={exportAction.setPage} isLoading={exportAction.isLoadingTasks}
+          />
         </div>
         {/* 加 min-h-0 防止内容撑开导致出现额外空白或双滚动条 */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">

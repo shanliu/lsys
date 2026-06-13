@@ -1,8 +1,8 @@
 use std::net::IpAddr;
 
 use crate::{
-    common::{JsonResult, UserAuthQueryDao},
-    dao::ShowUserAuthData,
+    common::{JsonResult, RequestDao, UserAuthQueryDao},
+    dao::{ShowUserAuthData, WebDao},
 };
 
 use lsys_user::dao::{UserAuthToken, login::AccountLoginEnv};
@@ -18,10 +18,11 @@ pub struct MfaVerifyParam {
 
 pub async fn user_mfa_verify(
     param: &MfaVerifyParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<(UserAuthToken, ShowUserAuthData)> {
-    let session_body = req_dao
-        .web_dao
+    let session_body = web_dao
         .web_user
         .user_dao
         .mfa_login_dao
@@ -38,5 +39,5 @@ pub async fn user_mfa_verify(
         )
         .await?;
 
-    user_login_finish(session_body, req_dao).await
+    user_login_finish(session_body, req_dao, auth_dao, web_dao).await
 }

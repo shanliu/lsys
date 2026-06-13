@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  Files,
   History,
   KeyRound,
   LayoutGrid,
@@ -47,6 +48,7 @@ export function getUserMenu(): MenuConfig[] {
       icon: Lock,
       permission: 'user:account',
       children: [
+      
         {
           name: '登陆日志',
           path: '/user/account/login-log',
@@ -71,6 +73,11 @@ export function getUserMenu(): MenuConfig[] {
           name: '用户地址',
           path: '/user/account/address',
           icon: MapPin,
+        },
+        {
+          name: '文件管理',
+          path: '/user/account/file',
+          icon: Files,
         },
         {
           name: '修改密码',

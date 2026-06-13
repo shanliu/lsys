@@ -1,6 +1,7 @@
 use super::{inner_app_rbac_check, inner_app_self_check, inner_user_data_to_user_id};
 use crate::common::{JsonData, JsonPageData, ToOffsetPageParam};
 use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao};
+use crate::dao::WebDao;
 use lsys_app::model::AppModel;
 use lsys_rbac::dao::{RbacResAddData, RbacResData, ResDataAttrParam, ResDataParam};
 use serde::{Deserialize, Serialize};
@@ -20,18 +21,18 @@ pub async fn res_add(
     param: &ResAddParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -70,19 +71,18 @@ pub async fn res_edit(
     param: &ResEditParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .res
         .find_by_id(&param.res_id)
         .await?;
     inner_app_self_check(app, res.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -114,19 +114,18 @@ pub async fn res_del(
     param: &ResDelParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .res
         .find_by_id(&param.res_id)
         .await?;
     inner_app_self_check(app, res.app_id)?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -174,18 +173,18 @@ pub async fn res_data(
     param: &ResParam,
     app: &AppModel,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    inner_app_rbac_check(app, req_dao).await?;
+    inner_app_rbac_check(app, req_dao, web_dao).await?;
     let target_user_id = inner_user_data_to_user_id(
         app,
         param.use_app_user,
         param.user_param.as_deref(),
-        req_dao,
+        web_dao,
     )
     .await?;
 
-    let res = req_dao
-        .web_dao
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .res
@@ -207,8 +206,7 @@ pub async fn res_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .res
@@ -239,7 +237,7 @@ pub async fn res_data(
         })
         .collect::<Vec<_>>();
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, res, user_id),
+        bind_vec_user_info_from_req!(web_dao, res, user_id),
         count,
     ))))
 }

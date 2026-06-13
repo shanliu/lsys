@@ -1,6 +1,8 @@
 use crate::model::{AccountIndexCat, AccountIndexModel, AccountIndexStatus, AccountStatus};
 use config::Map;
 use lsys_core::utils::{StringClear, now_time, string_clear};
+use lsys_core::secret::FieldEncryptor;
+use std::sync::Arc;
 
 use super::AccountResult;
 use lsys_core::db::{
@@ -10,11 +12,12 @@ use lsys_core::db::{
 use sqlx::{Acquire, MySql, Pool, QueryBuilder, Transaction};
 pub struct AccountIndex {
     db: Pool<MySql>,
+    encryptor: Arc<FieldEncryptor>,
 }
 
 impl AccountIndex {
-    pub fn new(db: Pool<MySql>) -> Self {
-        Self { db }
+    pub fn new(db: Pool<MySql>, encryptor: Arc<FieldEncryptor>) -> Self {
+        Self { db, encryptor }
     }
     //一个用户一个类型只能有一个记录
     pub async fn cat_one_add(
@@ -27,10 +30,16 @@ impl AccountIndex {
         if index_data.is_empty() {
             return Ok(0);
         }
+        // 如果是加密类型，使用哈希值
+        let index_data = if matches!(cat, AccountIndexCat::Email | AccountIndexCat::Mobile) {
+            self.encryptor.hash_str(index_data)?
+        } else {
+            index_data.to_string()
+        };
+        
         let time = now_time()?;
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
-        let index_data = index_data.to_string();
         let mut db = match transaction {
             Some(pb) => pb.begin().await?,
             None => self.db.begin().await?,
@@ -104,7 +113,18 @@ impl AccountIndex {
         let time = now_time()?;
         let index_cat = cat as u8;
         let status = AccountIndexStatus::Enable as i8;
-        let tmp_data = index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>();
+        
+        // 如果是加密类型，对每个数据进行哈希
+        let tmp_data = if matches!(cat, AccountIndexCat::Email | AccountIndexCat::Mobile) {
+            let mut hashed = Vec::with_capacity(index_data.len());
+            for data in index_data {
+                hashed.push(self.encryptor.hash_str(data)?);
+            }
+            hashed
+        } else {
+            index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+        };
+        
         let mut batch = BatchInsert::<_, AccountIndexModel>::with_capacity(tmp_data.len());
         for t in tmp_data.iter() {
             batch = batch.push(
@@ -138,11 +158,25 @@ impl AccountIndex {
         }
         let index_cat = cat as u8;
         let time = now_time()?;
+        
+        // 如果是加密类型，对每个数据进行哈希
+        let data_to_delete = if matches!(cat, AccountIndexCat::Email | AccountIndexCat::Mobile) {
+            let mut hashed = Vec::with_capacity(index_data.len());
+            for data in index_data {
+                hashed.push(self.encryptor.hash_str(data)?);
+            }
+            hashed
+        } else {
+            index_data.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+        };
+        
+        let data_refs: Vec<&str> = data_to_delete.iter().map(|s| s.as_str()).collect();
+        
         let res = Update::<_, AccountIndexModel>::new()
             .set(AccountIndexModel::STATUS, AccountIndexStatus::Delete as i8)
             .set(AccountIndexModel::CHANGE_TIME, time)
             .execute(OptionTxExecutor::new(transaction, &self.db), |qb| {
-                qb.push_where().field_in_string("index_data", index_data);
+                qb.push_where().field_in_string("index_data", &data_refs);
                 qb.push_and().field_eq("index_cat", index_cat);
                 qb.push_and().field_eq("account_id", account_id);
             })
@@ -210,7 +244,7 @@ impl AccountIndex {
                 .map(|e| (*e as i8).to_string())
                 .collect::<Vec<_>>()
         };
-        let key_word = string_clear(key_word, StringClear::LikeKeyWord, None);
+        
         let mut qb = QueryBuilder::<MySql>::new("");
         if key_word.is_empty() || param.is_empty() {
             qb.push(format!(
@@ -225,7 +259,16 @@ impl AccountIndex {
                 .field_in_string("k.index_data", &account_status_data);
             qb.push(" ");
         } else {
-            let index_cat_data = param.iter().map(|e| *e as i8).collect::<Vec<_>>();
+            // 分离加密类型和明文类型
+            let mut encrypted_cats = Vec::new();
+            let mut plaintext_cats = Vec::new();
+            for cat in param {
+                match cat {
+                    AccountIndexCat::Email | AccountIndexCat::Mobile => encrypted_cats.push(*cat as i8),
+                    _ => plaintext_cats.push(*cat as i8),
+                }
+            }
+            
             qb.push(format!(
                 "select distinct k.account_id,group_concat(k.index_cat,':',REPLACE(REPLACE(k.index_data,':',' '),',',' ')) as cat_more FROM {} as s inner join {} as k on s.account_id = k.account_id",
                 AccountIndexModel::table_name(),
@@ -239,12 +282,37 @@ impl AccountIndex {
                 .field_in_string("s.index_data", &account_status_data);
             qb.push_and()
                 .field_eq("k.status", AccountIndexStatus::Enable as i8);
-            qb.push_and()
-                .field_like("k.index_data", format!("{}%", key_word));
-            if !index_cat_data.is_empty() {
+            
+            // 构建搜索条件：对明文字段使用 LIKE，对加密字段使用精确匹配
+            if !plaintext_cats.is_empty() && !encrypted_cats.is_empty() {
+                // 既有明文又有加密字段，使用 OR 组合
+                let key_word_cleaned = string_clear(key_word, StringClear::LikeKeyWord, None);
+                let encrypted_hash = self.encryptor.hash_str(key_word)?;
+                
+                qb.push_and().push(" ( ");
+                qb.push(" (");
+                qb.field_in_copied("k.index_cat", &plaintext_cats);
+                qb.push_and().field_like("k.index_data", format!("{}%", key_word_cleaned));
+                qb.push(") OR (");
+                qb.field_in_copied("k.index_cat", &encrypted_cats);
+                qb.push_and().field_eq("k.index_data", encrypted_hash);
+                qb.push(") ) ");
+            } else if !plaintext_cats.is_empty() {
+                // 只有明文字段，使用 LIKE
+                let key_word_cleaned = string_clear(key_word, StringClear::LikeKeyWord, None);
                 qb.push_and()
-                    .field_in_copied("k.index_cat", &index_cat_data);
+                    .field_like("k.index_data", format!("{}%", key_word_cleaned));
+                qb.push_and()
+                    .field_in_copied("k.index_cat", &plaintext_cats);
+            } else if !encrypted_cats.is_empty() {
+                // 只有加密字段，使用精确匹配
+                let encrypted_hash = self.encryptor.hash_str(key_word)?;
+                qb.push_and()
+                    .field_eq("k.index_data", encrypted_hash);
+                qb.push_and()
+                    .field_in_copied("k.index_cat", &encrypted_cats);
             }
+            
             qb.push(" ");
         }
         let query_limit = limit.page_query("k.account_id");

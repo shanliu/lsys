@@ -1,5 +1,6 @@
 //! 服务间RBAC权限检查接口
 use crate::common::{JsonData, JsonResponse, JsonResult, RequestDao};
+use crate::dao::WebDao;
 use lsys_rbac::dao::{AccessCheckEnv, AccessCheckOp, AccessCheckRes, AccessSessionRole};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -70,11 +71,12 @@ pub struct RbacMenuStatus {
 pub async fn check_list(
     param: &RbacMenuListParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     let mut out = Vec::with_capacity(param.menu_res.len());
     for e in param.menu_res.iter() {
         out.push(RbacMenuStatus {
-            status: inner_access_check(&e.check_res, req_dao)
+            status: inner_access_check(&e.check_res, req_dao, web_dao)
                 .await
                 .map(|_| true)
                 .unwrap_or(false),
@@ -85,9 +87,12 @@ pub async fn check_list(
 }
 
 /// 内部权限检查实现
-async fn inner_access_check(param: &RbacCheckParam, req_dao: &RequestDao) -> Result<(), String> {
-    let user = req_dao
-        .web_dao
+async fn inner_access_check(
+    param: &RbacCheckParam,
+    req_dao: &RequestDao,
+    web_dao: &WebDao,
+) -> Result<(), String> {
+    let user = web_dao
         .web_access
         .access_dao
         .user
@@ -141,8 +146,7 @@ async fn inner_access_check(param: &RbacCheckParam, req_dao: &RequestDao) -> Res
         })
         .collect::<Vec<_>>();
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .access

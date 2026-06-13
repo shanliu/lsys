@@ -10,16 +10,18 @@ pub(crate) mod logger;
 mod query;
 mod task;
 
-pub use query::{ExportTaskFileItem, ExportTaskItem, ExportTaskListAttr, SubmitExportTaskParam};
+pub use query::{ExportTaskFileItem, ExportTaskItem, SubmitExportTaskParam};
 pub mod writer;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use lsys_core::fluents::FluentMgr;
 use lsys_file::dao::FileDao;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::{MySql, Pool};
-use tokio::sync::{Mutex, Semaphore, mpsc};
+use tokio::sync::{Semaphore, mpsc};
+use tracing::warn;
 
 use crate::dao::export_task::exporter::{Exporter, ExporterAdapter};
 
@@ -76,8 +78,10 @@ pub struct ExportTask {
     pub(crate) semaphore: Arc<Semaphore>,
     /// 触发信号发送端
     pub(crate) trigger_tx: mpsc::Sender<()>,
-    /// 触发信号接收端（Mutex 包装，供 dispatch_loop 独占使用）
-    pub(crate) trigger_rx: Mutex<mpsc::Receiver<()>>,
+    /// 触发信号接收端（Option 包装，可以被 take 出来给 dispatcher）
+    pub(crate) trigger_rx: Option<mpsc::Receiver<()>>,
+    /// 多语言管理器，供 Exporter::export() 解析 locale
+    pub(crate) fluent_mgr: Arc<FluentMgr>,
 }
 
 impl ExportTask {
@@ -87,6 +91,7 @@ impl ExportTask {
         file_dao: Arc<FileDao>,
         logger: Arc<ChangeLoggerDao>,
         app_core: &lsys_core::app_core::AppCore,
+        fluent_mgr: Arc<FluentMgr>,
     ) -> Self {
         let config = ExportTaskConfig::from_config(app_core);
         let semaphore = Arc::new(Semaphore::new(config.limit_branch as usize));
@@ -100,7 +105,8 @@ impl ExportTask {
             exporters: Arc::new(HashMap::new()),
             semaphore,
             trigger_tx,
-            trigger_rx: Mutex::new(trigger_rx),
+            trigger_rx: Some(trigger_rx),
+            fluent_mgr,
         }
     }
 
@@ -137,5 +143,37 @@ impl ExportTask {
     /// 获取已注册的 export_type 列表
     pub fn registered_types(&self) -> Vec<&str> {
         self.exporters.keys().map(|k| k.as_str()).collect()
+    }
+     /// 触发导出：向 channel 发送信号
+    ///
+    /// 多处可调用（submit 后、定时任务等），
+    /// 内部只是发信号，不阻塞。
+    pub fn trigger(&self) {
+        if let Err(e) = self.trigger_tx.try_send(()) {
+            warn!("export_task: trigger send failed: {}", e);
+        }
+    }
+
+    /// 创建调度器
+    ///
+    /// 从 `ExportTask` 中 take 出 `trigger_rx`，并 clone/Arc 共享其他字段。
+    /// 调用此方法后，`trigger_rx` 将变为 `None`。
+    ///
+    /// # 返回
+    /// 返回 `Option<task::ExportTaskDispatcher>`：
+    /// - `Some(dispatcher)`: 成功创建调度器
+    /// - `None`: `trigger_rx` 已被 take（调度器已创建过）
+    pub fn create_dispatcher(&mut self) -> Option<task::ExportTaskDispatcher> {
+        let trigger_rx = self.trigger_rx.take()?;
+        
+        Some(task::ExportTaskDispatcher {
+            db: self.db.clone(),
+            file_dao: Arc::clone(&self.file_dao),
+            config: self.config.clone(),
+            exporters: Arc::clone(&self.exporters),
+            semaphore: Arc::clone(&self.semaphore),
+            trigger_rx,
+            fluent_mgr: Arc::clone(&self.fluent_mgr),
+        })
     }
 }

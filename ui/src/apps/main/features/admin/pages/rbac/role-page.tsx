@@ -1,10 +1,10 @@
-﻿import { FilterContainer } from "@apps/main/components/filter-container/container";
-import { FilterActions } from "@apps/main/components/filter-container/filter-actions";
-import { AdminExportAction } from "@apps/main/features/admin/components/ui/admin-export-action";
-import { EXPORT_TYPE_SYSTEM_RBAC_ROLE } from "@shared/apis/admin/export";
-import { FilterInput } from "@apps/main/components/filter-container/filter-input";
-import { FilterSelect } from "@apps/main/components/filter-container/filter-select";
-import { FilterTotalCount } from "@apps/main/components/filter-container/filter-total-count";
+import { FilterBar } from "@apps/main/components/filter-bar/container";
+import { FilterActions } from "@apps/main/components/filter-bar/filter-actions/filter-actions";
+import { FilterResetButton } from "@apps/main/components/filter-bar/filter-actions/filter-reset-button";
+import { FilterSearchButton } from "@apps/main/components/filter-bar/filter-actions/filter-search-button";
+import { FilterInput, FilterSelect, FilterTotalCount } from "@apps/main/components/filter-bar/filter-fields";
+import { useFilterBarForm } from "@apps/main/hooks/use-filter-bar-form";
+import * as z from "zod";
 import {
   useDictData,
   type TypedDictData,
@@ -120,6 +120,7 @@ function RoleListContent({ dictData }: RoleListContentProps) {
     res_range: filterParam.res_range ?? null,
   };
 
+
   // count_num 优化管理器
   const countNumManager = usePageCountNum(filters);
 
@@ -198,6 +199,28 @@ function RoleListContent({ dictData }: RoleListContentProps) {
       refetchType: "all",
     });
   };
+
+  const filterForm = useFilterBarForm<z.infer<typeof RoleListFilterFormSchema>>({
+    defaultValues: {
+      role_name: filterParam.role_name,
+      role_key: filterParam.role_key,
+      user_range: filterParam.user_range,
+      res_range: filterParam.res_range,
+    },
+    resolver: zodResolver(RoleListFilterFormSchema) as any,
+    initValues: {
+      role_name: undefined,
+      role_key: undefined,
+      user_range: undefined,
+      res_range: undefined,
+    },
+    onSubmit: (data) => {
+      navigate({ search: { ...data, page: 1, limit: currentLimit } as any });
+    },
+    onReset: () => {
+      navigate({ search: { page: 1, limit: currentLimit } as any });
+    },
+  });
 
   // 打开编辑抽屉
   const handleEdit = (role: RoleItemType) => {
@@ -383,95 +406,19 @@ function RoleListContent({ dictData }: RoleListContentProps) {
       <div className="flex flex-col min-h-0 space-y-3">
         {/* 过滤器 */}
         <div className="flex-shrink-0 mb-1 sm:mb-4">
-          <FilterContainer
-            defaultValues={{
-              role_name: filterParam.role_name,
-              role_key: filterParam.role_key,
-              user_range: filterParam.user_range?.toString(),
-              res_range: filterParam.res_range?.toString(),
-            }}
-            resolver={zodResolver(RoleListFilterFormSchema) as any}
-            onSubmit={(data) => {
-              navigate({
-                search: { ...data, page: 1, limit: currentLimit } as any,
-              });
-            }}
-            onReset={() => {
-              navigate({
-                search: { page: 1, limit: currentLimit } as any,
-              });
-            }}
-            countComponent={
-              <FilterTotalCount
-                value={formatTotalCount(countNumManager.getTotal())}
-                loading={isLoading}
-              />
-            }
-            className="bg-card rounded-lg border shadow-sm relative"
-          >
-            {(layoutParams, form) => (
-              <div className="flex-1 flex flex-wrap items-end gap-3">
-                <FilterInput
-                  name="role_name"
-                  placeholder="输入角色名称"
-                  label="角色名称"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
-                />
-
-                <FilterInput
-                  name="role_key"
-                  placeholder="输入角色标识"
-                  label="角色标识"
-                  disabled={isLoading}
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-36")}
-                />
-
-                <FilterSelect
-                  name="user_range"
-                  placeholder="选择用户范围"
-                  label="用户范围"
-                  disabled={isLoading}
-                  options={userRangeOptions}
-                  allLabel="全部"
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-                />
-
-                <FilterSelect
-                  name="res_range"
-                  placeholder="选择资源范围"
-                  label="资源范围"
-                  disabled={isLoading}
-                  options={resRangeOptions}
-                  allLabel="全部"
-                  layoutParams={layoutParams}
-                  className={cn(layoutParams.isMobile ? "w-full" : "w-32")}
-                />
-
-                <FilterActions
-                  form={form}
-                  loading={isLoading}
-                  layoutParams={layoutParams}
-                  onRefreshSearch={clearCacheAndReload}
-                  extraActions={
-                    <AdminExportAction
-                      exportType={EXPORT_TYPE_SYSTEM_RBAC_ROLE}
-                      params={{
-                        role_name: filters.role_name,
-                        role_key: filters.role_key,
-                        user_range: filters.user_range,
-                        res_range: filters.res_range,
-                      }}
-                      layoutParams={layoutParams}
-                    />
-                  }
-                />
-              </div>
-            )}
-          </FilterContainer>
+          <FilterBar form={filterForm} className="bg-card rounded-lg border shadow-sm relative">
+            <FilterBar.Summary>
+              <FilterTotalCount value={formatTotalCount(countNumManager.getTotal())} loading={isLoading} />
+            </FilterBar.Summary>
+            <FilterInput name="role_name" placeholder="输入角色名称" label="角色名称" disabled={isLoading} className={cn("w-36")} />
+            <FilterInput name="role_key" placeholder="输入角色标识" label="角色标识" disabled={isLoading} className={cn("w-36")} />
+            <FilterSelect name="user_range" placeholder="选择用户范围" label="用户范围" disabled={isLoading} options={userRangeOptions} allLabel="全部" className={cn("w-32")} />
+            <FilterSelect name="res_range" placeholder="选择资源范围" label="资源范围" disabled={isLoading} options={resRangeOptions} allLabel="全部" className={cn("w-32")} />
+            <FilterActions>
+              <FilterSearchButton loading={isLoading} onRefreshSearch={clearCacheAndReload} />
+              <FilterResetButton loading={isLoading} />
+            </FilterActions>
+          </FilterBar>
         </div>
 
         {/* 表格和分页 */}

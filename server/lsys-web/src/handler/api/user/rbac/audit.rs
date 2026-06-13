@@ -2,8 +2,9 @@ use crate::common::JsonResponse;
 use crate::common::JsonResult;
 use crate::common::LimitParam;
 use crate::common::ToCursorPageParam;
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonData, JsonPageData};
+use crate::common::UserAuthQueryDao;
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_core::api_utils::{PageCursorValue, PageTotalRowValue};
 use lsys_core::db::{CursorPageSort, TotalParam};
@@ -31,11 +32,16 @@ pub struct SystemAuditParam {
 //查自身授权信息
 pub async fn system_audit_data(
     param: &SystemAuditParam,
-    req_dao: &UserAuthQueryDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let res = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -53,8 +59,7 @@ pub async fn system_audit_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .access
@@ -75,8 +80,7 @@ pub async fn system_audit_data(
     } else {
         None
     };
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user

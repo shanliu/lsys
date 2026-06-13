@@ -1,6 +1,7 @@
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::admin::CheckAdminRbacView,
 };
 use lsys_access::dao::AccessSession;
@@ -18,20 +19,25 @@ use crate::common::{JsonData, ToOffsetPageParam};
 //1 得到用户列表
 pub async fn check_res_user_from_user(
     param: &ResUserFromUserParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let mut user_ids = req_dao
-        .web_dao
+    let mut user_ids = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -39,8 +45,7 @@ pub async fn check_res_user_from_user(
         .await?;
     let is_system = user_ids.contains(&0);
     user_ids.retain(|x| *x != 0);
-    let user_data = req_dao
-        .web_dao
+    let user_data = web_dao
         .web_access
         .access_dao
         .user
@@ -48,8 +53,7 @@ pub async fn check_res_user_from_user(
         .find_users_by_ids(&user_ids)
         .await?
         .into_array();
-    let count = req_dao
-        .web_dao
+    let count = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -72,20 +76,25 @@ pub struct ResInfoFromUserParam {
 //2 根据用户查找最近授权详细
 pub async fn check_res_info_from_user(
     param: &ResInfoFromUserParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -115,12 +124,18 @@ pub struct ResListFromUserParam {
 //3 如果配置关系,查询具体的配置授权
 pub async fn check_res_list_from_user(
     param: &ResListFromUserParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -128,8 +143,7 @@ pub async fn check_res_list_from_user(
         )
         .await?;
     let res_range = RbacRoleResRange::try_from(param.res_range)?;
-    let perm_data = req_dao
-        .web_dao
+    let perm_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -141,8 +155,7 @@ pub async fn check_res_list_from_user(
             &param.page.to_offset_page_param(),
         )
         .await?;
-    let count = req_dao
-        .web_dao
+    let count = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -172,20 +185,25 @@ pub struct ResListFromSessionParam {
 //3 如果是会话角色,根据会话角色查询该会话角色的授权资源
 pub async fn check_res_info_from_session(
     param: &ResListFromSessionParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckAdminRbacView {},
         )
         .await?;
-    let rs = req_dao
-        .web_dao
+    let rs = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -200,8 +218,7 @@ pub async fn check_res_info_from_session(
     let mut count = 0;
     match rs {
         ref d @ (RbacRoleResRange::Include | RbacRoleResRange::Exclude) => {
-            perm_data = req_dao
-                .web_dao
+            perm_data = web_dao
                 .web_rbac
                 .rbac_dao
                 .access
@@ -215,8 +232,7 @@ pub async fn check_res_info_from_session(
                     &param.page.to_offset_page_param(),
                 )
                 .await?;
-            count = req_dao
-                .web_dao
+            count = web_dao
                 .web_rbac
                 .rbac_dao
                 .access

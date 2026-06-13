@@ -2,7 +2,8 @@ mod captcha_data;
 mod captcha_key;
 pub use captcha_data::*;
 pub use captcha_key::*;
-use lsys_core::valid_code::ValidCode;
+use lsys_core::{fluents::IntoFluentMessage, valid_code::ValidCode};
+use tracing::warn;
 
 pub struct AppCaptcha {
     redis: deadpool_redis::Pool,
@@ -24,8 +25,15 @@ impl AppCaptcha {
         CaptchaValidCodeData::new(60)
     }
     pub async fn destroy_code(&self, valid_code: &ValidCode, tag: &str) {
-        let _ = valid_code
+        if let Err(e) = valid_code
             .destroy_code(tag, &mut self.valid_code_builder())
-            .await;
+            .await
+        {
+            warn!(
+                "destroy_code: failed for tag={}: {}",
+                tag,
+                e.to_fluent_message().default_format()
+            );
+        }
     }
 }

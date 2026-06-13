@@ -2,11 +2,15 @@ pub mod app_core;
 #[cfg(feature = "redis")]
 pub mod cache;
 pub mod config;
+#[cfg(feature = "secret")]
+pub mod secret;
 
 pub mod db;
 pub mod fluents;
 
 pub mod api_utils;
+#[cfg(feature = "redis")]
+pub mod dist_lock;
 #[cfg(feature = "redis")]
 pub mod listen_notify;
 #[cfg(feature = "redis")]

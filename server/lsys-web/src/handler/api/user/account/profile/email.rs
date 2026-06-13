@@ -1,4 +1,5 @@
 use crate::common::{JsonData, JsonPageData};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
     common::{CaptchaParam, JsonResponse, JsonResult, RequestDao, UserAuthQueryDao},
@@ -15,12 +16,18 @@ pub struct EmailAddParam {
 }
 pub async fn email_add(
     param: &EmailAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(auth_data.user(), &req_dao.req_env),
@@ -30,8 +37,7 @@ pub async fn email_add(
         )
         .await?;
 
-    let id = req_dao
-        .web_dao
+    let id = web_dao
         .web_user
         .account
         .user_email_add(
@@ -51,12 +57,18 @@ pub struct EmailSendCodeParam {
 }
 pub async fn email_send_code(
     param: &EmailSendCodeParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(auth_data.user(), &req_dao.req_env),
@@ -66,8 +78,7 @@ pub async fn email_send_code(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .account
         .user_email_send_code(
@@ -88,24 +99,22 @@ pub struct EmailConfirmParam {
 pub async fn email_confirm(
     param: &EmailConfirmParam,
     req_dao: &RequestDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let email = req_dao
-        .web_dao
+    let email = web_dao
         .web_user
         .user_dao
         .account_dao
         .account_email
         .find_by_id(&param.email_id)
         .await?;
-    let email_user = req_dao
-        .web_dao
+    let email_user = web_dao
         .web_access
         .access_dao
         .user
         .cache()
         .find_by_id(
-            &req_dao
-                .web_dao
+            &web_dao
                 .web_user
                 .account
                 .account_id_to_user(email.account_id)
@@ -113,8 +122,7 @@ pub async fn email_confirm(
                 .id,
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::user(&email_user, &req_dao.req_env),
@@ -123,8 +131,7 @@ pub async fn email_confirm(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .user_dao
         .account_dao
@@ -141,11 +148,17 @@ pub struct EmailDeleteParam {
 }
 pub async fn email_delete(
     param: &EmailDeleteParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let email = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let email = web_dao
         .web_user
         .user_dao
         .account_dao
@@ -153,14 +166,12 @@ pub async fn email_delete(
         .find_by_id(&param.email_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
             &CheckUserEmailEdit {
-                res_user_id: req_dao
-                    .web_dao
+                res_user_id: web_dao
                     .web_user
                     .account
                     .account_id_to_user(email.account_id)
@@ -169,8 +180,7 @@ pub async fn email_delete(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_user
         .user_dao
         .account_dao
@@ -186,9 +196,15 @@ pub struct EmailListDataParam {
 }
 pub async fn email_list_data(
     param: &EmailListDataParam,
-    req_dao: &UserAuthQueryDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
     let status = if let Some(ref e) = param.status {
         let mut out = Vec::with_capacity(e.len());
         for tmp in e {
@@ -201,15 +217,13 @@ pub async fn email_list_data(
     } else {
         None
     };
-    let account = req_dao
-        .web_dao
+    let account = web_dao
         .web_user
         .user_dao
         .account_dao
         .session_account(&auth_data)
         .await?;
-    let data = req_dao
-        .web_dao
+    let data = web_dao
         .web_user
         .account
         .user_email(account.id, status.as_deref())

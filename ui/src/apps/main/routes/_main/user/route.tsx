@@ -1,5 +1,5 @@
 
-import { PageErrorBoundaryCreater } from '@apps/main/components/page-error-boundary'
+import { PageErrorBoundaryCreater } from '@/apps/main/components/local/page-error-boundary'
 import { UserLayout } from '@apps/main/features/user/components/layout/user-layout'
 import { createFileRoute } from '@tanstack/react-router'
 

@@ -21,10 +21,11 @@ VALUES (
 INSERT INTO lst_account_name(account_id, username, change_time, status)
 VALUES(1, 'aaaaa', UNIX_TIMESTAMP(), 1);
 -- ----------- 密码:000000  ---------------
+-- Argon2id hash，参数 m=32768,t=2,p=1，使用 pepper: kkkkkkkkk
 INSERT INTO lst_account_password (account_id, password, add_time, disable_time)
 VALUES (
         1,
-        '670b14728ad9902aecba32e22fa4f6bd',
+        '$argon2id$v=19$m=32768,t=2,p=1$gj5R5aWOQAfoO3ZCot7qMg$IjooleK6DWJvtf5XnHz0XJ/+K9voyHcDiK5+09jZ4go',
         UNIX_TIMESTAMP(),
         0
     );

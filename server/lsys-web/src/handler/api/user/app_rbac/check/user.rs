@@ -1,5 +1,6 @@
 use crate::common::{JsonData, ToOffsetPageParam};
-use crate::common::{JsonResponse, JsonResult, PageParam, UserAuthQueryDao};
+use crate::common::{JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::handler::api::user::app_rbac::{app_check_get, parent_app_check};
 use lsys_rbac::dao::{CustomUserListResData, SessionUserListResData};
 use serde::Deserialize;
@@ -20,13 +21,14 @@ pub struct AppUserFromResParam {
 //1 得到指定资源的授权详细
 pub async fn app_res_user_from_res(
     param: &AppUserFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = parent_app_check(req_dao).await?;
-    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = parent_app_check(auth_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    let user_info = req_dao
-        .web_dao
+    let user_info = web_dao
         .web_access
         .access_dao
         .user
@@ -34,8 +36,7 @@ pub async fn app_res_user_from_res(
         .sync_user(app.id, &param.user_param, None, None)
         .await?;
 
-    let user_set_data = req_dao
-        .web_dao
+    let user_set_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -47,8 +48,7 @@ pub async fn app_res_user_from_res(
             &param.op_key,
         )
         .await?;
-    let pub_set_data = req_dao
-        .web_dao
+    let pub_set_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -86,13 +86,14 @@ pub struct AppResRoleFromResParam {
 //获取非特定用户授权的角色列表
 pub async fn app_res_session_role_data_from_res(
     param: &AppResRoleFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = parent_app_check(req_dao).await?;
-    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = parent_app_check(auth_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    let user_info = req_dao
-        .web_dao
+    let user_info = web_dao
         .web_access
         .access_dao
         .user
@@ -100,8 +101,7 @@ pub async fn app_res_session_role_data_from_res(
         .sync_user(app.id, &param.user_param, None, None)
         .await?;
 
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -121,8 +121,7 @@ pub async fn app_res_session_role_data_from_res(
             &param.page.to_offset_page_param(),
         )
         .await?;
-    let res_count = req_dao
-        .web_dao
+    let res_count = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -168,13 +167,14 @@ pub struct AppResUserDataFromResParam {
 //获取特定用户授权列表
 pub async fn app_res_user_data_from_res(
     param: &AppResUserDataFromResParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = parent_app_check(req_dao).await?;
-    let app = app_check_get(param.app_id, false, &auth_data, req_dao).await?;
+    let auth_data = parent_app_check(auth_dao).await?;
+    let app = app_check_get(param.app_id, false, &auth_data, req_dao, web_dao).await?;
 
-    let user_info = req_dao
-        .web_dao
+    let user_info = web_dao
         .web_access
         .access_dao
         .user
@@ -182,8 +182,7 @@ pub async fn app_res_user_data_from_res(
         .sync_user(app.id, &param.user_param, None, None)
         .await?;
 
-    let res_data = req_dao
-        .web_dao
+    let res_data = web_dao
         .web_rbac
         .rbac_dao
         .access
@@ -203,8 +202,7 @@ pub async fn app_res_user_data_from_res(
             &param.page.to_offset_page_param(),
         )
         .await?;
-    let res_count = req_dao
-        .web_dao
+    let res_count = web_dao
         .web_rbac
         .rbac_dao
         .access

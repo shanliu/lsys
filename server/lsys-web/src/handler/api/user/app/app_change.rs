@@ -1,6 +1,7 @@
 use crate::common::JsonData;
 use crate::common::JsonResult;
-use crate::common::{JsonResponse, UserAuthQueryDao};
+use crate::common::{JsonResponse, RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::dao::access::api::system::user::CheckUserAppEdit;
 use lsys_access::dao::AccessSession;
@@ -15,18 +16,21 @@ pub struct ChangeParam {
     pub client_id: String,
 }
 
-pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+pub async fn change(
+    param: &ChangeParam,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
+) -> JsonResult<JsonResponse> {
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -37,15 +41,13 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
         .await?;
 
     if app.parent_app_id > 0 {
-        let tmp_app = req_dao
-            .web_dao
+        let tmp_app = web_dao
             .web_app
             .app_dao
             .app
             .find_by_id(app.parent_app_id)
             .await?;
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .app
@@ -53,8 +55,7 @@ pub async fn change(param: &ChangeParam, req_dao: &UserAuthQueryDao) -> JsonResu
             .await?;
     }
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -82,19 +83,19 @@ pub struct AddAppSecretParam {
 
 pub async fn app_secret_add(
     param: &AddAppSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -105,8 +106,7 @@ pub async fn app_secret_add(
         .await?;
     app.app_status_check()?;
 
-    let secret_data = req_dao
-        .web_dao
+    let secret_data = web_dao
         .web_app
         .app_dao
         .app
@@ -136,19 +136,19 @@ pub struct ChangeAppSecretParam {
 
 pub async fn app_secret_change(
     param: &ChangeAppSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -159,8 +159,7 @@ pub async fn app_secret_change(
         .await?;
     app.app_status_check()?;
 
-    let secret_data = req_dao
-        .web_dao
+    let secret_data = web_dao
         .web_app
         .app_dao
         .app
@@ -188,19 +187,19 @@ pub struct DelAppSecretParam {
 
 pub async fn app_secret_del(
     param: &DelAppSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -210,8 +209,7 @@ pub async fn app_secret_del(
         )
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -237,19 +235,19 @@ pub struct ChangeNotifySecretParam {
 
 pub async fn notify_secret_change(
     param: &ChangeNotifySecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -260,8 +258,7 @@ pub async fn notify_secret_change(
         .await?;
 
     app.app_status_check()?;
-    let secret_data = req_dao
-        .web_dao
+    let secret_data = web_dao
         .web_app
         .app_dao
         .app

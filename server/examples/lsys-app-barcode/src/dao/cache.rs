@@ -33,7 +33,7 @@ impl LocalCacheClearItem<'_> for BarCodeLocalCacheClear {
             Self::CreateBuffer(cache) => cache.config().cache_name,
         }
     }
-    async fn clear_from_message(&self, msg: &str) -> Result<(), String> {
+    async fn clear_from_message(&self, msg: &str, _clear_all: bool) -> Result<(), String> {
         match self {
             Self::CreateModel(cache) => {
                 let key = &u64::from_str(msg).map_err(|e| e.to_string())?;

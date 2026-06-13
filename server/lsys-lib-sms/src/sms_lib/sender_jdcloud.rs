@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::Client;
 use reqwest::Method;
 use reqwest::header::HeaderMap;
@@ -240,7 +240,7 @@ impl JdSms {
             query,
             my_header.join("\n"),
             sign_header,
-            format!("{:x}", result).to_lowercase()
+            hex::encode(result)
         );
 
         //println!("BODY:\n{}", sign);
@@ -258,7 +258,7 @@ impl JdSms {
             now_date,
             region,
             service,
-            format!("{:x}", result).to_lowercase()
+            hex::encode(result)
         );
 
         // println!("SIGN:\n{}", string_to_sign);

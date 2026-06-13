@@ -1,7 +1,8 @@
 use crate::common::{JsonData, ToOffsetPageParam};
+use crate::dao::WebDao;
 use crate::dao::access::RbacAccessCheckEnv;
 use crate::{
-    common::{JsonError, JsonResponse, JsonResult, PageParam, UserAuthQueryDao},
+    common::{JsonError, JsonResponse, JsonResult, PageParam, RequestDao, UserAuthQueryDao},
     dao::access::api::system::user::CheckUserAppView,
 };
 use lsys_access::dao::AccessSession;
@@ -68,7 +69,9 @@ pub struct UserAppListParam {
 
 pub async fn app_list(
     param: &UserAppListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     let status = if let Some(e) = param.status {
         Some(match AppStatus::try_from(e) {
@@ -80,15 +83,8 @@ pub async fn app_list(
     };
 
     if let Some(papp_id) = param.parent_app_id {
-        let papp = req_dao
-            .web_dao
-            .web_app
-            .app_dao
-            .app
-            .find_by_id(papp_id)
-            .await?;
-        req_dao
-            .web_dao
+        let papp = web_dao.web_app.app_dao.app.find_by_id(papp_id).await?;
+        web_dao
             .web_app
             .app_dao
             .app
@@ -114,9 +110,13 @@ pub async fn app_list(
         sub_req_pending_count: true,
     };
 
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -125,8 +125,7 @@ pub async fn app_list(
             },
         )
         .await?;
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -206,8 +205,7 @@ pub async fn app_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -219,7 +217,7 @@ pub async fn app_list(
     };
 
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, user_id),
+        bind_vec_user_info_from_req!(web_dao, out, user_id),
         count,
     ))))
 }
@@ -243,15 +241,21 @@ pub struct UserParentAppListParam {
 
 pub async fn parent_app_list(
     param: &UserParentAppListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
     let app_param = UserParentAppDataParam {
         key_word: param.key_word.as_deref(),
     };
 
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -261,8 +265,7 @@ pub async fn parent_app_list(
         )
         .await?;
 
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -281,8 +284,7 @@ pub async fn parent_app_list(
         .collect::<Vec<_>>();
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -294,7 +296,7 @@ pub async fn parent_app_list(
     };
 
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, user_id),
+        bind_vec_user_info_from_req!(web_dao, out, user_id),
         count,
     ))))
 }
@@ -313,19 +315,19 @@ pub struct SecretViewSecretParam {
 
 pub async fn secret_view(
     param: &SecretViewSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -336,8 +338,7 @@ pub async fn secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-        let app_secret_data = req_dao
-            .web_dao
+        let app_secret_data = web_dao
             .web_app
             .app_dao
             .app
@@ -346,8 +347,7 @@ pub async fn secret_view(
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
     }
     if param.notify_secret {
-        let notify_data = req_dao
-            .web_dao
+        let notify_data = web_dao
             .web_app
             .app_dao
             .app
@@ -362,15 +362,13 @@ pub async fn secret_view(
         );
     }
     if param.oauth_secret {
-        req_dao
-            .web_dao
+        web_dao
             .web_app
             .app_dao
             .oauth_client
             .oauth_check(&app)
             .await?;
-        let secret_data = req_dao
-            .web_dao
+        let secret_data = web_dao
             .web_app
             .app_dao
             .oauth_client
@@ -383,32 +381,31 @@ pub async fn secret_view(
 
 pub async fn sub_app_secret_view(
     param: &SecretViewSecretParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
     if app.parent_app_id == 0 {
         return Err(JsonError::JsonResponse(
             JsonData::default().set_code(403),
             fluent_message!("system-error", "can't see system app"),
         ));
     }
-    let parent_app = req_dao
-        .web_dao
+    let parent_app = web_dao
         .web_app
         .app_dao
         .app
         .find_by_id(app.parent_app_id)
         .await?;
 
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -419,8 +416,7 @@ pub async fn sub_app_secret_view(
         .await?;
     let mut out_data = Map::new();
     if param.app_secret {
-        let app_secret_data = req_dao
-            .web_dao
+        let app_secret_data = web_dao
             .web_app
             .app_dao
             .app
@@ -429,8 +425,7 @@ pub async fn sub_app_secret_view(
         out_data.insert("app_secret".to_string(), json!(app_secret_data));
     }
     if param.notify_secret {
-        let notify_data = req_dao
-            .web_dao
+        let notify_data = web_dao
             .web_app
             .app_dao
             .app
@@ -445,8 +440,7 @@ pub async fn sub_app_secret_view(
         );
     }
     if param.oauth_secret {
-        let secret_data = req_dao
-            .web_dao
+        let secret_data = web_dao
             .web_app
             .app_dao
             .oauth_client
@@ -498,20 +492,20 @@ pub struct ShowRequestRecord {
 //指定APP的请求功能列表
 pub async fn request_list(
     param: &RequestListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
 
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -537,8 +531,7 @@ pub async fn request_list(
     } else {
         None
     };
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -606,8 +599,7 @@ pub async fn request_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -625,7 +617,7 @@ pub async fn request_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, [confirm_user_id:"confirm_user_data"], true),
+        bind_vec_user_info_from_req!(web_dao, out, [confirm_user_id:"confirm_user_data"], true),
         count,
     ))))
 }
@@ -669,20 +661,20 @@ pub struct ShowSubRequestRecord {
 //指定APP的被请求功能列表
 pub async fn sub_request_list(
     param: &SubRequestListParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-
-    let app = req_dao
-        .web_dao
-        .web_app
-        .app_dao
-        .app
-        .find_by_id(param.app_id)
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
         .await?;
 
-    req_dao
-        .web_dao
+    let app = web_dao.web_app.app_dao.app.find_by_id(param.app_id).await?;
+
+    web_dao
         .web_rbac
         .check(
             &RbacAccessCheckEnv::session_body(&auth_data, &req_dao.req_env),
@@ -691,8 +683,7 @@ pub async fn sub_request_list(
             },
         )
         .await?;
-    req_dao
-        .web_dao
+    web_dao
         .web_app
         .app_dao
         .app
@@ -714,8 +705,7 @@ pub async fn sub_request_list(
     } else {
         None
     };
-    let appdata = req_dao
-        .web_dao
+    let appdata = web_dao
         .web_app
         .app_dao
         .app
@@ -779,8 +769,7 @@ pub async fn sub_request_list(
 
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_app
                 .app_dao
                 .app
@@ -798,7 +787,7 @@ pub async fn sub_request_list(
         None
     };
     Ok(JsonResponse::data(JsonData::body(JsonPageData::total(
-        bind_vec_user_info_from_req!(req_dao, out, request_user_id),
+        bind_vec_user_info_from_req!(web_dao, out, request_user_id),
         count,
     ))))
 }

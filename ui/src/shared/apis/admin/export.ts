@@ -8,8 +8,8 @@ import { AxiosRequestConfig } from "axios";
 import z from "zod";
 
 // ==================== 系统级（管理端）批量导出 ====================
-// 接口：POST /api/system/file/export_submit
-//       POST /api/system/file/export_list
+// 接口：POST /api/system/file/export_task/submit
+//       POST /api/system/file/export_task/list
 // app_id 固定为 0（系统级任务，由服务端自动填充）
 
 export const AdminExportSubmitParamSchema = z.object({
@@ -27,7 +27,7 @@ export const adminExportSubmit = async (
     param: AdminExportSubmitParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AdminExportSubmitResType>> => {
-    const { data } = await authApi().post('/api/system/file/export_submit', param, config);
+    const { data } = await authApi().post('/api/system/file/export_task/submit', param, config);
     return parseResData(data, AdminExportSubmitResSchema);
 };
 
@@ -38,7 +38,7 @@ export const AdminExportListParamSchema = z.object({
         page: z.coerce.number().min(1).optional(),
         limit: z.coerce.number().min(1).max(50).optional(),
     }).optional(),
-    count_num: z.boolean().optional(),
+    count_num: z.coerce.boolean().optional(),
 });
 export type AdminExportListParamType = z.infer<typeof AdminExportListParamSchema>;
 
@@ -51,7 +51,7 @@ export const AdminExportTaskFileSchema = z.object({
 });
 export type AdminExportTaskFileType = z.infer<typeof AdminExportTaskFileSchema>;
 
-export const AdminExportTaskSchema = z.object({
+export const AdminExportTaskModelSchema = z.object({
     id: z.coerce.number(),
     app_id: z.coerce.number(),
     export_type: z.string(),
@@ -60,6 +60,11 @@ export const AdminExportTaskSchema = z.object({
     error_message: z.string().optional(),
     add_time: UnixTimestampSchema,
     change_time: UnixTimestampSchema.nullable().optional(),
+});
+
+// 服务端 ExportTaskItem = { task: ExportTaskModel, file: ExportTaskFileItem | null }
+export const AdminExportTaskSchema = z.object({
+    task: AdminExportTaskModelSchema,
     file: AdminExportTaskFileSchema.nullable().optional(),
 });
 export type AdminExportTaskType = z.infer<typeof AdminExportTaskSchema>;
@@ -74,7 +79,7 @@ export const adminExportList = async (
     param: AdminExportListParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AdminExportListResType>> => {
-    const { data } = await authApi().post('/api/system/file/export_list', param, config);
+    const { data } = await authApi().post('/api/system/file/export_task/list', param, config);
     return parseResData(data, AdminExportListResSchema);
 };
 
@@ -94,7 +99,7 @@ export const adminExportActiveCount = async (
     param: AdminExportActiveCountParamType,
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AdminExportActiveCountResType>> => {
-    const { data } = await authApi().post('/api/system/file/export_active_count', param, config);
+    const { data } = await authApi().post('/api/system/file/export_task/active_count', param, config);
     return parseResData(data, AdminExportActiveCountResSchema);
 };
 
@@ -108,23 +113,18 @@ export type AdminExportMappingResType = z.infer<typeof AdminExportMappingResSche
 export const adminExportTaskMapping = async (
     config?: AxiosRequestConfig<any>
 ): Promise<ApiResult<AdminExportMappingResType>> => {
-    const { data } = await authApi().post('/api/system/file/export_task_mapping', {}, config);
+    const { data } = await authApi().post('/api/system/file/export_task/mapping', {}, config);
     return parseResData(data, AdminExportMappingResSchema);
 };
+
+// ==================== 导出任务文件下载 ====================
 
 // ==================== 系统导出类型常量 ====================
 export const EXPORT_TYPE_SYSTEM_APP_LIST = 'system_app_list';
 export const EXPORT_TYPE_SYSTEM_SUB_APP_LIST = 'system_sub_app_list';
 export const EXPORT_TYPE_SYSTEM_REQUEST_LIST = 'system_request_list';
-export const EXPORT_TYPE_SYSTEM_ROLE_USER_AVAILABLE = 'system_role_user_available';
-export const EXPORT_TYPE_SYSTEM_RBAC_AUDIT = 'system_rbac_audit';
-export const EXPORT_TYPE_SYSTEM_RBAC_ROLE_PERM = 'system_rbac_role_perm';
-export const EXPORT_TYPE_SYSTEM_RBAC_RES = 'system_rbac_res';
-export const EXPORT_TYPE_SYSTEM_RBAC_ROLE_USER = 'system_rbac_role_user';
-export const EXPORT_TYPE_SYSTEM_LOGIN_HISTORY = 'system_login_history';
-export const EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE = 'system_rbac_res_type';
-export const EXPORT_TYPE_SYSTEM_RBAC_RES_TYPE_OP = 'system_rbac_res_type_op';
-export const EXPORT_TYPE_SYSTEM_ACCOUNT_SEARCH = 'system_account_search';
-export const EXPORT_TYPE_SYSTEM_RBAC_OP = 'system_rbac_op';
-export const EXPORT_TYPE_SYSTEM_CHANGE_LOG = 'system_change_log';
-export const EXPORT_TYPE_SYSTEM_RBAC_ROLE = 'system_rbac_role';
+export const EXPORT_TYPE_SYSTEM_MAILER_MESSAGE_LIST = 'system_mailer_message_list';
+export const EXPORT_TYPE_SYSTEM_SMSER_MESSAGE_LIST = 'system_smser_message_list';
+export const EXPORT_TYPE_SYSTEM_ADMIN_FILE_LIST = 'system_admin_file_list';
+export const EXPORT_TYPE_SYSTEM_USER_CHANGE_LOG = 'system_user_change_log';
+export const EXPORT_TYPE_SYSTEM_USER_ACCESS = 'system_user_access';

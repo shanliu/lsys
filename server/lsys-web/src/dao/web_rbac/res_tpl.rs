@@ -1,7 +1,8 @@
 use crate::dao::access::api::system::admin::{
-    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminFileManage,
-    CheckAdminMailConfig, CheckAdminMailMgr, CheckAdminRbacEdit, CheckAdminRbacView,
-    CheckAdminSiteSetting, CheckAdminSmsConfig, CheckAdminSmsMgr, CheckAdminUserManage,
+    CheckAdminApp, CheckAdminBase, CheckAdminChangeLogsView, CheckAdminExportTaskManage,
+    CheckAdminFileManage, CheckAdminMailConfig, CheckAdminMailMgr, CheckAdminRbacEdit,
+    CheckAdminRbacView, CheckAdminSiteSetting, CheckAdminSmsConfig, CheckAdminSmsMgr,
+    CheckAdminUserManage,
 };
 use crate::dao::access::api::system::auth::{CheckSystemLogin, CheckSystemRegister};
 use crate::dao::access::api::system::user::{
@@ -31,6 +32,7 @@ impl WebRbac {
             CheckAdminUserManage,
             CheckAdminChangeLogsView,
             CheckAdminFileManage,
+            CheckAdminExportTaskManage,
             CheckUserAddressEdit,
             CheckUserEmailEdit,
             CheckUserExternalEdit,

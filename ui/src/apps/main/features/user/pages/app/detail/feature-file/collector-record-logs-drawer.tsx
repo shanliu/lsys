@@ -7,7 +7,7 @@ import {
 } from "@apps/main/components/local/drawer";
 import { useDictData } from "@apps/main/hooks/use-dict-data";
 import { createStatusMapper } from "@apps/main/lib/status-utils";
-import { PagePagination, usePageCountNum } from "@apps/main/lib/pagination-utils";
+import { CursorPagination, useLimitCountNum } from "@apps/main/lib/pagination-utils";
 import {
     userCollectorRecordLogList,
     type CollectorLogItemType,
@@ -16,7 +16,7 @@ import {
 import { CenteredError } from "@shared/components/custom/page-placeholder/centered-error";
 import { CenteredLoading } from "@shared/components/custom/page-placeholder/centered-loading";
 import { Badge } from "@shared/components/ui/badge";
-import { cn, formatTime, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
+import { cn, formatTime, getQueryResponseCursor, getQueryResponseData, TIME_STYLE } from "@shared/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 
@@ -43,28 +43,29 @@ export function CollectorRecordLogsDrawer({
     onOpenChange,
 }: CollectorRecordLogsDrawerProps) {
     const queryClient = useQueryClient();
-    const [page, setPage] = useState(1);
+    const [cursorParams, setCursorParams] = useState<{ pos: number | null; forward: boolean }>({ pos: null, forward: true });
     const pageSize = 20;
     const { dictData: collectorDict } = useDictData(['user_collector'] as const);
 
-    const countNumManager = usePageCountNum({});
+    const countNumManager = useLimitCountNum({});
     const { reset: resetCountNum } = countNumManager;
 
     useEffect(() => {
-        setPage(1);
+        setCursorParams({ pos: null, forward: true });
         resetCountNum();
     }, [record.request_id, resetCountNum]);
 
     const { data: logsData, isSuccess, isLoading, isError, error } = useQuery({
-        queryKey: ["collectorRecordLogList", appId, record.request_id, page],
+        queryKey: ["collectorRecordLogList", appId, record.request_id, cursorParams.pos, cursorParams.forward],
         queryFn: ({ signal }) =>
             userCollectorRecordLogList(
                 {
-                    app_id: appId,
                     request_id: record.request_id,
-                    page: {
-                        page,
+                    limit: {
+                        pos: cursorParams.pos,
                         limit: pageSize,
+                        forward: cursorParams.forward,
+                        more: true,
                     },
                     count_num: countNumManager.getCountNum(),
                 },
@@ -74,6 +75,7 @@ export function CollectorRecordLogsDrawer({
     });
 
     isSuccess && countNumManager.handleQueryResult(logsData);
+    const cursorData = getQueryResponseCursor(logsData);
 
     const logs = getQueryResponseData<CollectorLogItemType[]>(logsData, []);
 
@@ -81,10 +83,14 @@ export function CollectorRecordLogsDrawer({
         queryClient.refetchQueries({ queryKey: ["collectorRecordLogList", appId, record.request_id] });
     }, [queryClient, appId, record.request_id]);
 
+    const localSearchGo = useCallback((param: { pos: number | null; forward?: boolean }) => {
+        setCursorParams({ pos: param.pos ?? null, forward: param.forward ?? true });
+    }, []);
+
     const handleOpenChange = (open: boolean) => {
         onOpenChange(open);
         if (!open) {
-            setPage(1);
+            setCursorParams({ pos: null, forward: true });
         }
     };
 
@@ -141,15 +147,14 @@ export function CollectorRecordLogsDrawer({
                     </div>
 
                     <div className="flex justify-end">
-                        <PagePagination
-                            currentPage={page}
-                            pageSize={pageSize}
-                            total={countNumManager.getTotal() ?? 0}
+                        <CursorPagination
+                            limit={pageSize}
+                            cursorData={cursorData}
+                            searchGo={localSearchGo}
+                            totalInfo={countNumManager.getTotalInfo()}
+                            currentPageSize={logs.length}
                             loading={isLoading}
-                            onChange={(newPage) => setPage(newPage)}
-                            showTotal={false}
                             showPageSize={false}
-                            showSizeCount={5}
                         />
                     </div>
                 </div>

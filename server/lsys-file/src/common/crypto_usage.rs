@@ -24,34 +24,34 @@ mod examples {
     fn example_decrypt_to_public(file_helper: &FileHelper) -> std::io::Result<()> {
         let encrypted_path = "enc_1234567890_12345_txt.enc";
         
-        // 解密到公开存储，指定文件名
+        // 解密到公开存储，指定原始扩展名
         let decrypted_info = file_helper.decrypt_file_to_storage(
             encrypted_path,
             FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
-            Some("my_public_file.txt".to_string()),
+            Some("txt"), // 指定原始文件扩展名
         )?;
         
         println!("解密到公开存储成功！");
-        println!("  文件名: {}", decrypted_info.filename);
-        println!("  完整路径: {:?}", decrypted_info.full_path);
+        println!("  相对路径: {}", decrypted_info.0);
+        println!("  完整路径: {:?}", decrypted_info.1);
         
         Ok(())
     }
 
-    /// 示例 3: 解密文件到私有存储（自动生成文件名）
+    /// 示例 3: 解密文件到私有存储（使用默认扩展名）
     fn example_decrypt_to_private(file_helper: &FileHelper) -> std::io::Result<()> {
         let encrypted_path = "enc_1234567890_12345_txt.enc";
         
-        // 解密到私有存储，自动生成文件名
+        // 解密到私有存储，使用默认扩展名 "dat"
         let decrypted_info = file_helper.decrypt_file_to_storage(
             encrypted_path,
             FileModel::STORAGE_TYPE_LOCAL_PRIVATE,
-            None,  // 自动生成文件名
+            None,  // 使用默认扩展名 "dat"
         )?;
         
         println!("解密到私有存储成功！");
-        println!("  自动生成的文件名: {}", decrypted_info.filename);
-        println!("  完整路径: {:?}", decrypted_info.full_path);
+        println!("  相对路径: {}", decrypted_info.0);
+        println!("  完整路径: {:?}", decrypted_info.1);
         
         Ok(())
     }
@@ -182,6 +182,7 @@ mod examples {
         let decrypted_info = file_helper.decrypt_file_to_storage(
             &encrypted_info.0,
             FileModel::STORAGE_TYPE_LOCAL_PUBLIC,
+            Some("txt"), // 指定原始扩展名
         ).await?;
         println!("  解密完成: {:?}", decrypted_info.1);
         

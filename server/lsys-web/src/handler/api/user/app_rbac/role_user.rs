@@ -7,8 +7,9 @@ use crate::common::LimitParam;
 use crate::common::PageParam;
 use crate::common::ToCursorPageParam;
 use crate::common::ToOffsetPageParam;
-use crate::common::UserAuthQueryDao;
 use crate::common::{JsonData, JsonPageData};
+use crate::common::{RequestDao, UserAuthQueryDao};
+use crate::dao::WebDao;
 use lsys_access::dao::AccessSession;
 use lsys_access::dao::UserDataParam;
 use lsys_access::dao::UserInfo;
@@ -36,17 +37,23 @@ pub struct AppRoleUserAddParam {
 
 pub async fn app_role_user_add(
     param: &AppRoleUserAddParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let role = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
-    let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
+    let app = app_check_get(role.app_id, true, &auth_data, req_dao, web_dao).await?;
     let mut add_user = Vec::with_capacity(param.user_data.len());
     for e in param.user_data.iter() {
         if e.use_app_user {
@@ -55,8 +62,7 @@ pub async fn app_role_user_add(
                 timeout: e.timeout,
             });
         } else {
-            let user_info = req_dao
-                .web_dao
+            let user_info = web_dao
                 .web_access
                 .access_dao
                 .user
@@ -74,8 +80,7 @@ pub async fn app_role_user_add(
             });
         }
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -95,11 +100,17 @@ pub struct AppRoleUserDelParam {
 
 pub async fn app_role_user_del(
     param: &AppRoleUserDelParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let role = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -111,8 +122,7 @@ pub async fn app_role_user_del(
         if role.app_id == 0 {
             return Err(JsonError::Message(fluent_message!("rbac-role-no-app")));
         }
-        let user_info = req_dao
-            .web_dao
+        let user_info = web_dao
             .web_access
             .access_dao
             .user
@@ -121,12 +131,11 @@ pub async fn app_role_user_del(
             .await?;
         user_id_data.push(user_info.id);
     }
-    let app = app_check_get(role.app_id, true, &auth_data, req_dao).await?;
+    let app = app_check_get(role.app_id, true, &auth_data, req_dao, web_dao).await?;
     if param.use_app_user {
         user_id_data.push(app.user_id);
     }
-    req_dao
-        .web_dao
+    web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -148,19 +157,24 @@ pub struct AppRoleUserDataParam {
 
 pub async fn app_role_user_data(
     param: &AppRoleUserDataParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let role = req_dao
-        .web_dao
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let role = web_dao
         .web_rbac
         .rbac_dao
         .role
         .find_by_id(&param.role_id)
         .await?;
-    app_check_get(role.app_id, false, &auth_data, req_dao).await?;
-    let res = req_dao
-        .web_dao
+    app_check_get(role.app_id, false, &auth_data, req_dao, web_dao).await?;
+    let res = web_dao
         .web_rbac
         .rbac_dao
         .role
@@ -168,8 +182,7 @@ pub async fn app_role_user_data(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_rbac
                 .rbac_dao
                 .role
@@ -197,18 +210,24 @@ pub struct AppRoleUserAvailableParam {
 
 pub async fn app_role_user_available(
     param: &AppRoleUserAvailableParam,
-    req_dao: &UserAuthQueryDao,
+    req_dao: &RequestDao,
+    auth_dao: &UserAuthQueryDao,
+    web_dao: &WebDao,
 ) -> JsonResult<JsonResponse> {
-    let auth_data = req_dao.user_session.read().await.get_session_data().await?;
-    let app = app_check_get(param.app_id, true, &auth_data, req_dao).await?;
+    let auth_data = auth_dao
+        .user_session
+        .read()
+        .await
+        .get_session_data()
+        .await?;
+    let app = app_check_get(param.app_id, true, &auth_data, req_dao, web_dao).await?;
     let user_param = UserDataParam {
         app_id: Some(app.id),
         user_data: None,
         user_account: None,
         user_any: param.user_any.as_deref(),
     };
-    let (res, next) = req_dao
-        .web_dao
+    let (res, next) = web_dao
         .web_access
         .access_dao
         .user
@@ -219,8 +238,7 @@ pub async fn app_role_user_available(
         .await?;
     let count = if param.count_num.unwrap_or(false) {
         Some(
-            req_dao
-                .web_dao
+            web_dao
                 .web_access
                 .access_dao
                 .user
