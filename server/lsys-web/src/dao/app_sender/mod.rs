@@ -8,6 +8,7 @@ use lsys_app_sender::dao::{MailSenderConfig, MessageTpls, SmsSenderConfig};
 use lsys_core::app_core::AppCore;
 use lsys_core::fluents::IntoFluentMessage;
 use lsys_core::secret::FieldEncryptor;
+use lsys_core::task_lifecycle::TaskNode;
 use lsys_logger::dao::ChangeLoggerDao;
 use lsys_setting::dao::SettingDao;
 pub use mailer::*;
@@ -24,6 +25,7 @@ pub struct AppSender {
 }
 
 impl AppSender {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         app_core: Arc<AppCore>,
         redis: deadpool_redis::Pool,
@@ -32,6 +34,7 @@ impl AppSender {
         setting: Arc<SettingDao>,
         change_logger: Arc<ChangeLoggerDao>,
         smtp_encryptor: Arc<FieldEncryptor>,
+        task_node: Arc<TaskNode>,
     ) -> WebResult<AppSender> {
         let tpl = Arc::new(MessageTpls::new(
             db.clone(),
@@ -49,29 +52,26 @@ impl AppSender {
             smtp_encryptor,
         ));
         // 邮件发送任务
+        let mailer_node = task_node.child("app-sender-mailer");
 
-        tokio::spawn({
-            let mail_task = mailer.clone();
-            async move {
-                if let Err(err) = mail_task.task_sender().await {
-                    error!(
-                        "mailer task error:{}",
-                        err.to_fluent_message().default_format()
-                    )
-                }
+        let mailer_task = mailer.clone();
+        mailer_node.spawn(move |token| async move {
+            if let Err(err) = mailer_task.task_sender(token).await {
+                error!(
+                    "mailer task error:{}",
+                    err.to_fluent_message().default_format()
+                )
             }
         });
 
-        tokio::spawn({
-            let mail_task_sendtime = mailer.clone();
-            async move {
-                mail_task_sendtime.task_sendtime_notify().await;
-            }
+        let mailer_sendtime = mailer.clone();
+        mailer_node.spawn(move |token| async move {
+            mailer_sendtime.task_sendtime_notify(token).await;
         });
 
-        tokio::spawn({
-            let mail_wait = mailer.clone();
-            async move { mail_wait.task_wait().await }
+        let mailer_wait = mailer.clone();
+        mailer_node.spawn(move |token| async move {
+            mailer_wait.task_wait(token).await
         });
 
         //启动回调任务
@@ -85,9 +85,11 @@ impl AppSender {
             SmsSenderConfig::default(),
         ));
         //启动短信发送任务
-        let sms_task_sender = smser.clone();
-        tokio::spawn(async move {
-            if let Err(err) = sms_task_sender.task_sender().await {
+        let smser_node = task_node.child("app-sender-smser");
+
+        let smser_sender = smser.clone();
+        smser_node.spawn(move |token| async move {
+            if let Err(err) = smser_sender.task_sender(token).await {
                 error!(
                     "smser sender error:{}",
                     err.to_fluent_message().default_format()
@@ -95,24 +97,22 @@ impl AppSender {
             }
         });
         //启动短信状态查询任务
-        let sms_task_notify = smser.clone();
-        tokio::spawn(async move {
-            if let Err(err) = sms_task_notify.task_status_query().await {
+        let smser_status = smser.clone();
+        smser_node.spawn(move |token| async move {
+            if let Err(err) = smser_status.task_status_query(token).await {
                 error!(
                     "smser notify error:{}",
                     err.to_fluent_message().default_format()
                 )
             }
         });
-        tokio::spawn({
-            let sms_task_sendtime = smser.clone();
-            async move {
-                sms_task_sendtime.task_sendtime_notify().await;
-            }
+        let smser_sendtime = smser.clone();
+        smser_node.spawn(move |token| async move {
+            smser_sendtime.task_sendtime_notify(token).await;
         });
 
-        let sms_task_wait = smser.clone();
-        tokio::spawn(async move { sms_task_wait.task_wait().await });
+        let smser_wait = smser.clone();
+        smser_node.spawn(move |token| async move { smser_wait.task_wait(token).await });
 
         Ok(AppSender { smser, mailer, tpl })
     }

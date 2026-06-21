@@ -7,6 +7,7 @@ use std::sync::Arc;
 use deadpool_redis::Pool as RedisPool;
 use lsys_app::dao::AppNotifySender;
 use lsys_core::app_core::AppCore;
+use lsys_core::task_lifecycle::TaskNode;
 use lsys_file::dao::FileDao;
 use lsys_file_manager::dao::UploadTokenManager;
 
@@ -27,42 +28,48 @@ impl WebFile {
         app_core: Arc<AppCore>,
         file_dao: Arc<FileDao>,
         file_notify_sender: Arc<AppNotifySender>,
+        task_node: Arc<TaskNode>,
     ) -> WebResult<Self> {
         let _ = app_core;
 
-        // 启动文件相关后台任务
-        tokio::spawn({
-            let d = file_dao.clone();
+        let download_node = task_node.child("web-file-download");
+        let download_wait_node = task_node.child("web-file-download-wait");
+        let progress_node = task_node.child("web-file-progress");
+        let expiration_node = task_node.child("web-file-expiration");
+        let unfinished_node = task_node.child("web-file-unfinished-timeout");
+
+        let d_download = file_dao.clone();
+        download_node.spawn(move |token| {
             async move {
-                d.run_download_listener().await;
+                d_download.run_download_listener(token).await;
             }
         });
 
-        tokio::spawn({
-            let d = file_dao.clone();
+        let d_download_wait = file_dao.clone();
+        download_wait_node.spawn(move |token| {
             async move {
-                d.run_download_wait_listener().await;
+                d_download_wait.run_download_wait_listener(token).await;
             }
         });
 
-        tokio::spawn({
-            let d = file_dao.clone();
+        let d_progress = file_dao.clone();
+        progress_node.spawn(move |token| {
             async move {
-                d.run_progress_write_worker().await;
+                d_progress.run_progress_write_worker(token).await;
             }
         });
 
-        tokio::spawn({
-            let d = file_dao.clone();
+        let d_expiration = file_dao.clone();
+        expiration_node.spawn(move |token| {
             async move {
-                d.run_expiration_task(None).await;
+                d_expiration.run_expiration_task(None, token).await;
             }
         });
 
-        tokio::spawn({
-            let d = file_dao.clone();
+        let d_unfinished = file_dao.clone();
+        unfinished_node.spawn(move |token| {
             async move {
-                d.run_unfinished_timeout_task(None).await;
+                d_unfinished.run_unfinished_timeout_task(None, token).await;
             }
         });
 

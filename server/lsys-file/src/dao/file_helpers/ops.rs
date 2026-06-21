@@ -246,109 +246,129 @@ impl FileHelper {
         log_dao: &super::super::file_log::FileLogDao,
         chunk_ids: &[u64],
     ) {
+        use tracing::Instrument;
         for &chunk_id in chunk_ids {
-            let chunk = match sqlx::query_as::<_, FileLocalChunkModel>(&format!(
-                "SELECT * FROM {} WHERE id=? LIMIT 1",
-                FileLocalChunkModel::table_name()
-            ))
-            .bind(chunk_id)
-            .fetch_optional(db)
-            .await
-            {
-                Ok(Some(c)) => c,
-                Ok(None) => {
-                    warn!("cleanup: chunk id {} not found", chunk_id);
-                    continue;
-                }
-                Err(e) => {
-                    warn!("cleanup: query chunk {} error: {}", chunk_id, e);
-                    continue;
-                }
-            };
+            Self::cleanup_single_chunk(db, config, log_dao, chunk_id)
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "file-cleanup-chunk",
+                    task_id = chunk_id
+                ))
+                .await;
+        }
+    }
 
-            if chunk.chunk_path.is_empty() {
-                continue;
+    /// 清理单个 chunk 文件
+    ///
+    /// 从 `cleanup_chunks_impl` 的循环体提取，使每次清理拥有独立 span。
+    /// 原循环体中的 `continue` 在此处变为 `return`。
+    async fn cleanup_single_chunk(
+        db: &sqlx::Pool<sqlx::MySql>,
+        config: &super::super::file_config::FileConfig,
+        log_dao: &super::super::file_log::FileLogDao,
+        chunk_id: u64,
+    ) {
+        let chunk = match sqlx::query_as::<_, FileLocalChunkModel>(&format!(
+            "SELECT * FROM {} WHERE id=? LIMIT 1",
+            FileLocalChunkModel::table_name()
+        ))
+        .bind(chunk_id)
+        .fetch_optional(db)
+        .await
+        {
+            Ok(Some(c)) => c,
+            Ok(None) => {
+                warn!("cleanup: chunk id {} not found", chunk_id);
+                return;
             }
+            Err(e) => {
+                warn!("cleanup: query chunk {} error: {}", chunk_id, e);
+                return;
+            }
+        };
 
-            if !config.cleanup_enabled {
-                info!("cleanup disabled, skip chunk path: {}", chunk.chunk_path);
+        if chunk.chunk_path.is_empty() {
+            return;
+        }
+
+        if !config.cleanup_enabled {
+            info!("cleanup disabled, skip chunk path: {}", chunk.chunk_path);
+            log_dao
+                .add(
+                    chunk.file_id,
+                    chunk.id,
+                    0,
+                    &format!("chunk cleanup skipped (disabled): {}", chunk.chunk_path),
+                    None,
+                )
+                .await;
+            return;
+        }
+
+        // 从 chunk 关联的 file_id 获取存储类型
+        let storage_type = match sqlx::query_scalar::<_, String>(&format!(
+            "SELECT storage_type FROM {} WHERE id=? LIMIT 1",
+            FileModel::table_name()
+        ))
+        .bind(chunk.file_id)
+        .fetch_optional(db)
+        .await
+        {
+            Ok(Some(st)) => st,
+            Ok(None) => {
+                warn!(
+                    "cleanup: file id {} not found for chunk {}",
+                    chunk.file_id, chunk_id
+                );
+                return;
+            }
+            Err(e) => {
+                warn!("cleanup: query file {} error: {}", chunk.file_id, e);
+                return;
+            }
+        };
+
+        let base_path = match config.get_base_path(&storage_type).await {
+            Ok(p) => p,
+            Err(e) => {
+                warn!(
+                    "cleanup: get base_path error for storage_type {}: {}",
+                    storage_type, e
+                );
+                return;
+            }
+        };
+
+        let full_path = base_path.join(&chunk.chunk_path);
+        match fs::remove_file(&full_path).await {
+            Ok(_) => {
+                info!("cleanup: deleted chunk file {}", chunk.chunk_path);
                 log_dao
                     .add(
                         chunk.file_id,
                         chunk.id,
                         0,
-                        &format!("chunk cleanup skipped (disabled): {}", chunk.chunk_path),
+                        &format!("chunk file deleted: {}", chunk.chunk_path),
                         None,
                     )
                     .await;
-                continue;
             }
+            Err(e) => warn!(
+                "cleanup: delete chunk file {} failed: {}",
+                chunk.chunk_path, e
+            ),
+        }
 
-            // 从 chunk 关联的 file_id 获取存储类型
-            let storage_type = match sqlx::query_scalar::<_, String>(&format!(
-                "SELECT storage_type FROM {} WHERE id=? LIMIT 1",
-                FileModel::table_name()
-            ))
-            .bind(chunk.file_id)
-            .fetch_optional(db)
+        let now = now_time().unwrap_or_default();
+        if let Err(e) = Update::<_, FileLocalChunkModel>::new()
+            .set(FileLocalChunkModel::STATUS, FileChunkStatus::Cleaned as i8)
+            .set(FileLocalChunkModel::CHANGE_TIME, now)
+            .execute(db, |qb| {
+                qb.push_where().field_eq("id", chunk_id);
+            })
             .await
-            {
-                Ok(Some(st)) => st,
-                Ok(None) => {
-                    warn!(
-                        "cleanup: file id {} not found for chunk {}",
-                        chunk.file_id, chunk_id
-                    );
-                    continue;
-                }
-                Err(e) => {
-                    warn!("cleanup: query file {} error: {}", chunk.file_id, e);
-                    continue;
-                }
-            };
-
-            let base_path = match config.get_base_path(&storage_type).await {
-                Ok(p) => p,
-                Err(e) => {
-                    warn!(
-                        "cleanup: get base_path error for storage_type {}: {}",
-                        storage_type, e
-                    );
-                    continue;
-                }
-            };
-
-            let full_path = base_path.join(&chunk.chunk_path);
-            match fs::remove_file(&full_path).await {
-                Ok(_) => {
-                    info!("cleanup: deleted chunk file {}", chunk.chunk_path);
-                    log_dao
-                        .add(
-                            chunk.file_id,
-                            chunk.id,
-                            0,
-                            &format!("chunk file deleted: {}", chunk.chunk_path),
-                            None,
-                        )
-                        .await;
-                }
-                Err(e) => warn!(
-                    "cleanup: delete chunk file {} failed: {}",
-                    chunk.chunk_path, e
-                ),
-            }
-
-            let now = now_time().unwrap_or_default();
-            if let Err(e) = Update::<_, FileLocalChunkModel>::new()
-                .set(FileLocalChunkModel::STATUS, FileChunkStatus::Cleaned as i8)
-                .set(FileLocalChunkModel::CHANGE_TIME, now)
-                .execute(db, |qb| {
-                    qb.push_where().field_eq("id", chunk_id);
-                })
-                .await
-            {
-                warn!("cleanup: update chunk {} status error: {}", chunk_id, e);
-            }
+        {
+            warn!("cleanup: update chunk {} status error: {}", chunk_id, e);
         }
     }
 

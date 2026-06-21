@@ -15,7 +15,7 @@ use tokio::{
     sync::mpsc::{self, Receiver, Sender},
     time::sleep,
 };
-use tracing::{Level, debug, error, info, span, trace, warn};
+use tracing::{Instrument, Level, debug, error, info, span, trace, warn};
 
 // 任务派发执行抽象实现
 #[async_trait::async_trait]
@@ -117,25 +117,36 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
 
 impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
     /// 监听外部超时重置操作
-    pub async fn listen(self, channel_buffer: Option<usize>) {
+    pub async fn listen(self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
         let channel_buffer = channel_buffer.unwrap_or(10);
         let (task_tx, task_rx) = mpsc::channel::<()>(channel_buffer);
         let (timeout_tx, timeout_rx) = mpsc::channel::<()>(channel_buffer);
+
+        // 为每个子任务创建子 token
+        let next_time_token = cancel_token.child_token();
+        let timeout_task_token = cancel_token.child_token();
+        let loop_check_token = cancel_token.child_token();
+        let redis_sub_token = cancel_token.child_token();
+
         let listen_next_time = tokio::spawn({
             let lock_key = self.lock_key.clone();
             let max_lock_time = self.notfiy.config.max_lock_time;
             let redis = self.notfiy.redis.clone();
             let task_tx = task_tx.clone();
             async move {
-                Self::listen_next_time(
-                    redis,
-                    timeout_rx,
-                    task_tx,
-                    &lock_key,
-                    max_lock_time,
-                    &self.task_next_time,
-                )
-                .await;
+                tokio::select! {
+                    _ = Self::listen_next_time(
+                        redis,
+                        timeout_rx,
+                        task_tx,
+                        &lock_key,
+                        max_lock_time,
+                        &self.task_next_time,
+                    ) => {}
+                    _ = next_time_token.cancelled() => {
+                        info!("timeout_task listen_next_time cancelled");
+                    }
+                }
             }
         });
         let listen_timeout_task = tokio::spawn({
@@ -144,15 +155,19 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
             let redis = self.notfiy.redis.clone();
             let timeout_tx = timeout_tx.clone();
             async move {
-                Self::listen_timeout_task(
-                    redis,
-                    task_rx,
-                    timeout_tx,
-                    &lock_key,
-                    max_lock_time,
-                    &self.task_exec,
-                )
-                .await;
+                tokio::select! {
+                    _ = Self::listen_timeout_task(
+                        redis,
+                        task_rx,
+                        timeout_tx,
+                        &lock_key,
+                        max_lock_time,
+                        &self.task_exec,
+                    ) => {}
+                    _ = timeout_task_token.cancelled() => {
+                        info!("timeout_task listen_timeout_task cancelled");
+                    }
+                }
             }
         });
         let listen_loop_check = tokio::spawn({
@@ -161,7 +176,12 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
             let redis = self.notfiy.redis.clone();
             let task_tx = task_tx.clone();
             async move {
-                Self::listen_loop_check(redis, &lock_key, max_lock_time, task_tx).await;
+                tokio::select! {
+                    _ = Self::listen_loop_check(redis, &lock_key, max_lock_time, task_tx) => {}
+                    _ = loop_check_token.cancelled() => {
+                        info!("timeout_task listen_loop_check cancelled");
+                    }
+                }
             }
         });
         let listen_redis_sub = tokio::spawn({
@@ -171,17 +191,31 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
             let redis = self.notfiy.redis.clone();
             let timeout_tx = timeout_tx.clone();
             async move {
-                Self::listen_redis_sub(app_core, redis, &lock_key, &notify_key, timeout_tx).await;
+                tokio::select! {
+                    _ = Self::listen_redis_sub(app_core, redis, &lock_key, &notify_key, timeout_tx) => {}
+                    _ = redis_sub_token.cancelled() => {
+                        info!("timeout_task listen_redis_sub cancelled");
+                    }
+                }
             }
         });
         drop(timeout_tx);
         drop(task_tx);
-        let _ = tokio::join!(
-            listen_next_time,
-            listen_timeout_task,
-            listen_loop_check,
-            listen_redis_sub,
-        );
+
+        // 等待取消信号或所有子任务完成
+        tokio::select! {
+            _ = cancel_token.cancelled() => {
+                info!("timeout_task listen cancelled, waiting for sub-tasks to finish");
+            }
+            _ = async {
+                let _ = tokio::join!(
+                    listen_next_time,
+                    listen_timeout_task,
+                    listen_loop_check,
+                    listen_redis_sub,
+                );
+            } => {}
+        }
     }
     async fn listen_lock_check(
         check_type: &str,
@@ -222,80 +256,49 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
         info!("timeout_task next_time listen start :{}", lock_key);
         let mut timeout_exec: Option<(tokio::task::JoinHandle<()>, u64)> = None;
         while let Some(()) = ntc_rx.recv().await {
-            let _ = span!(Level::INFO, "listen_next_time").enter();
-            match executor.next_time(max_lock_time).await {
-                Ok(next_time_data) => {
-                    let ntime = match next_time_data {
-                        Some(t) => t,
-                        None => {
-                            debug!("listen_next_time not next time");
-                            continue;
-                        }
-                    };
-                    let nwtime = now_time().unwrap_or_default();
-                    let mut addtime = ntime.saturating_sub(nwtime);
-                    let mut is_change = true;
-                    if let Some((handle, timeout)) = timeout_exec.take() {
-                        //执行前[cancel or no cancel] 执行后 =none
-                        if timeout < ntime {
-                            addtime = timeout.saturating_sub(nwtime);
-                            is_change = false;
-                        }
-                        if !handle.is_finished() {
-                            handle.abort();
-                            let result = handle.await;
-                            if let Err(err) = result {
-                                if !err.is_cancelled() {
-                                    warn!("listen_next_time cancel fail :{}", err);
-                                } else {
-                                    debug!("listen_next_time is cancel");
-                                }
-                            }
-                        }
-                    }
-                    if addtime == 0 {
-                        debug!("listen_next_time now exec");
-                        if let Err(err) = task_tx.send(()).await {
-                            warn!("listen_next_time send task fail :{}", err);
-                        }
-                        continue;
-                    }
-                    if is_change {
-                        let mut conn = loop {
-                            match redis.get().await {
-                                Ok(conn) => break conn,
-                                Err(err) => {
-                                    warn!("listen_next_time redis get fail :{}", err);
-                                    sleep(Duration::from_secs(1)).await;
-                                }
+            let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+            let span = span!(parent: None, Level::INFO, "background_task", task = "timeout-next-time", task_id = task_id, lock_key = %lock_key);
+            async {
+                match executor.next_time(max_lock_time).await {
+                    Ok(next_time_data) => {
+                        let ntime = match next_time_data {
+                            Some(t) => t,
+                            None => {
+                                debug!("listen_next_time not next time");
+                                return; // was: continue
                             }
                         };
-                        if !Self::listen_lock_check("listen_next_time", &mut conn, lock_key)
-                            .await
-                            .unwrap_or(false)
-                        {
-                            continue;
+                        let nwtime = now_time().unwrap_or_default();
+                        let mut addtime = ntime.saturating_sub(nwtime);
+                        let mut is_change = true;
+                        if let Some((handle, timeout)) = timeout_exec.take() {
+                            //执行前[cancel or no cancel] 执行后 =none
+                            if timeout < ntime {
+                                addtime = timeout.saturating_sub(nwtime);
+                                is_change = false;
+                            }
+                            if !handle.is_finished() {
+                                handle.abort();
+                                let result = handle.await;
+                                if let Err(err) = result {
+                                    if !err.is_cancelled() {
+                                        warn!("listen_next_time cancel fail :{}", err);
+                                    } else {
+                                        debug!("listen_next_time is cancel");
+                                    }
+                                }
+                            }
                         }
-                        if let Err(err) = conn
-                            .expire::<&str, i64>(lock_key, addtime as i64 + max_lock_time as i64)
-                            .await
-                        {
-                            warn!(
-                                "listen_next_time redis lock{} expire fail :{}",
-                                lock_key, err
-                            );
-                            continue;
+                        if addtime == 0 {
+                            debug!("listen_next_time now exec");
+                            if let Err(err) = task_tx.send(()).await {
+                                warn!("listen_next_time send task fail :{}", err);
+                            }
+                            return; // was: continue
                         }
-                    }
-                    debug!("listen_next_time add timeout handle on {} seconds", addtime);
-                    let handle = tokio::spawn({
-                        let tmp_lock_key = lock_key.to_string();
-                        let tmp_task_tx = task_tx.clone();
-                        let tmp_redis = redis.clone();
-                        async move {
-                            sleep(Duration::from_secs((addtime + 1) as u64)).await;
+                        if is_change {
                             let mut conn = loop {
-                                match tmp_redis.get().await {
+                                match redis.get().await {
                                     Ok(conn) => break conn,
                                     Err(err) => {
                                         warn!("listen_next_time redis get fail :{}", err);
@@ -303,27 +306,72 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                                     }
                                 }
                             };
-                            if !Self::listen_lock_check(
-                                "listen_next_time_handle",
-                                &mut conn,
-                                &tmp_lock_key,
-                            )
-                            .await
-                            .unwrap_or(false)
+                            if !Self::listen_lock_check("listen_next_time", &mut conn, lock_key)
+                                .await
+                                .unwrap_or(false)
                             {
-                                return;
+                                return; // was: continue
                             }
-                            if let Err(err) = tmp_task_tx.send(()).await {
-                                warn!("listen_next_time  timeout ok, send task fail :{}", err);
+                            if let Err(err) = conn
+                                .expire::<&str, i64>(lock_key, addtime as i64 + max_lock_time as i64)
+                                .await
+                            {
+                                warn!(
+                                    "listen_next_time redis lock{} expire fail :{}",
+                                    lock_key, err
+                                );
+                                return; // was: continue
                             }
                         }
-                    });
-                    timeout_exec = Some((handle, nwtime + addtime));
-                }
-                Err(err) => {
-                    warn!("listen_next_time get fail :{}", err);
+                        debug!("listen_next_time add timeout handle on {} seconds", addtime);
+                        let handle = tokio::spawn({
+                            let tmp_lock_key = lock_key.to_string();
+                            let tmp_task_tx = task_tx.clone();
+                            let tmp_redis = redis.clone();
+                            let span_lock_key = tmp_lock_key.clone();
+                            async move {
+                                sleep(Duration::from_secs((addtime + 1) as u64)).await;
+                                let mut conn = loop {
+                                    match tmp_redis.get().await {
+                                        Ok(conn) => break conn,
+                                        Err(err) => {
+                                            warn!("listen_next_time redis get fail :{}", err);
+                                            sleep(Duration::from_secs(1)).await;
+                                        }
+                                    }
+                                };
+                                if !Self::listen_lock_check(
+                                    "listen_next_time_handle",
+                                    &mut conn,
+                                    &tmp_lock_key,
+                                )
+                                .await
+                                .unwrap_or(false)
+                                {
+                                    return;
+                                }
+                                if let Err(err) = tmp_task_tx.send(()).await {
+                                    warn!("listen_next_time  timeout ok, send task fail :{}", err);
+                                }
+                            }
+                            .instrument(span!(
+                                parent: None,
+                                Level::INFO,
+                                "background_task",
+                                task = "timeout-next-time-handle",
+                                task_id = nwtime + addtime,
+                                lock_key = %span_lock_key
+                            ))
+                        });
+                        timeout_exec = Some((handle, nwtime + addtime));
+                    }
+                    Err(err) => {
+                        warn!("listen_next_time get fail :{}", err);
+                    }
                 }
             }
+            .instrument(span)
+            .await;
         }
     }
     async fn listen_timeout_task(
@@ -336,52 +384,60 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
     ) {
         info!("timeout_task task listen start:{}", lock_key);
         while let Some(()) = task_rx.recv().await {
-            let _ = span!(Level::INFO, "listen_timeout_task").enter();
-            let mut conn = loop {
-                match redis.get().await {
-                    Ok(conn) => break conn,
-                    Err(err) => {
-                        warn!("listen_timeout_task redis get fail :{}", err);
-                        sleep(Duration::from_secs(1)).await;
-                    }
-                }
-            };
-
-            match executor
-                .exec(max_lock_time, || {
-                    let mut conn_exec = conn.clone();
-                    let lock_key = lock_key.to_string();
-                    async move {
-                        if let Ok(ttl) = conn_exec.ttl::<&str, usize>(&lock_key).await
-                            && ttl < max_lock_time / 2
-                        {
-                            let _ = conn_exec
-                                .expire::<&str, i64>(&lock_key, max_lock_time as i64)
-                                .await;
+            let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+            let span = span!(parent: None, Level::INFO, "background_task", task = "timeout-task-exec", task_id = task_id, lock_key = %lock_key);
+            async {
+                let mut conn = loop {
+                    match redis.get().await {
+                        Ok(conn) => break conn,
+                        Err(err) => {
+                            warn!("listen_timeout_task redis get fail :{}", err);
+                            sleep(Duration::from_secs(1)).await;
                         }
                     }
-                    .boxed()
-                })
-                .await
-            {
-                Ok(()) => {
-                    if !Self::listen_lock_check("listen_timeout_task", &mut conn, lock_key)
-                        .await
-                        .unwrap_or(false)
-                    {
-                        drop(conn);
-                        sleep(Duration::from_secs(1)).await;
-                        continue;
+                };
+
+                match executor
+                    .exec(max_lock_time, || {
+                        let mut conn_exec = conn.clone();
+                        let lock_key = lock_key.to_string();
+                        async move {
+                            if let Ok(ttl) = conn_exec.ttl::<&str, usize>(&lock_key).await
+                                && ttl < max_lock_time / 2
+                            {
+                                if let Err(err) = conn_exec
+                                    .expire::<&str, i64>(&lock_key, max_lock_time as i64)
+                                    .await
+                                {
+                                    warn!("listen_timeout_task expire lock fail:{}", err);
+                                }
+                            }
+                        }
+                        .boxed()
+                    })
+                    .await
+                {
+                    Ok(()) => {
+                        if !Self::listen_lock_check("listen_timeout_task", &mut conn, lock_key)
+                            .await
+                            .unwrap_or(false)
+                        {
+                            drop(conn);
+                            sleep(Duration::from_secs(1)).await;
+                            return; // was: continue
+                        }
+                    }
+                    Err(err) => {
+                        warn!("listen_timeout_task exec task fail :{}", err);
+                        return; // was: continue
                     }
                 }
-                Err(err) => {
-                    warn!("listen_timeout_task exec task fail :{}", err);
-                    continue;
+                if let Err(err) = ntc_tx.send(()).await {
+                    warn!("listen_timeout_task send next time task fail :{}", err);
                 }
             }
-            if let Err(err) = ntc_tx.send(()).await {
-                warn!("listen_timeout_task send next time task fail :{}", err);
-            }
+            .instrument(span)
+            .await;
         }
     }
 
@@ -396,97 +452,102 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
             lock_key, max_lock_time
         );
         loop {
-            let _ = span!(Level::INFO, "listen_loop_check").enter();
-            let mut conn = loop {
-                match redis.get().await {
-                    Ok(conn) => break conn,
-                    Err(err) => {
-                        warn!("listen_timeout_check redis get fail :{}", err);
-                        sleep(Duration::from_secs(1)).await;
+            let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+            let span = span!(parent: None, Level::INFO, "background_task", task = "timeout-loop-check", task_id = task_id, lock_key = %lock_key);
+            async {
+                let mut conn = loop {
+                    match redis.get().await {
+                        Ok(conn) => break conn,
+                        Err(err) => {
+                            warn!("listen_timeout_check redis get fail :{}", err);
+                            sleep(Duration::from_secs(1)).await;
+                        }
                     }
-                }
-            };
-            let set_host = hostname::get()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            trace!(
-                "listen_timeout_check start lock key[{}] val[{}]",
-                lock_key, set_host
-            );
-            match conn
-                .set_nx::<&str, String, bool>(lock_key, set_host.clone())
-                .await
-            {
-                Ok(mut status) => {
-                    debug!(
-                        "listen_timeout_check lock key[{}] status: {}",
-                        lock_key, status
-                    );
-                    let mut set_expire = true;
-                    if !status {
-                        match conn.ttl::<&str, i64>(lock_key).await {
-                            Ok(ttl) => {
-                                debug!("listen_timeout_check lock key[{}] ttl: {}", lock_key, ttl);
-                                if ttl > 0 {
-                                    set_expire = false
+                };
+                let set_host = hostname::get()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                trace!(
+                    "listen_timeout_check start lock key[{}] val[{}]",
+                    lock_key, set_host
+                );
+                match conn
+                    .set_nx::<&str, String, bool>(lock_key, set_host.clone())
+                    .await
+                {
+                    Ok(mut status) => {
+                        debug!(
+                            "listen_timeout_check lock key[{}] status: {}",
+                            lock_key, status
+                        );
+                        let mut set_expire = true;
+                        if !status {
+                            match conn.ttl::<&str, i64>(lock_key).await {
+                                Ok(ttl) => {
+                                    debug!("listen_timeout_check lock key[{}] ttl: {}", lock_key, ttl);
+                                    if ttl > 0 {
+                                        set_expire = false
+                                    }
+                                }
+                                Err(err) => {
+                                    debug!(
+                                        "listen_timeout_check lock key{} ttl fail: {}",
+                                        lock_key, err
+                                    );
                                 }
                             }
-                            Err(err) => {
-                                debug!(
-                                    "listen_timeout_check lock key{} ttl fail: {}",
-                                    lock_key, err
-                                );
+                        }
+                        let other_host = match conn.get::<&str, String>(lock_key).await {
+                            Ok(t) => {
+                                if t == set_host {
+                                    status = true
+                                }
+                                format!("other host lock:{}", t)
                             }
+                            Err(e) => format!("get lock host fail:{}", e),
+                        };
+                        if (set_expire || status)
+                            && let Err(err) = conn
+                                .expire::<&str, i64>(lock_key, max_lock_time as i64)
+                                .await
+                        {
+                            warn!(
+                                "listen_timeout_check lock key[{}] set expire fail:{}",
+                                lock_key, err
+                            );
+                        }
+
+                        if status {
+                            if let Err(err) = task_tx.send(()).await {
+                                warn!("listen_loop_check send task fail :{}", err);
+                            } else {
+                                debug!("listen_loop_check send task succ");
+                            }
+                        } else {
+                            debug!("listen_loop_check lock fail :{}", other_host);
                         }
                     }
-                    let other_host = match conn.get::<&str, String>(lock_key).await {
-                        Ok(t) => {
-                            if t == set_host {
-                                status = true
-                            }
-                            format!("other host lock:{}", t)
-                        }
-                        Err(e) => format!("get lock host fail:{}", e),
-                    };
-                    if (set_expire || status)
-                        && let Err(err) = conn
-                            .expire::<&str, i64>(lock_key, max_lock_time as i64)
-                            .await
-                    {
-                        warn!(
-                            "listen_timeout_check lock key[{}] set expire fail:{}",
+                    Err(err) => {
+                        info!(
+                            "listen_timeout_check task lock key[{}] set fail:{}",
                             lock_key, err
                         );
                     }
-
-                    if status {
-                        if let Err(err) = task_tx.send(()).await {
-                            warn!("listen_loop_check send task fail :{}", err);
-                        } else {
-                            debug!("listen_loop_check send task succ");
-                        }
-                    } else {
-                        debug!("listen_loop_check lock fail :{}", other_host);
-                    }
                 }
-                Err(err) => {
-                    info!(
-                        "listen_timeout_check task lock key[{}] set fail:{}",
-                        lock_key, err
-                    );
-                }
+                debug!(
+                    "listen_timeout_check lock key[{}] -> sleep {}",
+                    lock_key, max_lock_time
+                );
+                drop(conn);
+                sleep(Duration::from_secs(if max_lock_time > 3 {
+                    max_lock_time - 3
+                } else {
+                    max_lock_time
+                } as u64))
+                .await;
             }
-            debug!(
-                "listen_timeout_check lock key[{}] -> sleep {}",
-                lock_key, max_lock_time
-            );
-            drop(conn);
-            sleep(Duration::from_secs(if max_lock_time > 3 {
-                max_lock_time - 3
-            } else {
-                max_lock_time
-            } as u64))
+            .instrument(span)
             .await;
         }
     }
@@ -503,7 +564,6 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
             notify_key, notify_key
         );
         loop {
-            let _ = span!(Level::INFO, "listen_redis_sub").enter();
             match crate::app_core::create_redis_client(app_core.as_ref()).await {
                 Ok(redis_client) => {
                     let con_res = redis_client.get_async_pubsub().await;
@@ -525,40 +585,58 @@ impl<T: TimeOutTaskExecutor> TimeOutTask<T> {
                                 match pubsub_stream.next().await {
                                     Some(msg) => match msg.get_payload::<String>() {
                                         Ok(pubsub_msg) => {
-                                            debug!("listen_redis_sub msg:{}", pubsub_msg);
-                                            let mut conn = loop {
-                                                match redis.get().await {
-                                                    Ok(conn) => break conn,
-                                                    Err(err) => {
-                                                        warn!(
-                                                            "listen_redis_sub redis get fail :{}",
-                                                            err
-                                                        );
-                                                        sleep(Duration::from_secs(1)).await;
+                                            let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+                                            let span = span!(
+                                                parent: None,
+                                                Level::INFO,
+                                                "background_task",
+                                                task = "timeout-redis-sub",
+                                                task_id = task_id,
+                                                lock_key = %lock_key
+                                            );
+                                            // true = 需要 break 内层循环
+                                            let should_break = async {
+                                                debug!("listen_redis_sub msg:{}", pubsub_msg);
+                                                let mut conn = loop {
+                                                    match redis.get().await {
+                                                        Ok(conn) => break conn,
+                                                        Err(err) => {
+                                                            warn!(
+                                                                "listen_redis_sub redis get fail :{}",
+                                                                err
+                                                            );
+                                                            sleep(Duration::from_secs(1)).await;
+                                                        }
+                                                    }
+                                                };
+                                                match Self::listen_lock_check(
+                                                    "listen_redis_sub",
+                                                    &mut conn,
+                                                    lock_key,
+                                                )
+                                                .await
+                                                {
+                                                    Ok(status) => {
+                                                        if !status {
+                                                            return false; // was: continue
+                                                        }
+                                                    }
+                                                    Err(_) => {
+                                                        return true; // was: break
                                                     }
                                                 }
-                                            };
-                                            match Self::listen_lock_check(
-                                                "listen_redis_sub",
-                                                &mut conn,
-                                                lock_key,
-                                            )
-                                            .await
-                                            {
-                                                Ok(status) => {
-                                                    if !status {
-                                                        continue;
-                                                    }
+                                                if let Err(err) = ntc_tx.send(()).await {
+                                                    warn!(
+                                                        "listen_redis_sub send next time task fail :{}",
+                                                        err
+                                                    );
                                                 }
-                                                Err(_) => {
-                                                    break;
-                                                }
+                                                false
                                             }
-                                            if let Err(err) = ntc_tx.send(()).await {
-                                                warn!(
-                                                    "listen_redis_sub send next time task fail :{}",
-                                                    err
-                                                );
+                                            .instrument(span)
+                                            .await;
+                                            if should_break {
+                                                break;
                                             }
                                         }
                                         Err(err) => {

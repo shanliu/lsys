@@ -115,13 +115,13 @@ impl FileCollector {
     }
 
     /// 运行 JS 任务派发后台循环。通常通过 `tokio::spawn` 调用。
-    pub async fn run_task_loop(&self) {
-        self.runner.run().await;
+    pub async fn run_task_loop(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.runner.run(cancel_token).await;
     }
 
     /// 运行 JS 引擎缓存清理后台循环。通常通过 `tokio::spawn` 调用。
-    pub async fn run_cache_cleanup(&self) {
-        self.runner.run_engine_cleanup().await;
+    pub async fn run_cache_cleanup(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.runner.run_engine_cleanup(cancel_token).await;
     }
 
     /// 从 RequestEnv 提取 request_id，若不存在则自动生成

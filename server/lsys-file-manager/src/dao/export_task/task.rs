@@ -12,7 +12,7 @@ use lsys_core::utils::now_time;
 use lsys_file::dao::{LocalFileMode, LocalFileSource};
 use sqlx::{MySql, Pool};
 use tokio::sync::{Semaphore, mpsc};
-use tracing::{error, info, warn};
+use tracing::{Instrument, error, info, warn};
 
 use crate::dao::result::FileManagerResult;
 use crate::model::*;
@@ -46,19 +46,36 @@ impl ExportTaskDispatcher {
     /// 后台调度循环（应在应用启动时 spawn 一次）
     ///
     /// 持续监听 trigger 信号，收到后从 DB 拉取 Pending 记录并投递到执行池。
-    pub async fn dispatch_loop(mut self) {
+    pub async fn dispatch_loop(mut self, cancel_token: tokio_util::sync::CancellationToken) {
         loop {
             // 等待触发信号
-            if self.trigger_rx.recv().await.is_none() {
-                info!("export_task: trigger channel closed, stopping dispatch loop");
-                break;
+            tokio::select! {
+                msg = self.trigger_rx.recv() => {
+                    if msg.is_none() {
+                        info!("export_task: trigger channel closed, stopping dispatch loop");
+                        break;
+                    }
+                }
+                _ = cancel_token.cancelled() => {
+                    info!("export_task: cancelled, stopping dispatch loop");
+                    break;
+                }
             }
 
             // 收到信号后，先把 channel 里积压的信号全部清空
             while self.trigger_rx.try_recv().is_ok() {}
 
+            // 每次调度创建独立 span，记录单次执行的起点、过程、结束
+            let task_id = lsys_core::utils::rand_str(lsys_core::utils::RandType::LowerHex, 8);
             // 从 DB 拉取 Pending 记录
-            if let Err(e) = self.dispatch_pending().await {
+            if let Err(e) = self.dispatch_pending()
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "export-task-dispatch",
+                    task_id = task_id
+                ))
+                .await
+            {
                 error!(
                     "export_task: dispatch_pending error: {}",
                     e.to_fluent_message().default_format()
@@ -142,11 +159,19 @@ impl ExportTaskDispatcher {
             let exporters = Arc::clone(&self.exporters);
             let fluent_mgr = Arc::clone(&self.fluent_mgr);
 
-            join_set.spawn(async move {
-                let _permit = permit; // 持有 permit 直到任务结束
+            let record_id = record.id;
+            join_set.spawn(
+                async move {
+                    let _permit = permit; // 持有 permit 直到任务结束
 
-                Self::execute_task(&db, &file_dao, &exporters, fluent_mgr, record).await;
-            });
+                    Self::execute_task(&db, &file_dao, &exporters, fluent_mgr, record).await;
+                }
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "export-task-execute",
+                    task_id = record_id
+                )),
+            );
         }
 
         // 等待所有剩余任务执行完成

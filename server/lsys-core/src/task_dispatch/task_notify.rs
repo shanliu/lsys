@@ -115,6 +115,7 @@ impl TaskTimeOutNotify {
         exec: Arc<E::Exec>,
         task_next_time: Arc<E::NextTime>,
         channel_buffer: Option<usize>,
+        cancel_token: tokio_util::sync::CancellationToken,
     ) -> Result<(), AppCoreError> {
         let sub_app_timeout_task = TimeOutTask::<E>::new(
             self.app_core.clone(),
@@ -122,7 +123,7 @@ impl TaskTimeOutNotify {
             exec,
             task_next_time,
         );
-        sub_app_timeout_task.listen(channel_buffer).await;
+        sub_app_timeout_task.listen(channel_buffer, cancel_token).await;
         Ok(())
     }
 }

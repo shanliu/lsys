@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, sync::OnceLock};
 use tokio::sync::mpsc::{self, Sender};
-use tracing::{info, warn};
+use tracing::{Instrument, info, warn};
 
 use crate::model::RbacAuditResult;
 use crate::model::RbacRoleModel;
@@ -796,7 +796,9 @@ impl RbacAccess {
                 {
                     Ok(id) => id.last_insert_id(),
                     Err(err) => {
-                        let _ = db_tran.rollback().await;
+                        if let Err(rb_err) = db_tran.rollback().await {
+                            warn!("add audit rollback fail,on add:{err},rollback:{rb_err}");
+                        }
                         warn!("add audit fail,on add:{err}");
                         return;
                     }
@@ -824,7 +826,9 @@ impl RbacAccess {
                         );
                     }
                     if let Err(err) = batch.execute(&mut *db_tran).await {
-                        let _ = db_tran.rollback().await;
+                        if let Err(rb_err) = db_tran.rollback().await {
+                            warn!("add audit rollback fail,on add detail:{err},rollback:{rb_err}");
+                        }
                         warn!("add audit fail,on add detail:{err}");
                         return;
                     };
@@ -850,8 +854,19 @@ impl RbacAccess {
         tokio::task::spawn(async move {
             info!("rbac audit add start");
             while let Some(msg) = rx.recv().await {
-                info!("rbac audit listen add:{}", msg.request_id);
-                Self::audit_add(&db, msg).await;
+                let request_id = msg.request_id.clone();
+                let span_request_id = request_id.clone();
+                let db = db.clone();
+                async move {
+                    info!("rbac audit listen add:{}", request_id);
+                    Self::audit_add(&db, msg).await;
+                }
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "rbac-audit-add",
+                    request_id = %span_request_id
+                ))
+                .await;
             }
             info!("rbac audit add end");
         });

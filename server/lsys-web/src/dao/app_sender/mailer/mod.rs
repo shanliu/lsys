@@ -118,17 +118,17 @@ impl SenderMailer {
         })
     }
     // 后台任务
-    pub async fn task_sender(&self) -> WebResult<()> {
+    pub async fn task_sender(&self, cancel_token: tokio_util::sync::CancellationToken) -> WebResult<()> {
         let task = SmtpSenderTask::new(self.tpls.clone(), self.encryptor.clone());
-        Ok(self.mailer_dao.task_sender(vec![Box::new(task)]).await?)
+        Ok(self.mailer_dao.task_sender(vec![Box::new(task)], cancel_token).await?)
     }
     // 后台任务
-    pub async fn task_wait(&self) {
-        self.mailer_dao.task_wait().await
+    pub async fn task_wait(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.mailer_dao.task_wait(cancel_token).await
     }
     // 后台任务
-    pub async fn task_sendtime_notify(&self) {
-        self.mailer_dao.task_sendtime_notify(None).await;
+    pub async fn task_sendtime_notify(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.mailer_dao.task_sendtime_notify(None, cancel_token).await;
     }
     // 取消发送接口
     pub async fn send_cancel(

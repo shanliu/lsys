@@ -17,7 +17,7 @@ use tokio::time::Duration;
 use crate::app_core;
 use futures_util::StreamExt;
 
-use tracing::{debug, error, info, warn};
+use tracing::{Instrument, debug, error, info, warn};
 
 use crate::app_core::AppCore;
 mod result;
@@ -312,66 +312,96 @@ impl RemoteNotify {
     pub async fn push_run(&self, task: Box<dyn RemoteTask>) {
         self.run_list.write().await.push(task);
     }
-    pub async fn listen(&self) {
+    pub async fn listen(&self, cancel_token: tokio_util::sync::CancellationToken) {
         loop {
-            match app_core::create_redis_client(self.app_core.as_ref()).await {
-                Ok(redis_client) => {
-                    let con_res = redis_client.get_async_pubsub().await;
-                    match con_res {
-                        Ok(mut pubsub) => {
-                            let res = pubsub.subscribe(self.channel_name).await;
-                            if let Err(err) = res {
-                                error!("listen sub fail :{}", err);
-                                tokio::time::sleep(Duration::from_secs(1)).await;
-                                continue;
-                            } else {
-                                info!("listen remote channel succ:{}", self.channel_name);
-                            }
-                            let mut pubsub_stream = pubsub.on_message();
-                            loop {
-                                match pubsub_stream.next().await {
-                                    Some(msg) => match msg.get_payload::<String>() {
-                                        Ok(pubsub_msg) => {
-                                            debug!("recv msg:{}", pubsub_msg);
-                                            match serde_json::from_str::<MsgBody>(&pubsub_msg) {
-                                                Ok(msg_body) => {
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    info!("remote_notify {} listen cancelled", self.channel_name);
+                    return;
+                }
+                result = self.listen_once() => {
+                    if result.is_none() {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /// 单次监听循环（提取自原 listen 方法）
+    /// 返回 Some(()) 表示继续循环，None 表示应退出
+    async fn listen_once(&self) -> Option<()> {
+        match app_core::create_redis_client(self.app_core.as_ref()).await {
+            Ok(redis_client) => {
+                let con_res = redis_client.get_async_pubsub().await;
+                match con_res {
+                    Ok(mut pubsub) => {
+                        let res = pubsub.subscribe(self.channel_name).await;
+                        if let Err(err) = res {
+                            error!("listen sub fail :{}", err);
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            return Some(());
+                        } else {
+                            info!("listen remote channel succ:{}", self.channel_name);
+                        }
+                        let mut pubsub_stream = pubsub.on_message();
+                        loop {
+                            match pubsub_stream.next().await {
+                                Some(msg) => match msg.get_payload::<String>() {
+                                    Ok(pubsub_msg) => {
+                                        debug!("recv msg:{}", pubsub_msg);
+                                        match serde_json::from_str::<MsgBody>(&pubsub_msg) {
+                                            Ok(msg_body) => {
+                                                let task_id = match &msg_body {
+                                                    MsgBody::Send(s) => s.id.to_string(),
+                                                    MsgBody::Result(r) => r.reply_id.to_string(),
+                                                };
+                                                async {
                                                     if let Err(err) =
                                                         self.listen_run(msg_body).await
                                                     {
                                                         warn!("run remote msg fail :{}", err);
                                                     }
                                                 }
-                                                Err(err) => {
-                                                    error!("parse payload fail :{}", err);
-                                                }
+                                                .instrument(tracing::info_span!(
+                                                    "background_task",
+                                                    task = "remote-notify-run",
+                                                    task_id = %task_id,
+                                                    channel = %self.channel_name
+                                                ))
+                                                .await;
+                                            }
+                                            Err(err) => {
+                                                error!("parse payload fail :{}", err);
                                             }
                                         }
-                                        Err(err) => {
-                                            error!("read payload fail :{}", err);
-                                            break;
-                                        }
-                                    },
-                                    None => {
-                                        debug!("listen_redis_sub none");
+                                    }
+                                    Err(err) => {
+                                        error!("read payload fail :{}", err);
                                         break;
                                     }
+                                },
+                                None => {
+                                    debug!("listen_redis_sub none");
+                                    break;
                                 }
                             }
                         }
-                        Err(err) => {
-                            error!("clear conn redis:{}", err);
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                        }
+                    }
+                    Err(err) => {
+                        error!("clear conn redis:{}", err);
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
-                Err(err) => {
-                    warn!(
-                        "create remote notify listen client fail:{}",
-                        err.to_fluent_message().default_format()
-                    );
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                }
+            }
+            Err(err) => {
+                warn!(
+                    "create remote notify listen client fail:{}",
+                    err.to_fluent_message().default_format()
+                );
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
         }
+        Some(())
     }
 }

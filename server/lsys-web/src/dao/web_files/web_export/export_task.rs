@@ -12,6 +12,7 @@ use crate::dao::web_files::web_export::export_check::WebExporterCheck;
 use crate::dao::web_files::web_export::export_check::WebExportCheckParam;
 use lsys_core::app_core::AppCore;
 use lsys_core::fluents::FluentMgr;
+use lsys_core::task_lifecycle::TaskNode;
 use lsys_core::utils::RequestEnv;
 use lsys_file::dao::FileDao;
 use lsys_file_manager::export_task::exporter::Exporter;
@@ -62,10 +63,11 @@ impl WebExportTask {
     ///
     /// 必须在注册完所有导出器后调用。
     /// 创建调度器并启动后台任务。
-    pub fn start_dispatch(&mut self) {
+    pub fn start_dispatch(&mut self, task_node: Arc<TaskNode>) {
         if let Some(dispatcher) = self.export_task.create_dispatcher() {
-            tokio::spawn(async move {
-                dispatcher.dispatch_loop().await;
+            let node = task_node.child("export-dispatch");
+            node.spawn(|token| async move {
+                dispatcher.dispatch_loop(token).await;
             });
         }
     }

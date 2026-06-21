@@ -14,6 +14,7 @@ tokio = { version = "~1.52.0", features = [
     "fs",
     "signal",
 ] }
+tokio-util = { version = "~0.7" }
 
 axum = { version = "0.7.9", features = ["multipart"] }
 tower = "0.5"
@@ -27,7 +28,7 @@ serde_urlencoded = "0.7"
 
 tempfile = "3.10.1"
 
-lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis"] }
+lsys-core = { path = "../../lsys-core", features = ["db-mysql", "redis", "task-lifecycle"] }
 lsys-logger = { path = "../../lsys-logger" }
 
 lsys-sdk = { path = "../lsys-sdk" }

@@ -13,7 +13,7 @@ use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::time::{Duration, sleep};
 
 use redis::AsyncCommands;
-use tracing::{debug, error, info, warn};
+use tracing::{Instrument, debug, error, info, warn};
 
 use crate::app_core::AppCore;
 use crate::fluent_message;
@@ -126,40 +126,60 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
         };
         Ok(())
     }
-    pub async fn listen(&self) {
+    pub async fn listen(&self, cancel_token: tokio_util::sync::CancellationToken) {
         loop {
-            match crate::app_core::create_redis_client(self.app_core.as_ref()).await {
-                Ok(redis_client) => {
-                    // redis 1.0.x 默认 response_timeout 为 500ms，会导致 blpop 等阻塞命令立即超时返回
-                    // 设置为 blpop 超时 + 5s 缓冲，既允许 blpop 正常等待，又能在连接异常时兜底超时
-                    let blpop_conn_config = redis::AsyncConnectionConfig::new()
-                        .set_response_timeout(Some(std::time::Duration::from_secs(
-                            self.clear_timeout as u64 + 5,
-                        )));
-                    let con_res = redis_client
-                        .get_multiplexed_async_connection_with_config(&blpop_conn_config)
-                        .await;
-                    match con_res {
-                        Ok(mut redis) => {
-                            let channel_name = self.redis_channel_name(
-                                hostname::get()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .as_ref(),
-                            );
-                            //用list 不用subscribe 这里监听重启后也可以接着处理
-                            // 使用 Option 包裹，BLPOP 超时返回 nil 时解析为 None 而非报错
-                            let msg: Result<Option<(String, String)>, _> =
-                                redis.blpop(&channel_name, self.clear_timeout as f64).await;
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    info!("notify wait {} listen cancelled", self.channel_name);
+                    return;
+                }
+                result = self.listen_once() => {
+                    if result.is_none() {
+                        // listen_once 返回 None 表示需要退出
+                        return;
+                    }
+                }
+            }
+        }
+    }
 
-                            match msg {
-                                Ok(Some(pubsub_msg)) => {
-                                    debug!(
-                                        "notify  wait {} sender wait msg:{:?}",
-                                        channel_name, pubsub_msg
-                                    );
-                                    match serde_json::from_str::<ListenMsgBody<T>>(&pubsub_msg.1) {
-                                        Ok(msg_body) => {
+    /// 单次监听循环（提取自原 listen 方法）
+    /// 返回 Some(()) 表示继续循环，None 表示应退出
+    async fn listen_once(&self) -> Option<()> {
+        match crate::app_core::create_redis_client(self.app_core.as_ref()).await {
+            Ok(redis_client) => {
+                // redis 1.0.x 默认 response_timeout 为 500ms，会导致 blpop 等阻塞命令立即超时返回
+                // 设置为 blpop 超时 + 5s 缓冲，既允许 blpop 正常等待，又能在连接异常时兜底超时
+                let blpop_conn_config = redis::AsyncConnectionConfig::new()
+                    .set_response_timeout(Some(std::time::Duration::from_secs(
+                        self.clear_timeout as u64 + 5,
+                    )));
+                let con_res = redis_client
+                    .get_multiplexed_async_connection_with_config(&blpop_conn_config)
+                    .await;
+                match con_res {
+                    Ok(mut redis) => {
+                        let channel_name = self.redis_channel_name(
+                            hostname::get()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .as_ref(),
+                        );
+                        //用list 不用subscribe 这里监听重启后也可以接着处理
+                        // 使用 Option 包裹，BLPOP 超时返回 nil 时解析为 None 而非报错
+                        let msg: Result<Option<(String, String)>, _> =
+                            redis.blpop(&channel_name, self.clear_timeout as f64).await;
+
+                        match msg {
+                            Ok(Some(pubsub_msg)) => {
+                                debug!(
+                                    "notify  wait {} sender wait msg:{:?}",
+                                    channel_name, pubsub_msg
+                                );
+                                match serde_json::from_str::<ListenMsgBody<T>>(&pubsub_msg.1) {
+                                    Ok(msg_body) => {
+                                        let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+                                        async {
                                             if let Err(err) = self.listen_run(msg_body).await {
                                                 warn!(
                                                     "notify  wait {} run remote msg fail :{}",
@@ -167,48 +187,56 @@ impl<T: WaitItem + Serialize + DeserializeOwned + Debug> WaitNotify<T> {
                                                 );
                                             }
                                         }
-                                        Err(err) => {
-                                            error!(
-                                                "notify  wait {} parse payload fail :{}",
-                                                channel_name, err
-                                            );
-                                        }
+                                        .instrument(tracing::info_span!(
+                                            "background_task",
+                                            task = "listen-notify-run",
+                                            task_id = task_id,
+                                            channel = %channel_name
+                                        ))
+                                        .await;
                                     }
-                                }
-                                Ok(None) => {
-                                    // BLPOP 超时，执行清理逻辑
-                                    self.listen_clear().await;
-                                    continue;
-                                }
-                                Err(err) => {
-                                    if err.is_timeout() {
-                                        self.listen_clear().await;
-                                    } else {
-                                        warn!(
-                                            "notify  wait {} read notify list error:{}",
+                                    Err(err) => {
+                                        error!(
+                                            "notify  wait {} parse payload fail :{}",
                                             channel_name, err
                                         );
-                                        sleep(Duration::from_secs(1)).await;
                                     }
-                                    continue;
                                 }
-                            };
-                        }
-                        Err(err) => {
-                            error!("notify clear conn redis:{}", err);
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                        }
+                            }
+                            Ok(None) => {
+                                // BLPOP 超时，执行清理逻辑
+                                self.listen_clear().await;
+                                return Some(());
+                            }
+                            Err(err) => {
+                                if err.is_timeout() {
+                                    self.listen_clear().await;
+                                } else {
+                                    warn!(
+                                        "notify  wait {} read notify list error:{}",
+                                        channel_name, err
+                                    );
+                                    sleep(Duration::from_secs(1)).await;
+                                }
+                                return Some(());
+                            }
+                        };
+                    }
+                    Err(err) => {
+                        error!("notify clear conn redis:{}", err);
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
-                Err(err) => {
-                    warn!(
-                        "notify create remote notify listen client fail:{}",
-                        err.to_fluent_message().default_format()
-                    );
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                }
+            }
+            Err(err) => {
+                warn!(
+                    "notify create remote notify listen client fail:{}",
+                    err.to_fluent_message().default_format()
+                );
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
         }
+        Some(())
     }
     async fn listen_run(&self, msg: ListenMsgBody<T>) -> Result<(), String> {
         let mut lock_data = self.sender_data.lock().await;
@@ -303,8 +331,10 @@ async fn test_listen_notify() {
     ));
 
     let tmp = notify.clone();
+    let cancel_token = tokio_util::sync::CancellationToken::new();
+    let listen_token = cancel_token.clone();
     tokio::spawn(async move {
-        tmp.listen().await;
+        tmp.listen(listen_token).await;
     });
     let wait = notify.wait(TmpData(11)).await;
     notify
@@ -319,5 +349,6 @@ async fn test_listen_notify() {
         .await
         .unwrap();
     let data = notify.wait_timeout(wait).await.unwrap();
+    cancel_token.cancel();
     assert_eq!(data, Err("bad".to_string()))
 }

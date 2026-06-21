@@ -9,6 +9,7 @@ use lsys_app::dao::AppConfig;
 use lsys_app::dao::AppDao;
 use lsys_core::app_core::AppCore;
 use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::task_lifecycle::TaskNode;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::MySql;
 use std::sync::Arc;
@@ -30,6 +31,7 @@ impl WebApp {
         change_logger: Arc<ChangeLoggerDao>,
         web_setting: Arc<WebSetting>,
         config: AppConfig,
+        task_node: Arc<TaskNode>,
     ) -> WebResult<Self> {
         let app_dao = AppDao::new(
             app_core,
@@ -42,17 +44,19 @@ impl WebApp {
         )
         .await?;
         let app_dao = Arc::new(app_dao);
-        tokio::spawn({
-            let sub_app_change_notify = app_dao.clone();
+        let sub_app_node = task_node.child("sub-app-change-notify");
+        let sub_app_change_notify = app_dao.clone();
+        sub_app_node.spawn(move |token| {
             async move {
                 sub_app_change_notify
-                    .listen_sub_app_change_notify(None)
+                    .listen_sub_app_change_notify(None, token)
                     .await
             }
         });
-        tokio::spawn({
-            let task_notify_app_dao = app_dao.clone();
-            async move { task_notify_app_dao.listen_task_notify().await }
+        let task_notify_node = task_node.child("app-notify-task");
+        let task_notify_app_dao = app_dao.clone();
+        task_notify_node.spawn(move |token| {
+            async move { task_notify_app_dao.listen_task_notify(token).await }
         });
         Ok(Self {
             app_dao,

@@ -93,10 +93,13 @@ pub struct WebDao {
     pub app_sender: Arc<AppSender>,
     pub app_area: Arc<AppArea>,
     pub web_mfa: Arc<WebMfa>,
+    
+    /// 任务树根节点
+    pub task_root: Arc<lsys_core::task_lifecycle::TaskNode>,
 }
 
 impl WebDao {
-    pub async fn new(app_core: Arc<AppCore>) -> WebResult<WebDao> {
+    pub async fn new(app_core: Arc<AppCore>, task_root: Arc<lsys_core::task_lifecycle::TaskNode>) -> WebResult<WebDao> {
         let path = app_core.config_path(app_core.config.find(None), "fluent_dir")?;
         let use_cache = app_core
             .config
@@ -271,6 +274,7 @@ impl WebDao {
                     7 * 24 * 3600,   //TOKEN有效期7天
                     180 * 24 * 3600, //TOKEN有效期180天
                 ),
+                task_root.child("web-app"),
             )
             .await?,
         );
@@ -301,6 +305,7 @@ impl WebDao {
                 setting_dao.clone(),
                 change_logger.clone(),
                 field_encryptor.clone(),  // SMTP 也使用同一个加密器
+                task_root.child("app-sender"),
             )
             .await?,
         );
@@ -344,6 +349,7 @@ impl WebDao {
             file_dao.clone(),
             change_logger.clone(),
             &app_core,
+            task_root.child("web-collector"),
         )?);
 
         // 创建 Web 导出任务管理器（内部初始化 ExportTask）
@@ -370,8 +376,9 @@ impl WebDao {
         )
         .await?;
 
-        // 启动后台调度循环
-        web_export_task.start_dispatch();
+        // web_export_task 在注册完导出器后通过 start_dispatch 启动后台调度循环
+        web_export_task.start_dispatch(task_root.child("web-export"));
+        web_export_task.start_dispatch(task_root.child("web-export"));
 
         // 文件上传完成回调发送器（rest 场景且应用配置了回调地址时生效）
         let file_notify_sender = Arc::new(web_app.app_dao.app_notify.sender_create(
@@ -388,6 +395,7 @@ impl WebDao {
             app_core.clone(),
             file_dao.clone(),
             file_notify_sender,
+            task_root.child("web-file"),
         )?);
 
         let web_export = Arc::new(WebExport::new(Arc::new(web_export_task)));
@@ -419,9 +427,10 @@ impl WebDao {
             .await;
 
         //远程任务后台任务
-        tokio::spawn(async move {
+        let notify_node = task_root.child("remote-notify");
+        notify_node.spawn(|token| async move {
             //listen redis notify
-            remote_notify.listen().await;
+            remote_notify.listen(token).await;
         });
 
         Ok(WebDao {
@@ -444,6 +453,7 @@ impl WebDao {
             app_sender,
             app_area,
             web_mfa,
+            task_root,
         })
     }
     pub fn bind_addr(&self) -> String {
@@ -487,5 +497,21 @@ impl WebDao {
             .get_string("app_ssl_key")
             .ok()?;
         Some((format!("{}:{}", host, port), cert, key))
+    }
+    
+    /// 关闭所有后台任务
+    pub async fn shutdown(&self) -> WebResult<()> {
+        let report = self.task_root.shutdown().await;
+        report.log_tree(0);
+        let (completed, timed_out, panicked) = report.count_summary();
+        if timed_out > 0 || panicked > 0 {
+            warn!(
+                completed,
+                timed_out,
+                panicked,
+                "some tasks did not shut down cleanly"
+            );
+        }
+        Ok(())
     }
 }

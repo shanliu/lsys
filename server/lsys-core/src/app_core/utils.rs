@@ -17,8 +17,17 @@ use crate::utils::{tera_second_format, tera_time_format};
 use tera::Tera;
 
 /// 初始化追踪系统
+///
+/// 配置 span 事件输出：记录 span 的进入(enter)、退出(exit)、关闭(close)事件，
+/// 便于追踪请求链路的起点、过程和结束。
+/// - enter: span 被进入时输出，标记链路起点
+/// - exit:  span 被退出时输出，标记当前阶段结束（span 仍可再次进入）
+/// - close: span 彻底销毁时输出，附带总耗时，标记链路结束
+/// span 字段（如 request_id）会自动附加到该 span 作用域内的所有日志事件。
 #[cfg(feature = "tracing")]
 pub async fn init_tracing(app_core: &AppCore) -> Result<(), AppCoreError> {
+    use tracing_subscriber::fmt::format::FmtSpan;
+
     let log_level = app_core
         .config
         .find(None)
@@ -34,7 +43,7 @@ pub async fn init_tracing(app_core: &AppCore) -> Result<(), AppCoreError> {
     )
     .unwrap_or(tracing::Level::TRACE);
 
-    let sub = tracing_subscriber::fmt();
+    let sub = tracing_subscriber::fmt().with_span_events(FmtSpan::FULL);
 
     let name = app_core
         .config

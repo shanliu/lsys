@@ -73,11 +73,17 @@ where
                 req.headers_mut().insert(name, hval);
             }
         }
+        // 创建请求级别的 span，将 request_id 作为 span 字段注入。
+        // 该请求处理链路中的所有日志都会自动携带 request_id，实现日志连贯性。
+        // 后台任务等非 HTTP 场景可创建不带 request_id 的 span，request_id 天然可选。
+        let span = tracing::info_span!("request", request_id = %req_id);
+
         let fut = self.service.call(req);
         RequestIDFuture {
             fut,
             name: self.name,
             req_id,
+            span,
             _body: PhantomData,
         }
     }
@@ -89,6 +95,7 @@ pub struct RequestIDFuture<S: Service<ServiceRequest>, B> {
     fut: S::Future,
     name: &'static str,
     req_id: String,
+    span: tracing::Span,
     _body: PhantomData<B>,
 }
 
@@ -99,6 +106,7 @@ where
     type Output = <S::Future as Future>::Output;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
+        let _enter = this.span.enter();
         let mut res: ServiceResponse<B> = ready!(this.fut.poll(cx))?;
         if let Ok(hval) = HeaderValue::from_str(this.req_id.as_str()) {
             res.response_mut()

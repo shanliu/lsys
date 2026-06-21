@@ -90,7 +90,6 @@ aes-gcm = { version = "~0.10", optional = true }
 hmac = { version = "~0.13.0", optional = true }
 sha2 = { version = "~0.11.0", optional = true }
 
-
 deadpool-redis = { version = "~0.23.0", optional = true }
 redis = { version = "~1.0.3", features = [ # 根据 deadpool-redis 的版本适配 
     "aio",
@@ -109,6 +108,7 @@ db-postgres = ["db", "sqlx/postgres"]
 db-sqlite = ["db", "sqlx/sqlite"]
 tera = ["dep:tera", "tracing"]
 redis = ["dep:redis", "dep:deadpool-redis", "dep:tokio-util", "dep:uuid", "tokio", "tracing"]
+task-lifecycle = ["dep:tokio-util", "tokio", "tracing"]
 secret = ["dep:base64", "dep:hex", "tokio"]
 field-encrypt = ["secret", "dep:aes-gcm", "dep:hmac", "dep:sha2"]
 queue-cache = ["tokio", "tracing", "dep:flume"]

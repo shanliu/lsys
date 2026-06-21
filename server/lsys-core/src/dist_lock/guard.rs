@@ -9,7 +9,7 @@ use std::sync::Arc;
 use deadpool_redis::Pool;
 use tokio::sync::mpsc::Receiver;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, warn};
+use tracing::{Instrument, debug, error, warn};
 
 use super::result::{DistLockError, DistLockLostReason};
 use super::watchdog::WatchdogManager;
@@ -400,11 +400,21 @@ impl Drop for DistLockGuard {
         let client_id = self.client_id.clone();
         let redis = self.redis.clone();
         if let Ok(rt) = tokio::runtime::Handle::try_current() {
-            rt.spawn(async move {
-                if let Err(e) = Self::do_release_redis(&redis, &full_key, &client_id).await {
-                    error!(key = %full_key, error = ?e, "failed to release lock in Drop");
+            let span_key = full_key.clone();
+            let span_client_id = client_id.clone();
+            rt.spawn(
+                async move {
+                    if let Err(e) = Self::do_release_redis(&redis, &full_key, &client_id).await {
+                        error!(key = %full_key, error = ?e, "failed to release lock in Drop");
+                    }
                 }
-            });
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "dist-lock-release",
+                    key = %span_key,
+                    task_id = %span_client_id
+                )),
+            );
         } else {
             warn!(key = %full_key, "cannot release lock in Drop: no active tokio runtime");
         }

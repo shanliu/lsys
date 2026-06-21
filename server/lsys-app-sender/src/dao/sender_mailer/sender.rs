@@ -345,11 +345,11 @@ impl MailSenderDao {
         Ok(out)
     }
     //发送等待回调处理监听
-    pub async fn task_wait(&self) {
-        self.send_wait.listen().await;
+    pub async fn task_wait(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.send_wait.listen(cancel_token).await;
     }
     //指定发送时间到期监听处理
-    pub async fn task_sendtime_notify(&self, channel_buffer: Option<usize>) {
+    pub async fn task_sendtime_notify(&self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
         let task_send_time = Arc::new(MailTaskSendTimeNotify::new(
             format!("{}-last-run-time", MAILER_REDIS_PREFIX),
             self.db.clone(),
@@ -362,13 +362,14 @@ impl MailSenderDao {
             task_send_time.clone(),
             task_send_time,
         )
-        .listen(channel_buffer)
+        .listen(channel_buffer, cancel_token)
         .await;
     }
     //后台发送任务，内部循环不退出
     pub async fn task_sender(
         &self,
         se: Vec<Box<dyn SenderTaskExecutor<u64, MailTaskItem, MailTaskData>>>,
+        cancel_token: tokio_util::sync::CancellationToken,
     ) -> SenderResult<()> {
         let acquisition = Arc::new(MailTaskAcquisition::new(
             self.db.clone(),
@@ -385,6 +386,7 @@ impl MailSenderDao {
                     self.tpl_config.clone(),
                     se,
                 )?),
+                cancel_token,
             )
             .await;
         Ok(())

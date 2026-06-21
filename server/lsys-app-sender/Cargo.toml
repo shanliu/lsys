@@ -7,7 +7,7 @@ edition = "2024"
 
 [dependencies]
 lsys-app = { path = "../lsys-app" }
-lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "task-lifecycle"] }
 lsys-setting = { path = "../lsys-setting" }
 lsys-logger = { path = "../lsys-logger" }
 lsys-lib-sms = { path = "../lsys-lib-sms" }
@@ -18,6 +18,7 @@ serde = { version = "1.0.*" }
 serde_json = "1.0.*"
 futures = "0.3"
 tokio = { version = "~1.52.0" }
+tokio-util = { version = "~0.7" }
 deadpool-redis = { version = "~0.23.0" }
 redis = { version = "~1.0.3", features = [
     "tokio-comp",

@@ -293,29 +293,39 @@ impl JsEngine {
     /// 通常通过 `tokio::spawn` 调用：
     /// ```rust,ignore
     /// let engine = Arc::new(JsEngine::new(config)?);
-    /// tokio::spawn({ let e = engine.clone(); async move { e.run_cache_cleanup().await; } });
+    /// tokio::spawn({ let e = engine.clone(); async move { e.run_cache_cleanup(cancel_token).await; } });
     /// ```
-    pub async fn run_cache_cleanup(&self) {
+    pub async fn run_cache_cleanup(&self, cancel_token: tokio_util::sync::CancellationToken) {
         if self.cache_cleanup_interval.is_zero() {
             return;
         }
-        Self::cache_cleanup_loop(self.inner.cache.clone(), self.cache_cleanup_interval).await;
+        Self::cache_cleanup_loop(self.inner.cache.clone(), self.cache_cleanup_interval, cancel_token).await;
     }
 
     /// Internal: background task loop for periodic cache cleanup.
-    async fn cache_cleanup_loop(cache: SharedCache, interval: Duration) {
+    async fn cache_cleanup_loop(cache: SharedCache, interval: Duration, cancel_token: tokio_util::sync::CancellationToken) {
         let mut ticker = tokio::time::interval(interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
-            ticker.tick().await;
-            let removed = cache.cleanup_expired();
-            if removed > 0 {
-                tracing::debug!(
-                    target: "jsrun::cache",
-                    removed = removed,
-                    "cache cleanup removed expired entries"
-                );
+            tokio::select! {
+                _ = ticker.tick() => {
+                    let removed = tracing::info_span!(
+                        "background_task",
+                        task = "jsrun-cache-cleanup"
+                    ).in_scope(|| cache.cleanup_expired());
+                    if removed > 0 {
+                        tracing::debug!(
+                            target: "jsrun::cache",
+                            removed = removed,
+                            "cache cleanup removed expired entries"
+                        );
+                    }
+                }
+                _ = cancel_token.cancelled() => {
+                    tracing::info!("jsrun cache_cleanup_loop: cancelled, exiting");
+                    return;
+                }
             }
         }
     }

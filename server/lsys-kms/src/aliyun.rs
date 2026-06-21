@@ -68,6 +68,16 @@ impl AliyunKmsDecryptor {
     }
 }
 
+/// 将 0–15 的半字节映射为大写十六进制字符。
+fn hex_upper(nibble: u8) -> char {
+    match nibble {
+        0..=9 => (b'0' + nibble) as char,
+        10..=15 => (b'A' + nibble - 10) as char,
+        // nibble 来自 `b >> 4` 或 `b & 0xf`，取值范围恒为 0–15
+        _ => '0',
+    }
+}
+
 /// RFC 3986 percent-encode（阿里云签名要求：只保留 A-Z a-z 0-9 - _ . ~）。
 fn percent_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
@@ -78,8 +88,8 @@ fn percent_encode(s: &str) -> String {
             }
             _ => {
                 out.push('%');
-                out.push(char::from_digit((b >> 4) as u32, 16).unwrap().to_ascii_uppercase());
-                out.push(char::from_digit((b & 0xf) as u32, 16).unwrap().to_ascii_uppercase());
+                out.push(hex_upper(b >> 4));
+                out.push(hex_upper(b & 0xf));
             }
         }
     }

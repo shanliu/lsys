@@ -11,15 +11,17 @@ pub mod fluents;
 pub mod api_utils;
 #[cfg(feature = "redis")]
 pub mod dist_lock;
-#[cfg(feature = "redis")]
+#[cfg(all(feature = "redis", feature = "task-lifecycle"))]
 pub mod listen_notify;
 #[cfg(feature = "queue-cache")]
 pub mod queue_cache;
-#[cfg(feature = "redis")]
+#[cfg(all(feature = "redis", feature = "task-lifecycle"))]
 pub mod remote_notify;
-#[cfg(feature = "redis")]
+#[cfg(all(feature = "redis", feature = "task-lifecycle"))]
 pub mod task_dispatch;
-#[cfg(feature = "redis")]
+#[cfg(feature = "task-lifecycle")]
+pub mod task_lifecycle;
+#[cfg(all(feature = "redis", feature = "task-lifecycle"))]
 pub mod timeout_task;
 pub mod utils;
 #[cfg(feature = "redis")]

@@ -109,18 +109,6 @@ pub enum QueueCacheError {
 /// Each error type maps to a Fluent message key for i18n support.
 /// Message keys should be defined in locale files.
 ///
-/// ## Message Keys
-///
-/// | Error | Key | Parameters |
-/// |-------|-----|------------|
-/// | QueueFull | `queue-full` | `capacity` |
-/// | QueueClosed | `queue-closed` | - |
-/// | Serialization | `queue-serialization-error` | error message |
-/// | RabbitMQ | `rabbitmq-error` | error message |
-/// | RabbitMQPool | `rabbitmq-pool-error` | error message |
-/// | Timeout | `queue-timeout` | `timeout` |
-/// | Config | `queue-config-error` | error message |
-/// | System | `queue-system-error` | error message |
 
 impl IntoFluentMessage for QueueCacheError {
     fn to_fluent_message(&self) -> FluentMessage {

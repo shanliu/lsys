@@ -112,7 +112,7 @@ impl AppNotify {
         self.record.del(data, del_user_id, env_data).await
     }
     //后台发送任务，内部循环不退出
-    pub async fn task(&self, app_core: Arc<AppCore>, app: Arc<App>) -> AppResult<()> {
+    pub async fn task(&self, app_core: Arc<AppCore>, app: Arc<App>, cancel_token: tokio_util::sync::CancellationToken) -> AppResult<()> {
         let acquisition = AppAppNotifyTaskAcquisition::new(self.db.clone());
         self.task
             .dispatch(
@@ -129,6 +129,7 @@ impl AppNotify {
                         Box::new(AppNotifyRequestReqwest::new(Duration::from_secs(5))?),
                     )],
                 )),
+                cancel_token,
             )
             .await;
         Ok(())

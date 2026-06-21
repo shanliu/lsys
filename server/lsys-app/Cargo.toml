@@ -5,7 +5,7 @@ authors = ["liushan <shan.liu@msn.com>"]
 edition = "2024"
 
 [dependencies]
-lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "task-lifecycle"] }
 lsys-access = { path = "../lsys-access" }                               #完成OAUTH登录
 lsys-logger = { path = "../lsys-logger" }
 
@@ -19,12 +19,11 @@ sqlx = { version = "~0.8.6", features = ["mysql", "runtime-tokio-native-tls"] }
 
 tracing = { version = "0.1.*" } # log-always 保持log的输出 当使用tracing时会出现两次
 
-
 async-trait = "~0.1.*"
 
+tokio-util = { version = "~0.7" }
 
 md5 = "~0.8.0"
-
 
 # notify 
 chrono = { version = "~0.4.31" }

@@ -97,7 +97,9 @@ impl WebFile {
                     .ok()
                     .flatten();
 
-                let _ = self.file_dao.fail_upload(handle, env_data).await;
+                if let Err(err) = self.file_dao.fail_upload(handle, env_data).await {
+                    warn!("fail_upload error:{}", err.to_fluent_message().default_format());
+                }
 
                 // 单分片文件失败时销毁令牌
                 if let Some(local) = file_local

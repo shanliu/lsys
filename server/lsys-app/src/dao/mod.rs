@@ -198,13 +198,13 @@ impl AppDao {
             exter_login,
         })
     }
-    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>) {
-        self.app.listen_sub_app_change_notify(channel_buffer).await;
+    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
+        self.app.listen_sub_app_change_notify(channel_buffer, cancel_token).await;
     }
-    pub async fn listen_task_notify(&self) {
+    pub async fn listen_task_notify(&self, cancel_token: tokio_util::sync::CancellationToken) {
         if let Err(err) = self
             .app_notify
-            .task(self.app_core.clone(), self.app.clone())
+            .task(self.app_core.clone(), self.app.clone(), cancel_token)
             .await
         {
             error!("notify error:{}", err.to_fluent_message().default_format())

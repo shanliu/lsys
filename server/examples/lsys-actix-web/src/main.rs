@@ -13,5 +13,7 @@ async fn main() {
         //on dev
         env!("CARGO_MANIFEST_DIR")
     };
-    create_server(app_dir).await.unwrap().await.unwrap();
+
+    let app = create_server(app_dir).await.unwrap();
+    app.await.unwrap();
 }

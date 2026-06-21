@@ -169,7 +169,7 @@ impl JsTaskRunner {
     /// 调用 [`run`](Self::run) 启动后台循环，通常通过 `tokio::spawn` 调用：
     /// ```rust,ignore
     /// let runner = Arc::new(JsTaskRunner::new(engine, RuntimeConfig::default()));
-    /// tokio::spawn({ let r = runner.clone(); async move { r.run().await; } });
+    /// tokio::spawn({ let r = runner.clone(); let token = cancel_token.clone(); async move { r.run(token).await; } });
     /// ```
     pub fn new(engine: JsEngine, default_config: RuntimeConfig) -> Self {
         Self::with_capacity(engine, default_config, 256)
@@ -201,7 +201,7 @@ impl JsTaskRunner {
 
     /// 运行后台任务派发循环。
     /// 每个实例只能调用一次，通常通过 `tokio::spawn` 调用。
-    pub async fn run(&self) {
+    pub async fn run(&self, cancel_token: tokio_util::sync::CancellationToken) {
         let rx = self.rx.lock().ok().and_then(|mut g| g.take());
         if let Some(rx) = rx {
             background_loop(
@@ -211,6 +211,7 @@ impl JsTaskRunner {
                 self.shutdown.clone(),
                 self.in_flight.clone(),
                 self.all_done.clone(),
+                cancel_token,
             )
             .await;
         }
@@ -218,8 +219,8 @@ impl JsTaskRunner {
 
     /// 运行引擎的缓存清理后台循环。
     /// 委托给 [`JsEngine::run_cache_cleanup`]。
-    pub async fn run_engine_cleanup(&self) {
-        self.engine.run_cache_cleanup().await;
+    pub async fn run_engine_cleanup(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.engine.run_cache_cleanup(cancel_token).await;
     }
 
     // ── Submitting tasks ─────────────────────────────────────
@@ -331,8 +332,21 @@ async fn background_loop(
     _shutdown: Arc<Notify>,
     in_flight: Arc<AtomicU64>,
     all_done: Arc<Notify>,
+    cancel_token: tokio_util::sync::CancellationToken,
 ) {
-    while let Some(envelope) = rx.recv().await {
+    loop {
+        let envelope = tokio::select! {
+            msg = rx.recv() => {
+                match msg {
+                    Some(e) => e,
+                    None => break,
+                }
+            }
+            _ = cancel_token.cancelled() => {
+                tracing::info!("jsrun background_loop: cancelled, exiting");
+                break;
+            }
+        };
         in_flight.fetch_add(1, Ordering::AcqRel);
 
         let engine = engine.clone();
@@ -350,6 +364,12 @@ async fn background_loop(
         //      RuntimeState points to the caller's multi-threaded runtime).
         //   3. We don't consume tokio worker threads with blocking JS work.
         std::thread::spawn(move || {
+            let span = tracing::info_span!(
+                "background_task",
+                task = "jsrun-task-exec",
+                task_id = envelope.task_id
+            );
+            let _enter = span.enter();
             let start = std::time::Instant::now();
 
             // Wrap the entire execution in catch_unwind so that a panic
@@ -409,7 +429,7 @@ async fn background_loop(
         });
     }
 
-    // Channel closed – wait for remaining in-flight tasks
+    // Channel closed or cancelled – wait for remaining in-flight tasks
     while in_flight.load(Ordering::Acquire) > 0 {
         all_done.notified().await;
     }

@@ -86,14 +86,14 @@ impl SenderSmser {
             logger,
         }
     }
-    pub async fn task_wait(&self) {
-        self.smser_dao.task_wait().await
+    pub async fn task_wait(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.smser_dao.task_wait(cancel_token).await
     }
-    pub async fn task_sendtime_notify(&self) {
-        self.smser_dao.task_sendtime_notify(None).await
+    pub async fn task_sendtime_notify(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.smser_dao.task_sendtime_notify(None, cancel_token).await
     }
     // 短信后台任务
-    pub async fn task_sender(&self) -> WebResult<()> {
+    pub async fn task_sender(&self, cancel_token: tokio_util::sync::CancellationToken) -> WebResult<()> {
         Ok(self
             .smser_dao
             .task_sender(vec![
@@ -104,11 +104,11 @@ impl SenderSmser {
                 Box::<JDCloudSenderTask>::default(),
                 Box::<CloOpenSenderTask>::default(),
                 Box::<EmaySenderTask>::default(),
-            ])
+            ], cancel_token)
             .await?)
     }
     // 短信发送状态查询任务
-    pub async fn task_status_query(&self) -> WebResult<()> {
+    pub async fn task_status_query(&self, cancel_token: tokio_util::sync::CancellationToken) -> WebResult<()> {
         Ok(self
             .smser_dao
             .task_status_query(vec![
@@ -116,7 +116,7 @@ impl SenderSmser {
                 Box::<JDSendStatus>::default(),
                 Box::<NetEaseSendStatus>::default(),
                 Box::<TenYunSendStatus>::default(),
-            ])
+            ], cancel_token)
             .await?)
     }
     // 通过消息取消发送

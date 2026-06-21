@@ -102,7 +102,9 @@ pub async fn file_upload_data(
         match file_upload_write(&mut handle, &file_data, web_dao.as_ref()).await {
             Ok(_) => file_upload_complete(handle, &req_query, web_dao.as_ref()).await,
             Err(e) => {
-                let _ = file_upload_fail(handle, &req_query, web_dao.as_ref()).await;
+                if let Err(_) = file_upload_fail(handle, &req_query, web_dao.as_ref()).await {
+                    tracing::warn!("file_upload_fail error");
+                }
                 Err(e)
             }
         }

@@ -60,7 +60,7 @@ use parking_lot::{Mutex, RwLock};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, warn};
+use tracing::{Instrument, debug, error, info, warn};
 
 use super::WatchdogConfig;
 use super::result::DistLockLostReason;
@@ -264,7 +264,14 @@ impl WatchdogManager {
                     // register() notified us; re-evaluate sleep duration.
                     _ = notify.notified() => {}
                     _ = tokio::time::sleep(sleep_duration) => {
-                        Self::renew_expired_locks(&redis, &entries).await;
+                        let task_id = crate::utils::rand_str(crate::utils::RandType::LowerHex, 8);
+                        Self::renew_expired_locks(&redis, &entries)
+                            .instrument(tracing::info_span!(
+                                "background_task",
+                                task = "dist-lock-renew",
+                                task_id = task_id
+                            ))
+                            .await;
                     }
                 }
             }

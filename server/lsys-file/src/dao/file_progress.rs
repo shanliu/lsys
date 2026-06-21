@@ -17,9 +17,30 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::sync::{OnceCell, Semaphore, mpsc};
-use tracing::{info, warn};
+use tracing::{Instrument, info, warn};
 
 const PROGRESS_KEY_PREFIX: &str = "file:progress:";
+
+/// write_worker 每批最大消息数
+const MAX_BATCH: usize = 32;
+/// write_worker 每隔多少批输出一次汇总日志
+const SUMMARY_LOG_EVERY_BATCHES: u64 = 60;
+
+/// SSE 消息处理结果，用于控制外层循环
+enum SseMsgOutcome {
+    /// 继续处理下一条消息
+    Continue,
+    /// 退出循环（所有文件完成或 Receiver 关闭）
+    Break,
+}
+
+/// write_worker 批处理结果，用于控制外层循环
+enum WriteBatchOutcome {
+    /// 继续处理下一批
+    Continue,
+    /// pipeline 失败，需要重连
+    BreakReconnect,
+}
 
 // ──────────────────────────────────────────
 // 公开数据结构
@@ -200,7 +221,7 @@ impl FileProgressTracker {
 
     /// 运行批量写入后台循环，通常通过 `tokio::spawn` 调用。
     /// 只能被调用一次；重复调用会立即返回并打印警告。
-    pub async fn run_write_worker(&self) {
+    pub async fn run_write_worker(&self, cancel_token: tokio_util::sync::CancellationToken) {
         info!("progress_tracker write_worker: starting");
         let rx = self
             .write_rx
@@ -226,7 +247,7 @@ impl FileProgressTracker {
                 return;
             }
         };
-        Self::write_worker(client, rx, self.progress_ttl).await;
+        Self::write_worker(client, rx, self.progress_ttl, cancel_token).await;
     }
 
     /// 后台 write_worker：建立专属连接（不占用连接池），批量取消息去重合并后一次 pipeline 写 Redis。
@@ -237,13 +258,16 @@ impl FileProgressTracker {
         client: redis::Client,
         mut rx: mpsc::Receiver<WorkerMsg>,
         progress_ttl: i64,
+        cancel_token: tokio_util::sync::CancellationToken,
     ) {
-        const MAX_BATCH: usize = 32;
-        const SUMMARY_LOG_EVERY_BATCHES: u64 = 60;
         let mut reconnect_attempt: u64 = 0;
 
         // 外层循环：连接失败 / 断开后重建连接
         'reconnect: loop {
+            if cancel_token.is_cancelled() {
+                info!("progress_tracker write_worker: cancelled, exiting");
+                return;
+            }
             reconnect_attempt = reconnect_attempt.saturating_add(1);
             let mut conn = match client.get_multiplexed_async_connection().await {
                 Ok(c) => {
@@ -259,14 +283,22 @@ impl FileProgressTracker {
                         reconnect_attempt, e
                     );
                     // 等待下一条消息再重试，自然退避紧循环
-                    match rx.recv().await {
-                        None => {
-                            info!(
-                                "progress_tracker write_worker: channel closed while reconnecting, exiting"
-                            );
+                    tokio::select! {
+                        msg = rx.recv() => {
+                            match msg {
+                                None => {
+                                    info!(
+                                        "progress_tracker write_worker: channel closed while reconnecting, exiting"
+                                    );
+                                    return;
+                                }
+                                Some(_) => continue 'reconnect,
+                            }
+                        }
+                        _ = cancel_token.cancelled() => {
+                            info!("progress_tracker write_worker: cancelled while reconnecting, exiting");
                             return;
                         }
-                        Some(_) => continue 'reconnect,
                     }
                 }
             };
@@ -275,162 +307,200 @@ impl FileProgressTracker {
             // 内层循环：消息处理
             loop {
                 // 阻塞等待第一条消息；Sender 全部 drop 后退出
-                let first = match rx.recv().await {
-                    Some(m) => m,
-                    None => {
-                        info!("progress_tracker write_worker: channel closed, exiting");
+                let first = tokio::select! {
+                    msg = rx.recv() => {
+                        match msg {
+                            Some(m) => m,
+                            None => {
+                                info!("progress_tracker write_worker: channel closed, exiting");
+                                return;
+                            }
+                        }
+                    }
+                    _ = cancel_token.cancelled() => {
+                        info!("progress_tracker write_worker: cancelled, exiting");
                         return;
                     }
                 };
 
-                // 非阻塞地再取最多 MAX_BATCH-1 条，凑成一批
-                let mut batch = vec![first];
-                while batch.len() < MAX_BATCH {
-                    match rx.try_recv() {
-                        Ok(m) => batch.push(m),
-                        Err(_) => break,
-                    }
-                }
-                let batch_msg_count = batch.len();
-
-                // 拆分 Update / Clear，同一批次内 Clear 优先级更高
-                // 若某 file_id 同时有 Update 和 Clear，丢弃其 Update（Clear 会 DEL key）
-                struct UpdateMsg {
-                    file_id: u64,
-                    chunk_id: u64,
-                    current_downloaded: u64,
-                    chunk_total_size: u64,
-                    file_total_size: u64,
-                    speed_bps: u64,
-                }
-                let mut raw_updates: Vec<UpdateMsg> = Vec::new();
-                let mut clears: HashMap<u64, DownloadStatus> = HashMap::new();
-                for msg in batch {
-                    match msg {
-                        WorkerMsg::Update {
-                            file_id, chunk_id, current_downloaded,
-                            chunk_total_size, file_total_size, speed_bps,
-                        } => raw_updates.push(UpdateMsg {
-                            file_id, chunk_id, current_downloaded,
-                            chunk_total_size, file_total_size, speed_bps,
-                        }),
-                        WorkerMsg::Clear { file_id, status } => {
-                            clears.insert(file_id, status);
-                        }
-                    }
-                }
-
-                // 去重 Update：同 (file_id, chunk_id) 只保留最新；跳过已被 Clear 的 file_id
-                let mut seen: HashSet<(u64, u64)> = HashSet::new();
-                let deduped: Vec<UpdateMsg> = raw_updates
-                    .into_iter()
-                    .rev()
-                    .filter(|m| !clears.contains_key(&m.file_id) && seen.insert((m.file_id, m.chunk_id)))
-                    .collect();
-
-                // 按 file_id 分组，构建字段列表
-                struct FileUpdate {
-                    progress_key: String,
-                    fields: Vec<(String, String)>,
-                    payload: String,
-                }
-                let mut by_file: HashMap<u64, (Vec<UpdateMsg>, u64)> = HashMap::new();
-                for m in deduped {
-                    let fts = m.file_total_size;
-                    let (msgs, max_fts) = by_file.entry(m.file_id).or_default();
-                    if fts > *max_fts {
-                        *max_fts = fts;
-                    }
-                    msgs.push(m);
-                }
-                let mut file_updates: Vec<FileUpdate> = Vec::with_capacity(by_file.len());
-                for (file_id, (msgs, file_total_size)) in by_file {
-                    let progress_key = format!("{}{}", PROGRESS_KEY_PREFIX, file_id);
-                    let mut fields: Vec<(String, String)> = Vec::new();
-                    let mut payload_updates: Vec<String> = Vec::new();
-                    for m in &msgs {
-                        fields.push((format!("c{}:dl", m.chunk_id), m.current_downloaded.to_string()));
-                        fields.push((format!("c{}:sz", m.chunk_id), m.chunk_total_size.to_string()));
-                        fields.push((format!("c{}:spd", m.chunk_id), m.speed_bps.to_string()));
-                        payload_updates.push(format!(
-                            "{},{},{},{}",
-                            m.chunk_id, m.current_downloaded, m.chunk_total_size, m.speed_bps
-                        ));
-                    }
-                    if file_total_size > 0 {
-                        fields.push(("file:sz".to_string(), file_total_size.to_string()));
-                    }
-                    // payload 结构：u|{file_id}|{chunk_id,downloaded,total_size,speed;...}|{file_total_size}
-                    let payload = format!(
-                        "u|{}|{}|{}",
-                        file_id,
-                        payload_updates.join(";"),
-                        file_total_size
-                    );
-                    file_updates.push(FileUpdate {
-                        progress_key,
-                        fields,
-                        payload,
-                    });
-                }
-
-                if file_updates.is_empty() && clears.is_empty() {
-                    continue;
-                }
-
-                // 一次 pipeline：先写所有 Update（HSET + EXPIRE + PUBLISH "1"），
-                // 再写所有 Clear（PUBLISH 终态 + DEL），保证有序
-                let clear_keys: Vec<(String, &'static str)> = clears
-                    .iter()
-                    .map(|(file_id, status)| {
-                        let key = format!("{}{}", PROGRESS_KEY_PREFIX, file_id);
-                        let payload = match status {
-                            DownloadStatus::Completed => "done",
-                            DownloadStatus::Failed => "fail",
-                            DownloadStatus::InProgress => "1",
-                        };
-                        (key, payload)
-                    })
-                    .collect();
-                let mut p = pipe();
-                for upd in &file_updates {
-                    p.hset_multiple(&upd.progress_key, &upd.fields)
-                        .expire(&upd.progress_key, progress_ttl)
-                        .publish::<_, _>(&upd.progress_key, &upd.payload);
-                }
-                for (key, payload) in &clear_keys {
-                    p.publish::<_, _>(key, *payload).del(key);
-                }
-                let update_file_count = file_updates.len();
-                let clear_file_count = clear_keys.len();
-                if let Err(e) = p.query_async::<()>(&mut conn).await {
-                    warn!(
-                        "progress_tracker write_worker: redis pipeline failed, attempt={}, queued_msgs={}, update_files={}, clear_files={}: {}",
-                        reconnect_attempt,
-                        batch_msg_count,
-                        update_file_count,
-                        clear_file_count,
-                        e
-                    );
-                    // 连接可能已断开，break 内层循环回到外层重连
-                    break;
-                } else {
-                    batch_count_on_conn = batch_count_on_conn.saturating_add(1);
-                    if clear_file_count > 0
-                        || batch_count_on_conn.is_multiple_of(SUMMARY_LOG_EVERY_BATCHES)
-                    {
-                        info!(
-                            "progress_tracker write_worker: batch flushed, attempt={}, batch_no={}, queued_msgs={}, update_files={}, clear_files={}",
-                            reconnect_attempt,
-                            batch_count_on_conn,
-                            batch_msg_count,
-                            update_file_count,
-                            clear_file_count
-                        );
-                    }
+                // 每次批处理创建独立 span，记录单次执行的起点、过程、结束
+                let task_id = lsys_core::utils::rand_str(lsys_core::utils::RandType::LowerHex, 8);
+                let outcome = Self::process_write_batch(
+                    &mut rx,
+                    &mut conn,
+                    progress_ttl,
+                    reconnect_attempt,
+                    &mut batch_count_on_conn,
+                    first,
+                )
+                .instrument(tracing::info_span!(
+                    "background_task",
+                    task = "file-progress-write-batch",
+                    task_id = task_id,
+                    reconnect_attempt = reconnect_attempt
+                ))
+                .await;
+                match outcome {
+                    WriteBatchOutcome::Continue => continue,
+                    WriteBatchOutcome::BreakReconnect => break,
                 }
             }
         }
+    }
+
+    /// 处理一批写入消息（从 write_worker 内层循环提取）
+    ///
+    /// 返回 `Continue` 对应原循环的 `continue`，`BreakReconnect` 对应原循环的 `break`（需要重连）。
+    async fn process_write_batch(
+        rx: &mut mpsc::Receiver<WorkerMsg>,
+        conn: &mut redis::aio::MultiplexedConnection,
+        progress_ttl: i64,
+        reconnect_attempt: u64,
+        batch_count_on_conn: &mut u64,
+        first: WorkerMsg,
+    ) -> WriteBatchOutcome {
+        // 非阻塞地再取最多 MAX_BATCH-1 条，凑成一批
+        let mut batch = vec![first];
+        while batch.len() < MAX_BATCH {
+            match rx.try_recv() {
+                Ok(m) => batch.push(m),
+                Err(_) => break,
+            }
+        }
+        let batch_msg_count = batch.len();
+
+        // 拆分 Update / Clear，同一批次内 Clear 优先级更高
+        struct UpdateMsg {
+            file_id: u64,
+            chunk_id: u64,
+            current_downloaded: u64,
+            chunk_total_size: u64,
+            file_total_size: u64,
+            speed_bps: u64,
+        }
+        let mut raw_updates: Vec<UpdateMsg> = Vec::new();
+        let mut clears: HashMap<u64, DownloadStatus> = HashMap::new();
+        for msg in batch {
+            match msg {
+                WorkerMsg::Update {
+                    file_id, chunk_id, current_downloaded,
+                    chunk_total_size, file_total_size, speed_bps,
+                } => raw_updates.push(UpdateMsg {
+                    file_id, chunk_id, current_downloaded,
+                    chunk_total_size, file_total_size, speed_bps,
+                }),
+                WorkerMsg::Clear { file_id, status } => {
+                    clears.insert(file_id, status);
+                }
+            }
+        }
+
+        // 去重 Update：同 (file_id, chunk_id) 只保留最新；跳过已被 Clear 的 file_id
+        let mut seen: HashSet<(u64, u64)> = HashSet::new();
+        let deduped: Vec<UpdateMsg> = raw_updates
+            .into_iter()
+            .rev()
+            .filter(|m| !clears.contains_key(&m.file_id) && seen.insert((m.file_id, m.chunk_id)))
+            .collect();
+
+        // 按 file_id 分组，构建字段列表
+        struct FileUpdate {
+            progress_key: String,
+            fields: Vec<(String, String)>,
+            payload: String,
+        }
+        let mut by_file: HashMap<u64, (Vec<UpdateMsg>, u64)> = HashMap::new();
+        for m in deduped {
+            let fts = m.file_total_size;
+            let (msgs, max_fts) = by_file.entry(m.file_id).or_default();
+            if fts > *max_fts {
+                *max_fts = fts;
+            }
+            msgs.push(m);
+        }
+        let mut file_updates: Vec<FileUpdate> = Vec::with_capacity(by_file.len());
+        for (file_id, (msgs, file_total_size)) in by_file {
+            let progress_key = format!("{}{}", PROGRESS_KEY_PREFIX, file_id);
+            let mut fields: Vec<(String, String)> = Vec::new();
+            let mut payload_updates: Vec<String> = Vec::new();
+            for m in &msgs {
+                fields.push((format!("c{}:dl", m.chunk_id), m.current_downloaded.to_string()));
+                fields.push((format!("c{}:sz", m.chunk_id), m.chunk_total_size.to_string()));
+                fields.push((format!("c{}:spd", m.chunk_id), m.speed_bps.to_string()));
+                payload_updates.push(format!(
+                    "{},{},{},{}",
+                    m.chunk_id, m.current_downloaded, m.chunk_total_size, m.speed_bps
+                ));
+            }
+            if file_total_size > 0 {
+                fields.push(("file:sz".to_string(), file_total_size.to_string()));
+            }
+            let payload = format!(
+                "u|{}|{}|{}",
+                file_id,
+                payload_updates.join(";"),
+                file_total_size
+            );
+            file_updates.push(FileUpdate {
+                progress_key,
+                fields,
+                payload,
+            });
+        }
+
+        if file_updates.is_empty() && clears.is_empty() {
+            return WriteBatchOutcome::Continue;
+        }
+
+        // 一次 pipeline：先写所有 Update（HSET + EXPIRE + PUBLISH），再写所有 Clear
+        let clear_keys: Vec<(String, &'static str)> = clears
+            .iter()
+            .map(|(file_id, status)| {
+                let key = format!("{}{}", PROGRESS_KEY_PREFIX, file_id);
+                let payload = match status {
+                    DownloadStatus::Completed => "done",
+                    DownloadStatus::Failed => "fail",
+                    DownloadStatus::InProgress => "1",
+                };
+                (key, payload)
+            })
+            .collect();
+        let mut p = pipe();
+        for upd in &file_updates {
+            p.hset_multiple(&upd.progress_key, &upd.fields)
+                .expire(&upd.progress_key, progress_ttl)
+                .publish::<_, _>(&upd.progress_key, &upd.payload);
+        }
+        for (key, payload) in &clear_keys {
+            p.publish::<_, _>(key, *payload).del(key);
+        }
+        let update_file_count = file_updates.len();
+        let clear_file_count = clear_keys.len();
+        if let Err(e) = p.query_async::<()>(conn).await {
+            warn!(
+                "progress_tracker write_worker: redis pipeline failed, attempt={}, queued_msgs={}, update_files={}, clear_files={}: {}",
+                reconnect_attempt,
+                batch_msg_count,
+                update_file_count,
+                clear_file_count,
+                e
+            );
+            return WriteBatchOutcome::BreakReconnect;
+        }
+        *batch_count_on_conn = batch_count_on_conn.saturating_add(1);
+        if clear_file_count > 0
+            || batch_count_on_conn.is_multiple_of(SUMMARY_LOG_EVERY_BATCHES)
+        {
+            info!(
+                "progress_tracker write_worker: batch flushed, attempt={}, batch_no={}, queued_msgs={}, update_files={}, clear_files={}",
+                reconnect_attempt,
+                batch_count_on_conn,
+                batch_msg_count,
+                update_file_count,
+                clear_file_count
+            );
+        }
+        WriteBatchOutcome::Continue
     }
 
     /// 记录已传输字节数；内部计算瞬时速度，投递到写 channel，由 write_worker 批量写 Redis。
@@ -620,6 +690,8 @@ impl FileProgressTracker {
             .clone();
 
         tokio::spawn(async move {
+            // 持有 permit 直到任务退出，确保信号量限流生效
+            let _permit = _permit;
             let channels: Vec<&str> = channel_map.keys().map(|s| s.as_str()).collect();
             info!("[sse] spawn task started, channels={:?}", channels);
             // 本连接内的进度缓存：优先用 payload 增量更新，必要时再回退 HGETALL
@@ -695,147 +767,182 @@ impl FileProgressTracker {
                     let Some(&file_id) = channel_map.get(&ch) else {
                         continue;
                     };
-
                     let payload = msg.get_payload::<String>().unwrap_or_default();
-                    info!("[sse] recv msg ch={} payload={}", ch, payload);
-                    match payload.as_str() {
-                        "done" | "fail" => {
-                            // 终态消息：发终态通知，从 pending 移除，全部结束则退出
-                            let (status, percent) = if payload == "done" {
-                                (DownloadStatus::Completed, 100.0f32)
-                            } else {
-                                (DownloadStatus::Failed, 0.0f32)
-                            };
-                            progress_cache.remove(&file_id);
-                            if let Err(e) = tx
-                                .send(FileProgressInfo {
-                                    file_id,
-                                    percent,
-                                    status,
-                                    ..Default::default()
-                                })
-                                .await
-                            {
-                                warn!(
-                                    "[sse] send terminal state failed file_id={}: {}",
-                                    file_id, e
-                                );
-                            }
-                            pending.remove(&file_id);
-                            if pending.is_empty() {
-                                break;
-                            }
-                        }
-                        p if p.starts_with("u|") => {
-                            // 增量 payload：u|{file_id}|{chunk_id,downloaded,total_size,speed;...}|{file_total_size}
-                            let parts: Vec<&str> = p.splitn(4, '|').collect();
-                            if parts.len() != 4 {
-                                warn!("[sse] invalid update payload format, ch={}", ch);
-                                continue;
-                            }
-                            let payload_file_id = parts[1].parse::<u64>().unwrap_or(0);
-                            if payload_file_id != file_id {
-                                warn!(
-                                    "[sse] payload file_id mismatch, ch_file_id={}, payload_file_id={}",
-                                    file_id, payload_file_id
-                                );
-                                continue;
-                            }
-                            let payload_file_total_size = parts[3].parse::<u64>().unwrap_or(0);
-
-                            let entry = progress_cache.entry(file_id).or_insert_with(|| FileProgressInfo {
-                                file_id,
-                                status: DownloadStatus::InProgress,
-                                ..Default::default()
-                            });
-
-                            if !parts[2].is_empty() {
-                                for item in parts[2].split(';') {
-                                    if item.is_empty() {
-                                        continue;
-                                    }
-                                    let vals: Vec<&str> = item.split(',').collect();
-                                    if vals.len() != 4 {
-                                        continue;
-                                    }
-                                    let chunk_id = vals[0].parse::<u64>().unwrap_or(0);
-                                    let downloaded = vals[1].parse::<u64>().unwrap_or(0);
-                                    let total_size = vals[2].parse::<u64>().unwrap_or(0);
-                                    let speed_bps = vals[3].parse::<u64>().unwrap_or(0);
-                                    if let Some(c) = entry.chunks.iter_mut().find(|c| c.chunk_id == chunk_id) {
-                                        c.downloaded = downloaded;
-                                        c.total_size = total_size;
-                                        c.speed_bps = speed_bps;
-                                    } else {
-                                        entry.chunks.push(ChunkProgressInfo {
-                                            chunk_id,
-                                            downloaded,
-                                            total_size,
-                                            speed_bps,
-                                        });
-                                    }
-                                }
-                            }
-
-                            entry.chunks.sort_by_key(|c| c.chunk_id);
-                            entry.total_downloaded = entry.chunks.iter().map(|c| c.downloaded).sum();
-                            if payload_file_total_size > 0 {
-                                entry.total_size = payload_file_total_size;
-                            } else if entry.total_size == 0 {
-                                entry.total_size = entry.chunks.iter().map(|c| c.total_size).sum();
-                            }
-                            entry.speed_bps = entry.chunks.iter().map(|c| c.speed_bps).sum();
-                            entry.percent = if entry.total_size > 0 {
-                                (entry.total_downloaded as f32 / entry.total_size as f32 * 100.0)
-                                    .min(100.0)
-                            } else {
-                                0.0
-                            };
-                            entry.status = DownloadStatus::InProgress;
-
-                            if let Err(e) = tx.send(entry.clone()).await {
-                                warn!("[sse] send progress failed file_id={}: {}", file_id, e);
-                                break;
-                            }
-                        }
-                        _ => {
-                            // 兼容旧 payload（如 "1"）：回退 HGETALL 取最新完整状态
-                            let info = match redis_pool.get().await {
-                                Err(e) => {
-                                    warn!(
-                                        "progress_tracker: redis get conn failed in subscribe loop, file_id={}: {}",
-                                        file_id, e
-                                    );
-                                    None
-                                }
-                                Ok(mut conn) => {
-                                    match conn.hgetall::<_, HashMap<String, String>>(&ch).await {
-                                        Err(e) => {
-                                            warn!(
-                                                "progress_tracker: HGETALL failed in subscribe loop, file_id={}: {}",
-                                                file_id, e
-                                            );
-                                            None
-                                        }
-                                        Ok(m) if m.is_empty() => None,
-                                        Ok(m) => Some(parse_progress_from_map(file_id, m)),
-                                    }
-                                }
-                            };
-                            if let Some(info) = info {
-                                progress_cache.insert(file_id, info.clone());
-                                info!("[sse] sending progress file_id={} dl={} pct={:.1}", info.file_id, info.total_downloaded, info.percent);
-                                if let Err(e) = tx.send(info).await {
-                                    warn!("[sse] send progress failed file_id={}: {}", file_id, e);
-                                    break;
-                                }
-                            }
-                        }
+                    let task_id = lsys_core::utils::rand_str(lsys_core::utils::RandType::LowerHex, 8);
+                    let outcome = Self::process_sse_msg(
+                        &tx,
+                        &redis_pool,
+                        &ch,
+                        file_id,
+                        &payload,
+                        &mut pending,
+                        &mut progress_cache,
+                    )
+                    .instrument(tracing::info_span!(
+                        "background_task",
+                        task = "file-progress-sse-msg",
+                        task_id = task_id,
+                        file_id = file_id
+                    ))
+                    .await;
+                    match outcome {
+                        SseMsgOutcome::Continue => continue,
+                        SseMsgOutcome::Break => break,
                     }
                 }
             }
         });
 
         Ok(rx)
+    }
+
+    /// 处理单条 SSE 消息（从 subscribe 循环体提取）
+    ///
+    /// 返回 `Continue` 对应原循环的 `continue`，`Break` 对应原循环的 `break`。
+    async fn process_sse_msg(
+        tx: &tokio::sync::mpsc::Sender<FileProgressInfo>,
+        redis_pool: &deadpool_redis::Pool,
+        ch: &str,
+        file_id: u64,
+        payload: &str,
+        pending: &mut HashSet<u64>,
+        progress_cache: &mut HashMap<u64, FileProgressInfo>,
+    ) -> SseMsgOutcome {
+        info!("[sse] recv msg ch={} payload={}", ch, payload);
+        match payload {
+            "done" | "fail" => {
+                // 终态消息：发终态通知，从 pending 移除，全部结束则退出
+                let (status, percent) = if payload == "done" {
+                    (DownloadStatus::Completed, 100.0f32)
+                } else {
+                    (DownloadStatus::Failed, 0.0f32)
+                };
+                progress_cache.remove(&file_id);
+                if let Err(e) = tx
+                    .send(FileProgressInfo {
+                        file_id,
+                        percent,
+                        status,
+                        ..Default::default()
+                    })
+                    .await
+                {
+                    warn!(
+                        "[sse] send terminal state failed file_id={}: {}",
+                        file_id, e
+                    );
+                }
+                pending.remove(&file_id);
+                if pending.is_empty() {
+                    return SseMsgOutcome::Break;
+                }
+            }
+            p if p.starts_with("u|") => {
+                // 增量 payload：u|{file_id}|{chunk_id,downloaded,total_size,speed;...}|{file_total_size}
+                let parts: Vec<&str> = p.splitn(4, '|').collect();
+                if parts.len() != 4 {
+                    warn!("[sse] invalid update payload format, ch={}", ch);
+                    return SseMsgOutcome::Continue;
+                }
+                let payload_file_id = parts[1].parse::<u64>().unwrap_or(0);
+                if payload_file_id != file_id {
+                    warn!(
+                        "[sse] payload file_id mismatch, ch_file_id={}, payload_file_id={}",
+                        file_id, payload_file_id
+                    );
+                    return SseMsgOutcome::Continue;
+                }
+                let payload_file_total_size = parts[3].parse::<u64>().unwrap_or(0);
+
+                let entry = progress_cache.entry(file_id).or_insert_with(|| FileProgressInfo {
+                    file_id,
+                    status: DownloadStatus::InProgress,
+                    ..Default::default()
+                });
+
+                if !parts[2].is_empty() {
+                    for item in parts[2].split(';') {
+                        if item.is_empty() {
+                            continue;
+                        }
+                        let vals: Vec<&str> = item.split(',').collect();
+                        if vals.len() != 4 {
+                            continue;
+                        }
+                        let chunk_id = vals[0].parse::<u64>().unwrap_or(0);
+                        let downloaded = vals[1].parse::<u64>().unwrap_or(0);
+                        let total_size = vals[2].parse::<u64>().unwrap_or(0);
+                        let speed_bps = vals[3].parse::<u64>().unwrap_or(0);
+                        if let Some(c) = entry.chunks.iter_mut().find(|c| c.chunk_id == chunk_id) {
+                            c.downloaded = downloaded;
+                            c.total_size = total_size;
+                            c.speed_bps = speed_bps;
+                        } else {
+                            entry.chunks.push(ChunkProgressInfo {
+                                chunk_id,
+                                downloaded,
+                                total_size,
+                                speed_bps,
+                            });
+                        }
+                    }
+                }
+
+                entry.chunks.sort_by_key(|c| c.chunk_id);
+                entry.total_downloaded = entry.chunks.iter().map(|c| c.downloaded).sum();
+                if payload_file_total_size > 0 {
+                    entry.total_size = payload_file_total_size;
+                } else if entry.total_size == 0 {
+                    entry.total_size = entry.chunks.iter().map(|c| c.total_size).sum();
+                }
+                entry.speed_bps = entry.chunks.iter().map(|c| c.speed_bps).sum();
+                entry.percent = if entry.total_size > 0 {
+                    (entry.total_downloaded as f32 / entry.total_size as f32 * 100.0)
+                        .min(100.0)
+                } else {
+                    0.0
+                };
+                entry.status = DownloadStatus::InProgress;
+
+                if let Err(e) = tx.send(entry.clone()).await {
+                    warn!("[sse] send progress failed file_id={}: {}", file_id, e);
+                    return SseMsgOutcome::Break;
+                }
+            }
+            _ => {
+                // 兼容旧 payload（如 "1"）：回退 HGETALL 取最新完整状态
+                let info = match redis_pool.get().await {
+                    Err(e) => {
+                        warn!(
+                            "progress_tracker: redis get conn failed in subscribe loop, file_id={}: {}",
+                            file_id, e
+                        );
+                        None
+                    }
+                    Ok(mut conn) => {
+                        match conn.hgetall::<_, HashMap<String, String>>(ch).await {
+                            Err(e) => {
+                                warn!(
+                                    "progress_tracker: HGETALL failed in subscribe loop, file_id={}: {}",
+                                    file_id, e
+                                );
+                                None
+                            }
+                            Ok(m) if m.is_empty() => None,
+                            Ok(m) => Some(parse_progress_from_map(file_id, m)),
+                        }
+                    }
+                };
+                if let Some(info) = info {
+                    progress_cache.insert(file_id, info.clone());
+                    info!("[sse] sending progress file_id={} dl={} pct={:.1}", info.file_id, info.total_downloaded, info.percent);
+                    if let Err(e) = tx.send(info).await {
+                        warn!("[sse] send progress failed file_id={}: {}", file_id, e);
+                        return SseMsgOutcome::Break;
+                    }
+                }
+            }
+        }
+        SseMsgOutcome::Continue
     }
 }

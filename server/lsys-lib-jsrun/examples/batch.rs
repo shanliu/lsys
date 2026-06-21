@@ -15,16 +15,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 2. Create the task runner ─────────────────────────────────
     let runner = std::sync::Arc::new(JsTaskRunner::new(engine, RuntimeConfig::default()));
+    let cancel_token = tokio_util::sync::CancellationToken::new();
     tokio::spawn({
         let r = runner.clone();
+        let cancel_token = cancel_token.clone();
         async move {
-            r.run().await;
+            r.run(cancel_token).await;
         }
     });
     tokio::spawn({
         let r = runner.clone();
+        let cancel_token = cancel_token.clone();
         async move {
-            r.run_engine_cleanup().await;
+            r.run_engine_cleanup(cancel_token).await;
         }
     });
 

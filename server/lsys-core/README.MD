@@ -435,8 +435,9 @@ remote_notify.push_run(Box::new(CacheClearTask)).await;
 // 启动监听（在后台任务中运行）
 tokio::spawn({
     let notify = remote_notify.clone();
+    let cancel_token = task_root.cancel_token();
     async move {
-        notify.listen().await;
+        notify.listen(cancel_token).await;
     }
 });
 
@@ -503,8 +504,9 @@ let wait_notify = Arc::new(WaitNotify::<SendTaskItem>::new(
 // 4. 启动监听（在后台任务中）
 tokio::spawn({
     let notify = wait_notify.clone();
+    let cancel_token = task_root.cancel_token();
     async move {
-        notify.listen().await;
+        notify.listen(cancel_token).await;
     }
 });
 

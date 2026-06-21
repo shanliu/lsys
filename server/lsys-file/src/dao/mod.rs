@@ -357,7 +357,7 @@ impl FileDao {
 
     /// 运行下载监听后台循环。
     /// 通常通过 `tokio::spawn` 调用。
-    pub async fn run_download_listener(&self) {
+    pub async fn run_download_listener(&self, cancel_token: tokio_util::sync::CancellationToken) {
         let acquisition = DownloadTaskAcquisition::new(self.helper.clone());
         let executor = Arc::new(DownloadTaskExecutorImpl::new(
             self.helper.clone(),
@@ -366,20 +366,20 @@ impl FileDao {
 
         self.download_manager
             .task_dispatch
-            .dispatch(self.app_core.clone(), &acquisition, executor)
+            .dispatch(self.app_core.clone(), &acquisition, executor, cancel_token)
             .await;
     }
 
     /// 运行下载等待通知监听
     /// 通常通过 `tokio::spawn` 调用。
-    pub async fn run_download_wait_listener(&self) {
-        self.download_manager.wait_notify.listen().await;
+    pub async fn run_download_wait_listener(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.download_manager.wait_notify.listen(cancel_token).await;
     }
 
     /// 运行进度写入后台循环（write_worker）。
     /// 通常通过 `tokio::spawn` 调用。
-    pub async fn run_progress_write_worker(&self) {
-        self.helper.progress_tracker.run_write_worker().await;
+    pub async fn run_progress_write_worker(&self, cancel_token: tokio_util::sync::CancellationToken) {
+        self.helper.progress_tracker.run_write_worker(cancel_token).await;
     }
 
     /// 运行 Unfinished 文件超时扫描任务监听。
@@ -388,7 +388,7 @@ impl FileDao {
     ///
     /// # Arguments
     /// * `channel_buffer` - 通道缓冲大小（可选）
-    pub async fn run_unfinished_timeout_task(&self, channel_buffer: Option<usize>) {
+    pub async fn run_unfinished_timeout_task(&self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
         let notify = Arc::new(lsys_core::timeout_task::TimeOutTaskNotify::new(
             self.redis.clone(),
             lsys_core::timeout_task::TimeOutTaskConfig::new(
@@ -407,7 +407,7 @@ impl FileDao {
             task.clone(),
             task,
         )
-        .listen(channel_buffer)
+        .listen(channel_buffer, cancel_token)
         .await;
     }
 
@@ -416,7 +416,7 @@ impl FileDao {
     ///
     /// # Arguments
     /// * `channel_buffer` - 通道缓冲大小（可选）
-    pub async fn run_expiration_task(&self, channel_buffer: Option<usize>) {
+    pub async fn run_expiration_task(&self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
         let expiration_task = Arc::new(FileExpirationTask::new(
             self.helper.db.clone(),
             self.file_ops.clone(),
@@ -428,7 +428,7 @@ impl FileDao {
             expiration_task.clone(),
             expiration_task,
         )
-        .listen(channel_buffer)
+        .listen(channel_buffer, cancel_token)
         .await;
     }
 }

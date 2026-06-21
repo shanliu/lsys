@@ -8,6 +8,7 @@ use lsys_core::app_core::AppCore;
 use lsys_core::app_core::utils;
 use lsys_core::fluents::FluentMgr;
 use lsys_core::remote_notify::RemoteNotify;
+use lsys_core::task_lifecycle::TaskNode;
 use lsys_logger::dao::ChangeLoggerDao;
 use sqlx::MySql;
 use tower_http::{
@@ -162,11 +163,18 @@ pub async fn run() -> Result<(), String> {
         .parse()
         .map_err(|e| format!("bind addr error: {e}"))?;
 
-    tokio::spawn({
-        let remote_notify = state.remote_notify.clone();
-        async move {
-            remote_notify.listen().await;
-        }
+    let task_root = TaskNode::root(
+        "barcode-app",
+        std::time::Duration::from_secs(
+            state.app_core.config.find(None).get_int("task_shutdown_timeout").unwrap_or(30) as u64
+        ),
+    );
+
+    // remote_notify 后台监听任务
+    let notify_node = task_root.child("remote-notify");
+    let remote_notify_clone = state.remote_notify.clone();
+    notify_node.spawn(move |token| async move {
+        remote_notify_clone.listen(token).await;
     });
 
     let listener = tokio::net::TcpListener::bind(addr)
@@ -179,10 +187,33 @@ pub async fn run() -> Result<(), String> {
         .await
         .map_err(|e| format!("serve error: {e}"))?;
 
+    // HTTP 停止后 drain 后台任务
+    tracing::info!("HTTP server stopped, draining background tasks...");
+    let report = task_root.shutdown().await;
+    report.log_tree(0);
+    let (completed, timed_out, panicked) = report.count_summary();
+    tracing::info!(
+        completed,
+        timed_out,
+        panicked,
+        "shutdown drain completed"
+    );
     Ok(())
 }
 
 async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = sigterm.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
     tokio::time::sleep(Duration::from_millis(100)).await;
 }

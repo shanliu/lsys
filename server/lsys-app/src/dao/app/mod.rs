@@ -78,14 +78,14 @@ pub struct AppDataParam<'t> {
     pub client_id: &'t str,
 }
 impl App {
-    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>) {
+    pub async fn listen_sub_app_change_notify(&self, channel_buffer: Option<usize>, cancel_token: tokio_util::sync::CancellationToken) {
         TimeOutTask::<SubAppChangeNotify>::new(
             self.app_core.clone(),
             self.sub_app_timeout_notify.clone(),
             self.sub_app_change_notify.clone(),
             self.sub_app_change_notify.clone(),
         )
-        .listen(channel_buffer)
+        .listen(channel_buffer, cancel_token)
         .await;
     }
 

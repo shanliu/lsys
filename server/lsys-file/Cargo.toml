@@ -13,7 +13,6 @@ aliyun-oss = [
     "dep:url",
     "dep:hex",
     "tokio/fs",
-    "dep:tokio-util",
 ]
 tencent-cos = [
     "dep:hmac",
@@ -22,7 +21,6 @@ tencent-cos = [
     "dep:url",
     "dep:hex",
     "tokio/fs",
-    "dep:tokio-util",
 ]
 
 
@@ -30,7 +28,7 @@ tencent-cos = [
 tempfile = "*"
 
 [dependencies]
-lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "secret"] }
+lsys-core = { path = "../lsys-core", features = ["db-mysql", "redis", "secret", "task-lifecycle"] }
 lsys-logger = { path = "../lsys-logger" }
 lsys-setting = { path = "../lsys-setting" }
 
@@ -75,5 +73,5 @@ hmac = { version = "0.13", optional = true }
 base64 = { version = "0.22", optional = true }
 url = { version = "2.5", optional = true }
 hex = { version = "0.4", optional = true }
-tokio-util = { version = "0.7", features = ["io"], optional = true }
+tokio-util = { version = "0.7", features = ["io"] }
 sqids = "0.4.2"
